@@ -8,8 +8,9 @@ namespace accat::auxilia {
 /// placeholder
 /// @implements Printable, Viewable
 /// @remark Different from `std::monostate`, this class implements two
-/// traits which can be extremely important in my @link Variant
-/// @endlink class.
+/// traits which can be extremely important in
+/// my @link Variant @endlink class;
+/// dont't use consteval because the class is not final
 EXPORT_AUXILIA
 class Monostate : public Printable<Monostate>, public Viewable<Monostate> {
 public:
@@ -17,19 +18,22 @@ public:
   virtual inline AC_CONSTEXPR20 ~Monostate() = default;
   inline constexpr Monostate(const Monostate &) {}
   inline constexpr Monostate(Monostate &&) noexcept {}
-  inline consteval auto operator=(const Monostate &) -> Monostate & {
+  inline /* not consteval */ constexpr auto operator=(const Monostate &)
+      -> Monostate & {
     return *this;
   }
-  inline consteval auto operator=(Monostate &&) noexcept -> Monostate & {
+  inline /* not consteval */ constexpr auto operator=(Monostate &&) noexcept
+      -> Monostate & {
     return *this;
   }
 
 public:
-  inline consteval auto to_string(const FormatPolicy &) const -> string_type {
+  inline /* not consteval */ constexpr auto
+  to_string(const FormatPolicy &) const -> string_type {
     return {};
   }
-  inline consteval auto to_string_view(const FormatPolicy &) const
-      -> string_view_type {
+  inline /* not consteval */ constexpr auto
+  to_string_view(const FormatPolicy &) const -> string_view_type {
     return {};
   }
   friend inline consteval auto operator==(const Monostate &,

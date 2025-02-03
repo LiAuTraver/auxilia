@@ -394,6 +394,8 @@ inline AC_CONSTEXPR20 auto operator*(_accat_utils_defer_helper_struct_,
 #define postcondition(...) AC_DEFER{AC_UTILS_RUNTIME_ASSERT(__VA_ARGS__)};
 #define interface AC_INTERFACE
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
+
 /// @def AC_BITMASK_OPS
 /// @brief define the basic bitmask operations for the given bitmask
 /// type. the bitmask type should be an enum class.
