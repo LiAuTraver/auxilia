@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{5ae05cbd-1d27-41c2-9ab0-accf40a1e84c}</ItemsProjectGuid>
+    <ItemsRootNamespace>luce</ItemsRootNamespace>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)include\</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\auxilia.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\defines.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\config.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\file_reader.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\format.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\id.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\includes-inl.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\memory.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Monostate.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Property.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\random.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Status.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\variadic-inl.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Variant.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\macros.hpp" />
+  </ItemGroup>
+</Project>
