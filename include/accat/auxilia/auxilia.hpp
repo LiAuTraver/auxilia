@@ -1,6 +1,6 @@
 ﻿//===-------- auxilia.hpp - Auxilia Library Header -------*- C++ -*-===//
 //
-// Part of the Luce project.
+// Part of the auxilia project.
 // Licensed under the Apache License v2.0.
 //
 // auxilia - from Latin word, meaning "help, aid, or assistance".
