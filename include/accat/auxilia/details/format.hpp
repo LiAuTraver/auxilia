@@ -25,9 +25,10 @@ println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
   fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... Args>
-void println(std::wostream &os,
-             fmt::basic_format_string<wchar_t, std::type_identity_t<Args>...> fmt,
-             Args &&...args) {
+inline void
+println(std::wostream &os,
+        fmt::basic_format_string<wchar_t, fmt::type_identity_t<Args>...> fmt,
+        Args &&...args) {
   fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
 }
 template <typename... T>
@@ -41,17 +42,16 @@ inline void println(fmt::wformat_string<T...> fmt, T &&...args) {
 }
 #  endif
 template <class... T>
-void println(const fmt::text_style &ts,
-             fmt::format_string<T...> fmt,
-             T &&...args) {
+inline void
+println(const fmt::text_style &ts, fmt::format_string<T...> fmt, T &&...args) {
   fmt::print(ts, fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');
 }
 template <class... T>
-void println(FILE *f,
-             const fmt::text_style &ts,
-             fmt::format_string<T...> fmt,
-             T &&...args) {
+inline void println(FILE *f,
+                    const fmt::text_style &ts,
+                    fmt::format_string<T...> fmt,
+                    T &&...args) {
   fmt::print(f, ts, fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');
 }
@@ -63,12 +63,13 @@ using ::std::println;
 
 // compatible with fmt::text_style, for std::format does not support it
 template <class... T>
-void println(const auto &, std::format_string<T...> fmt, T &&...args) {
+inline void println(const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');
 }
 template <class... T>
-void println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
+inline void
+println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(f, fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');
 }
