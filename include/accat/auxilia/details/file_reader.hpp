@@ -1,7 +1,5 @@
 #pragma once
 
-#include "./Status.hpp"
-#include "./config.hpp"
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -11,6 +9,9 @@
 #include <fstream>
 #include <ranges>
 #include <future>
+
+#include "./config.hpp"
+#include "./Status.hpp"
 
 namespace accat::auxilia::details {
 template <typename TargetType>
@@ -37,7 +38,7 @@ inline Status check_file(const std::filesystem::path &path) noexcept {
 EXPORT_AUXILIA
 namespace accat::auxilia {
 
-#if __cpp_lib_ranges_chunk >= 202202L
+#if defined(__cpp_lib_ranges_chunk) && __cpp_lib_ranges_chunk >= 202202L
 template <typename TargetType,
           std::endian Endianess = std::endian::native,
           typename CharType = char>
@@ -68,6 +69,7 @@ read_as_bytes(const std::filesystem::path &path) {
 #  pragma warning(pop)
 #endif
 
+#if defined (__cpp_lib_ranges_to_container) && __cpp_lib_ranges_to_container >= 202202L
 template <typename CharType = char>
 std::vector<std::byte> as_raw_bytes(const std::basic_string<CharType> &data) {
   // clang-format off
@@ -89,7 +91,7 @@ read_raw_bytes(const std::filesystem::path &path) {
     return as_raw_bytes(*std::move(res));
   }
 }
-
+#endif
 /// @brief Asynchronously execute a function with the given arguments
 /// @note just a wrapper, but it's REAL async
 auto async(auto &&func, auto... args) -> decltype(auto)
@@ -128,7 +130,9 @@ public:
     buffer << file.rdbuf();
     return buffer.str();
   }
-  [[nodiscard]] inline path_t filepath() const { return filePath; }
+  [[nodiscard]] inline path_t filepath() const {
+    return filePath;
+  }
 
 private:
   const path_t filePath;

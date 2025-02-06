@@ -6,6 +6,11 @@
 #  error "Bad user. Bad code."
 #endif
 
+// support at least C++20
+#if __cplusplus < 202002L
+#  error "This library requires at least C++20."
+#endif
+
 #if defined(AC_CPP_DEBUG)
 /// @def AC_UTILS_DEBUG_ENABLED
 /// @note only defined in debug mode; never define it when submitting
@@ -186,19 +191,20 @@ extern "C"
 #ifdef _WIN32
     __declspec(dllimport) int __stdcall IsDebuggerPresent();
 #elif defined(__linux__)
-#  include <sys/ptrace.h>
-#  include <errno.h>
-    static inline bool
+    // #  include <sys/ptrace.h>
+    // #  include <errno.h>
+    inline bool
     IsDebuggerPresent() noexcept {
-  if (ptrace(PTRACE_TRACEME, 0, 0, 0) == -1) {
-    if (errno == EPERM) {
-      return true; // debugger is attached
-    } else {
-      // error happened
-      return false;
-    }
-  }
-  return false; // no debugger
+  // if (ptrace(PTRACE_TRACEME, 0, 0, 0) == -1) {
+  //   if (errno == EPERM) {
+  //     return true; // debugger is attached
+  //   } else {
+  //     // error happened
+  //     return false;
+  //   }
+  // }
+  // return false; // no debugger
+  return true; // workaround for now
 }
 #else
 #  warning "IsDebuggerPresent() is not implemented for this platform."
@@ -269,7 +275,7 @@ extern "C"
 #  define AC_UTILS_PRECONDITION(...) (void)0;
 #  define AC_UTILS_POSTCONDITION(...) (void)0;
 #  define AC_UTILS_DEBUG_LOGGING_SETUP(...) (void)0;
-#  define AC_UTILS_DEBUG_BLOCK(...) (void)0;
+#  define AC_UTILS_DEBUG_BLOCK []() -> void
 #  define AC_UTILS_DEBUG_ONLY(...)
 #  define AC_UTILS_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_UTILS_NOEXCEPT noexcept

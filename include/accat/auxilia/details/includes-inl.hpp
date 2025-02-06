@@ -17,7 +17,9 @@
 #else
 #  include <format>
 #  include <iostream>
-#  include <print>
+#  if __has_include(<print>)
+#    include <print>
+#  endif
 #endif
 #ifdef AC_USE_STD_MODULE
 import std;
@@ -32,6 +34,7 @@ import std;
 #  include <cstdint>
 #  include <filesystem>
 #  include <fstream>
+#  include <functional>
 #  include <ios>
 #  include <iostream>
 #  include <limits>

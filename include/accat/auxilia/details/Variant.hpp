@@ -17,7 +17,7 @@ template <typename... Types>
 class Variant : public Printable<Variant<Types...>>,
                 public Viewable<Variant<Types...>> {
   static_assert(Variantable<Types...>, "Types must be variantable");
-  
+
   using monostate_like_type = std::tuple_element_t<0, std::tuple<Types...>>;
   using self_type = Variant<Types...>;
 
@@ -59,6 +59,9 @@ public:
     that.my_variant.template emplace<monostate_like_type>();
     return *this;
   }
+
+#if defined(__cpp_explicit_this_parameter) &&                                  \
+    __cpp_explicit_this_parameter >= 202110L
   template <typename Callable>
   auto visit(this auto &&self, Callable &&callable) -> decltype(auto) {
     using ReturnType = decltype(std::forward<Callable>(callable)(
@@ -75,6 +78,24 @@ public:
                  : ReturnType{};
     }
   }
+#else
+  template <typename Callable>
+  auto visit(Callable &&callable) const -> decltype(auto) {
+    using ReturnType = decltype(std::forward<Callable>(callable)(
+        std::declval<variant_type>()));
+    static_assert(std::is_default_constructible_v<ReturnType> ||
+                      std::is_same_v<ReturnType, void>,
+                  "ReturnType must be default constructible");
+    if constexpr (std::is_same_v<ReturnType, void>) {
+      return std::visit(std::forward<Callable>(callable), my_variant);
+    } else {
+      return is_valid() ? static_cast<ReturnType>(std::visit(
+                              std::forward<Callable>(callable), my_variant))
+                        : ReturnType{};
+    }
+  }
+#endif
+
   auto type_name() const {
     return is_valid() ? this->visit([]([[maybe_unused]] const auto &value)
                                         -> string_view_type {
@@ -109,21 +130,35 @@ public:
       -> decltype(auto) {
     return my_variant.template emplace<Args>();
   }
-  constexpr auto get(this auto &&self) noexcept {
-    return self.my_variant;
+
+  constexpr auto get() noexcept -> decltype(auto) {
+    return my_variant;
   }
+
   constexpr auto swap(Variant &that) noexcept(
       std::conjunction_v<std::is_nothrow_move_constructible<Types...>,
                          std::is_nothrow_swappable<Types...>>) -> Variant & {
     my_variant.swap(that.my_variant);
     return *this;
   }
+
+#if defined(__cpp_explicit_this_parameter) &&                                  \
+    __cpp_explicit_this_parameter >= 202110L
   constexpr auto clear(this auto &&self) noexcept(
       noexcept(self.my_variant.template emplace<monostate_like_type>()))
       -> decltype(auto) {
     self.my_variant.template emplace<monostate_like_type>();
     return self;
   }
+#else
+  constexpr auto
+  clear() noexcept(noexcept(my_variant.template emplace<monostate_like_type>()))
+      -> decltype(auto) {
+    my_variant.template emplace<monostate_like_type>();
+    return *this;
+  }
+#endif
+
   constexpr auto empty() const noexcept -> bool {
     return my_variant.index() == 0;
   }

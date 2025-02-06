@@ -1,7 +1,6 @@
 #pragma once
 
 #include "./config.hpp"
-#include "./Status.hpp"
 
 namespace accat::auxilia {
 /// @brief fancy wrapper around the getter and setter functions.

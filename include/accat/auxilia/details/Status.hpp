@@ -410,39 +410,125 @@ public:
   virtual ~StatusOr() override = default;
 
 public:
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   [[nodiscard]]
   inline value_type value(this auto &&self) {
     contract_assert(self.ok() or self.code() == Status::kReturning,
                     "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
+#  else
+  [[nodiscard]]
+  inline value_type value() & {
+    contract_assert(ok() or code() == Status::kReturning,
+                    "Cannot dereference a status that is not OK.");
+    return my_value;
+  }
+  [[nodiscard]]
+  inline value_type value() const & {
+    contract_assert(ok() or code() == Status::kReturning,
+                    "Cannot dereference a status that is not OK.");
+    return my_value;
+  }
+  [[nodiscard]]
+  inline value_type value() && {
+    contract_assert(ok() or code() == Status::kReturning,
+                    "Cannot dereference a status that is not OK.");
+    return std::move(my_value);
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   [[nodiscard]]
   inline value_type value_or(this auto &&self,
                              const value_type &default_value) {
     return self.ok() ? self.my_value : default_value;
   }
+#  else
+  [[nodiscard]]
+  inline value_type value_or(const value_type &default_value) & {
+    return ok() ? my_value : default_value;
+  }
+  [[nodiscard]]
+  inline value_type value_or(const value_type &default_value) const & {
+    return ok() ? my_value : default_value;
+  }
+  [[nodiscard]]
+  inline value_type value_or(const value_type &default_value) && {
+    return ok() ? std::move(my_value) : default_value;
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   [[nodiscard]]
   inline constexpr value_type operator*(this auto &&self) noexcept {
     precondition(self.ok() or self.code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
+#  else
+  [[nodiscard]]
+  inline constexpr value_type operator*() & noexcept {
+    precondition(ok() or code() == Status::kReturning,
+                 "Cannot dereference a status that is not OK.");
+    return my_value;
+  }
+  [[nodiscard]]
+  inline constexpr value_type operator*() const & noexcept {
+    precondition(ok() or code() == Status::kReturning,
+                 "Cannot dereference a status that is not OK.");
+    return my_value;
+  }
+  [[nodiscard]]
+  inline constexpr value_type operator*() && noexcept {
+    precondition(ok() or code() == Status::kReturning,
+                 "Cannot dereference a status that is not OK.");
+    return std::move(my_value);
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   [[nodiscard]]
   inline constexpr auto operator->(this auto &&self) noexcept
       -> decltype(auto) {
     return std::addressof(self.my_value);
   }
+#  else
+  [[nodiscard]]
+  inline constexpr auto operator->() & noexcept -> value_type * {
+    return std::addressof(my_value);
+  }
+  [[nodiscard]]
+  inline constexpr auto operator->() const & noexcept -> const value_type * {
+    return std::addressof(my_value);
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   [[nodiscard]] AC_FLATTEN inline constexpr base_type
   as_status(this auto &&self) noexcept {
     return static_cast<base_type &&>(self);
   }
-  inline auto reset(Ty &&value = {}) noexcept {
-    my_value = std::move(value);
-    my_code = kOk;
-    my_message.clear();
-    my_location = std::source_location::current();
-    return *this;
+#  else
+  [[nodiscard]] AC_FLATTEN inline constexpr base_type as_status() & noexcept {
+    return static_cast<base_type &>(*this);
   }
+  [[nodiscard]] AC_FLATTEN inline constexpr base_type
+  as_status() const & noexcept {
+    return static_cast<const base_type &>(*this);
+  }
+  [[nodiscard]] AC_FLATTEN inline constexpr base_type as_status() && noexcept {
+    return static_cast<base_type &&>(*this);
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F, Ty>
   auto and_then(this auto &&self, F &&f) -> StatusOr<Ty> {
@@ -451,6 +537,35 @@ public:
     }
     return std::invoke(std::forward<F>(f), self.my_value);
   }
+#  else
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Ty>
+  auto and_then(F &&f) & -> StatusOr<Ty> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    return std::invoke(std::forward<F>(f), my_value);
+  }
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Ty>
+  auto and_then(F &&f) const & -> StatusOr<Ty> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    return std::invoke(std::forward<F>(f), my_value);
+  }
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Ty>
+  auto and_then(F &&f) && -> StatusOr<Ty> {
+    if (!ok()) {
+      return {std::move(*this).as_status()};
+    }
+    return std::invoke(std::forward<F>(f), std::move(my_value));
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F>
   auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
@@ -459,6 +574,35 @@ public:
     }
     return std::invoke(std::forward<F>(f));
   }
+#  else
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F>
+  auto or_else(F &&f) & -> StatusOr<Ty> {
+    if (ok()) {
+      return *this;
+    }
+    return std::invoke(std::forward<F>(f));
+  }
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F>
+  auto or_else(F &&f) const & -> StatusOr<Ty> {
+    if (ok()) {
+      return *this;
+    }
+    return std::invoke(std::forward<F>(f));
+  }
+  template <typename F>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F>
+  auto or_else(F &&f) && -> StatusOr<Ty> {
+    if (ok()) {
+      return std::move(*this);
+    }
+    return std::invoke(std::forward<F>(f));
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   template <typename F>
     requires std::is_invocable_v<F, Ty>
   auto transform(this auto &&self, F &&f)
@@ -468,6 +612,35 @@ public:
     }
     return {std::invoke(std::forward<F>(f), self.my_value)};
   }
+#  else
+  template <typename F>
+    requires std::is_invocable_v<F, Ty>
+  auto transform(F &&f) & -> StatusOr<std::invoke_result_t<F, Ty>> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    return {std::invoke(std::forward<F>(f), my_value)};
+  }
+  template <typename F>
+    requires std::is_invocable_v<F, Ty>
+  auto transform(F &&f) const & -> StatusOr<std::invoke_result_t<F, Ty>> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    return {std::invoke(std::forward<F>(f), my_value)};
+  }
+  template <typename F>
+    requires std::is_invocable_v<F, Ty>
+  auto transform(F &&f) && -> StatusOr<std::invoke_result_t<F, Ty>> {
+    if (!ok()) {
+      return {std::move(*this).as_status()};
+    }
+    return {std::invoke(std::forward<F>(f), std::move(my_value))};
+  }
+#  endif
+
+#  if defined(__cpp_explicit_this_parameter) &&                                \
+      __cpp_explicit_this_parameter >= 202110L
   template <typename F>
     requires std::is_invocable_v<F, base_type>
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
@@ -476,6 +649,32 @@ public:
     }
     return std::invoke(std::forward<F>(f), self.as_status());
   }
+#  else
+  template <typename F>
+    requires std::is_invocable_v<F, base_type>
+  auto transform_error(F &&f) & -> StatusOr<Ty> {
+    if (ok()) {
+      return *this;
+    }
+    return std::invoke(std::forward<F>(f), as_status());
+  }
+  template <typename F>
+    requires std::is_invocable_v<F, base_type>
+  auto transform_error(F &&f) const & -> StatusOr<Ty> {
+    if (ok()) {
+      return *this;
+    }
+    return std::invoke(std::forward<F>(f), as_status());
+  }
+  template <typename F>
+    requires std::is_invocable_v<F, base_type>
+  auto transform_error(F &&f) && -> StatusOr<Ty> {
+    if (ok()) {
+      return std::move(*this);
+    }
+    return std::invoke(std::forward<F>(f), std::move(*this).as_status());
+  }
+#  endif
 
 private:
   value_type my_value;

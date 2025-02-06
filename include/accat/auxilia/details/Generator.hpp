@@ -5,7 +5,9 @@
 #include <optional>
 #include <type_traits>
 #include <utility>
-#include "./Status.hpp"
+#include <exception>
+
+#include "./config.hpp"
 
 namespace accat::auxilia {
 /// @brief A generator class that can be used to generate values

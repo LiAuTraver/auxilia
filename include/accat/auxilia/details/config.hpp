@@ -35,10 +35,10 @@ using ifstream = ::std::ifstream;
 using ostringstream = ::std::ostringstream;
 using namespace ::std::string_view_literals;
 using namespace ::std::string_literals;
-constexpr auto isspacelike = [](const char &c) constexpr noexcept -> bool {
+inline constexpr auto isspacelike = [](const char &c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 };
-constexpr auto isntspacelike = [](const char &c) constexpr noexcept -> bool {
+inline constexpr auto isnotspacelike = [](const char &c) constexpr noexcept -> bool {
   return not isspacelike(c);
 };
 inline consteval const char *raw(const char *str) {

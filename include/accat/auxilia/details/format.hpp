@@ -7,7 +7,39 @@ namespace accat::auxilia {
 using ::fmt::format;
 using ::fmt::format_to;
 using ::fmt::print;
+#  if _WIN32
 using ::fmt::println;
+#  else
+// some wired issue `fmt::println not found` on gcc 13
+template <typename... T>
+inline void println(std::format_string<T...> fmt, T &&...args) {
+  return fmt::println(stdout, fmt, static_cast<T &&>(args)...);
+}
+template <typename... T>
+inline void println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
+  fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+}
+template <typename... T>
+inline void
+println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
+  fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+}
+template <typename... Args>
+void println(std::wostream &os,
+             fmt::basic_format_string<wchar_t, type_identity_t<Args>...> fmt,
+             Args &&...args) {
+  fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
+}
+template <typename... T>
+inline void println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
+  return print(f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
+}
+
+template <typename... T>
+inline void println(fmt::wformat_string<T...> fmt, T &&...args) {
+  return print(L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
+}
+#  endif
 template <class... T>
 void println(const fmt::text_style &ts,
              fmt::format_string<T...> fmt,
@@ -28,6 +60,8 @@ using ::std::format;
 using ::std::format_to;
 using ::std::print;
 using ::std::println;
+
+// compatible with fmt::text_style, for std::format does not support it
 template <class... T>
 void println(const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(fmt, std::forward<decltype(args)>(args)...);
@@ -39,20 +73,6 @@ void println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
   putchar('\n');
 }
 #endif
-
-// clang-format off
-/*!
-   @brief cast the literal to the specified type and also log the value in debug mode.
-   @note clang-cl.exe does not fully support `try` and `catch` blocks but
-   `any_cast` will throw an exception if the cast fails. For more information, see
-   <a href="https://clang.llvm.org/docs/MSVCCompatibility.html#asynchronous-exceptions">Asynchronous Exceptions</a>,
-   <a href="https://stackoverflow.com/questions/7049502/c-try-and-try-catch-finally">try-catch-finally</a>,
-   and <a href="https://learn.microsoft.com/en-us/cpp/cpp/try-except-statement">try-except-statement</a>.
-   @deprecated use @link std::any_cast @endlink instead.
- */
- void _deprecated_any_cast();
-// the note's function has been removed so the note is not needed above.
-// clang-format on
 } // namespace accat::auxilia
 
 namespace accat::auxilia {
@@ -142,12 +162,30 @@ private:
 };
 } // namespace accat::auxilia
 
+namespace accat::auxilia {
+// clang-format off
+/*!
+   @brief cast the literal to the specified type and also log the value in debug mode.
+   @note clang-cl.exe does not fully support `try` and `catch` blocks but
+   `any_cast` will throw an exception if the cast fails. For more information, see
+   <a href="https://clang.llvm.org/docs/MSVCCompatibility.html#asynchronous-exceptions">Asynchronous Exceptions</a>,
+   <a href="https://stackoverflow.com/questions/7049502/c-try-and-try-catch-finally">try-catch-finally</a>,
+   and <a href="https://learn.microsoft.com/en-us/cpp/cpp/try-except-statement">try-except-statement</a>.
+   @deprecated use @link std::any_cast @endlink instead.
+ */
+ void _deprecated_any_cast() = delete;
+// the note's function has been removed so the note is not needed above.
+// clang-format on
+} // namespace accat::auxilia
+
 namespace std {
 template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable<Derived>,
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
-  constexpr auto parse(format_parse_context &ctx) const { return ctx.begin(); }
+  constexpr auto parse(format_parse_context &ctx) const {
+    return ctx.begin();
+  }
   template <typename FormatContext>
   constexpr auto format(const Derived &p, FormatContext &ctx) const {
     return format_to(
