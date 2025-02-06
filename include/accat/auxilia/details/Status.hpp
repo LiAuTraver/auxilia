@@ -316,9 +316,7 @@ public:
   inline AC_CONSTEXPR20 explicit operator bool() const noexcept {
     return this->ok();
   }
-  [[nodiscard]] constexpr bool ok() const noexcept {
-    return my_code == kOk;
-  }
+  [[nodiscard]] constexpr bool ok() const noexcept { return my_code == kOk; }
   [[nodiscard]] AC_CONSTEXPR20 bool is_return() const noexcept {
     return my_code == kReturning;
   }
@@ -330,15 +328,9 @@ public:
   auto raw_code() const noexcept {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
-  [[nodiscard]] string_view message() const {
-    return my_message;
-  }
-  [[nodiscard]] std::source_location location() const {
-    return my_location;
-  }
-  [[nodiscard]] string stacktrace() const {
-    return AC_UTILS_STACKTRACE;
-  }
+  [[nodiscard]] string_view message() const { return my_message; }
+  [[nodiscard]] std::source_location location() const { return my_location; }
+  [[nodiscard]] string stacktrace() const { return AC_UTILS_STACKTRACE; }
   void ignore_error() const noexcept {
     if (ok())
       return;
@@ -675,6 +667,14 @@ public:
     return std::invoke(std::forward<F>(f), std::move(*this).as_status());
   }
 #  endif
+  /// @deprecated just uses operator=(StatusOr &&that) instead.
+  inline auto reset(Ty &&value = {}) noexcept {
+    my_value = std::move(value);
+    my_code = kOk;
+    my_message.clear();
+    my_location = std::source_location::current();
+    return *this;
+  }
 
 private:
   value_type my_value;

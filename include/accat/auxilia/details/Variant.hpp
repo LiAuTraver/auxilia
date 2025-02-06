@@ -103,9 +103,7 @@ public:
     })
                       : "invalid state"sv;
   }
-  auto index() const noexcept {
-    return my_variant.index();
-  }
+  auto index() const noexcept { return my_variant.index(); }
   template <typename... Args>
     requires requires {
       std::declval<variant_type>().template emplace<Args...>(
@@ -130,10 +128,15 @@ public:
       -> decltype(auto) {
     return my_variant.template emplace<Args>();
   }
-
-  constexpr auto get() noexcept -> decltype(auto) {
-    return my_variant;
+#if defined(__cpp_explicit_this_parameter) &&                                  \
+    __cpp_explicit_this_parameter >= 202110L
+  constexpr auto get(this auto &&self) noexcept -> decltype(auto) {
+    return self.my_variant;
   }
+#else
+  constexpr auto get() noexcept -> decltype(auto) { return my_variant; }
+  constexpr auto get() const noexcept -> decltype(auto) { return my_variant; }
+#endif
 
   constexpr auto swap(Variant &that) noexcept(
       std::conjunction_v<std::is_nothrow_move_constructible<Types...>,
