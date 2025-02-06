@@ -12,7 +12,7 @@ using ::fmt::println;
 #  else
 // some wired issue `fmt::println not found` on gcc 13
 template <typename... T>
-inline void println(std::format_string<T...> fmt, T &&...args) {
+inline void println(fmt::format_string<T...> fmt, T &&...args) {
   return fmt::println(stdout, fmt, static_cast<T &&>(args)...);
 }
 template <typename... T>
