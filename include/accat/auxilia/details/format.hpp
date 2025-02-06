@@ -26,7 +26,7 @@ println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
 }
 template <typename... Args>
 void println(std::wostream &os,
-             fmt::basic_format_string<wchar_t, type_identity_t<Args>...> fmt,
+             fmt::basic_format_string<wchar_t, std::type_identity_t<Args>...> fmt,
              Args &&...args) {
   fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
 }

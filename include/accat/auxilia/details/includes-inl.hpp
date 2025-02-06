@@ -14,6 +14,7 @@
 #  include <fmt/ostream.h>
 #  include <fmt/color.h>
 #  include <fmt/std.h>
+#  include <fmt/xchar.h>
 #else
 #  include <format>
 #  include <iostream>

@@ -2,11 +2,10 @@
 
 #include <type_traits>
 #include <utility>
-#include "./config.hpp"
-#include "./format.hpp"
 
+#include "./config.hpp"
 #include "./Monostate.hpp"
-#include "accat/auxilia/details/config.hpp"
+#include "./format.hpp"
 EXPORT_AUXILIA
 namespace accat::auxilia {
 /// @brief A simple variant wrapper class around @link std::variant @endlink for
