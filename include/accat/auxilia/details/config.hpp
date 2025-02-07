@@ -35,12 +35,12 @@ using ifstream = ::std::ifstream;
 using ostringstream = ::std::ostringstream;
 using namespace ::std::string_view_literals;
 using namespace ::std::string_literals;
-inline constexpr auto isspacelike = [](const char &c) constexpr noexcept -> bool {
+inline constexpr auto isspacelike =
+    [](const char &c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 };
-inline constexpr auto isnotspacelike = [](const char &c) constexpr noexcept -> bool {
-  return not isspacelike(c);
-};
+inline constexpr auto isnotspacelike =
+    [](const char &c) constexpr noexcept -> bool { return not isspacelike(c); };
 inline consteval const char *raw(const char *str) {
   while (str && *str && (*str == '\n')) {
     ++str;
@@ -75,4 +75,10 @@ template <const auto &Str> struct array_size_t {
 };
 template <const auto &Str>
 using array_size_v = typename array_size_t<Str>::size;
+
+/// @brief shorthand of static_cast. sugar is all you need :)
+template <typename To, typename From>
+inline constexpr To as(From &&from) noexcept {
+  return static_cast<To>(from);
+}
 } // namespace accat::auxilia
