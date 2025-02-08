@@ -190,33 +190,22 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 extern "C"
 #ifdef _WIN32
     __declspec(dllimport) int __stdcall IsDebuggerPresent();
-#elif defined(__linux__)
-    // #  include <sys/ptrace.h>
-    // #  include <errno.h>
-    inline bool
-    IsDebuggerPresent() noexcept {
-  // if (ptrace(PTRACE_TRACEME, 0, 0, 0) == -1) {
-  //   if (errno == EPERM) {
-  //     return true; // debugger is attached
-  //   } else {
-  //     // error happened
-  //     return false;
-  //   }
-  // }
-  // return false; // no debugger
-  return true; // workaround for now
-}
-#else
-#  warning "IsDebuggerPresent() is not implemented for this platform."
-    static inline bool
-    IsDebuggerPresent() noexcept {
-  return false;
-}
 #endif
+
+namespace accat::auxilia::detail {
+inline bool _is_debugger_present() noexcept {
+#ifdef _WIN32
+  return ::IsDebuggerPresent();
+#else
+    // not implemented
+    return false;
+#endif
+}
+} // namespace accat::auxilia::detail
 
 #define AC_UTILS_DEBUG_BREAK                                                   \
   do {                                                                         \
-    if (::IsDebuggerPresent()) {                                               \
+    if (::accat::auxilia::detail::_is_debugger_present()) {                    \
       AC_UTILS_DEBUG_BREAK_IMPL_                                               \
     } else {                                                                   \
       ::std::fprintf(                                                          \
@@ -309,12 +298,14 @@ extern "C"
 #  define dbg(_level_, _msg_, ...)                                             \
     AC_UTILS_DEBUG_LOGGING(_level_, _msg_ __VA_OPT__(, ) __VA_ARGS__)
 #  define contract_assert(...)
+#  define contract_check(...) assert(__VA_ARGS__)
 #  define precondition(...)
 #else
 /// @def contract_assert(condition, message)
 /// @note idea borrowed from c++2c's contract programming proposal. See
 ///  <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2961r2.pdf">P2961R2</a>
 #  define contract_assert(...) AC_UTILS_RUNTIME_ASSERT(__VA_ARGS__)
+#  define contract_check(_cond_) AC_UTILS_RUNTIME_ASSERT(_cond_, "expect " #_cond_)
 #  define precondition(...) AC_UTILS_PRECONDITION(__VA_ARGS__)
 // clang-format on
 #  define dbg(...) AC_UTILS_DEBUG_LOGGING(__VA_ARGS__)
@@ -327,18 +318,23 @@ extern "C"
 #  define AC_UTILS_TODO_(...)                                                  \
     AC_UTILS_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);          \
     std::abort(); // shut up the warning 'not all control paths return a value'
+#  define DebugUnreachable(...)                                                \
+    AC_UTILS_RUNTIME_ASSERT(false, "Unreachable code.")
 // if exception was disabled, do nothing.
-#elif defined(__cpp_exceptions) && __cpp_exceptions
-#  include <stdexcept>
-#  define AC_UTILS_TODO_(...)                                                  \
-    throw ::std::logic_error(::std::format("TODO: " #__VA_ARGS__));
-#elif __has_include(<spdlog/spdlog.h>)
-#  define AC_UTILS_TODO_(...)                                                  \
-    AC_UTILS_DEBUG_LOGGING(critical, "TODO: " #__VA_ARGS__);
 #else
-#  define AC_UTILS_TODO_(...)                                                  \
-    fprintf(stderr, "TODO: " #__VA_ARGS__ "\n");                               \
-    AC_UTILS_DEBUG_BREAK
+#  define DebugUnreachable(...) std::unreachable()
+#  if defined(__cpp_exceptions) && __cpp_exceptions
+#    include <stdexcept>
+#    define AC_UTILS_TODO_(...)                                                \
+      throw ::std::logic_error(::std::format("TODO: " #__VA_ARGS__));
+#  elif __has_include(<spdlog/spdlog.h>)
+#    define AC_UTILS_TODO_(...)                                                \
+      AC_UTILS_DEBUG_LOGGING(critical, "TODO: " #__VA_ARGS__);
+#  else
+#    define AC_UTILS_TODO_(...)                                                \
+      fprintf(stderr, "TODO: " #__VA_ARGS__ "\n");                             \
+      AC_UTILS_DEBUG_BREAK
+#  endif
 #endif
 /// @def TODO mimic from kotlin's `TODO` function, which throws an
 /// exception and is also discoverable by IDE.
@@ -369,6 +365,17 @@ extern "C"
 #  define AC_INTERFACE struct
 #endif
 
+#ifndef AC_HAS_EXPLICIT_THIS_PARAMETER
+#  if (defined(__cpp_explicit_this_parameter) &&                               \
+       __cpp_explicit_this_parameter >= 202110L) ||                            \
+      (defined(_MSC_VER) && defined(_HAS_CXX23) && _HAS_CXX23)
+#    define AC_HAS_EXPLICIT_THIS_PARAMETER 1
+#  else
+// workaround
+#    define AC_HAS_EXPLICIT_THIS_PARAMETER 0
+#  endif
+#endif
+
 namespace accat::auxilia::detail {
 /// @see
 /// https://stackoverflow.com/questions/32432450/what-is-standard-defer-finalizer-implementation-in-c
@@ -376,7 +383,7 @@ EXPORT_AUXILIA
 struct _accat_utils_defer_helper_struct_ {};
 template <class Fun_> struct _accat_utils_deferrer_ {
   Fun_ f_;
-  inline constexpr _accat_utils_deferrer_(Fun_ f) noexcept : f_(f) {}
+  inline constexpr _accat_utils_deferrer_(Fun_ f_) noexcept : f_(f_) {}
   inline constexpr ~_accat_utils_deferrer_() noexcept(noexcept(f_())) {
     f_();
   }

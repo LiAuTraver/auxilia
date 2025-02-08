@@ -11,7 +11,7 @@
 #include "./macros.hpp"
 #include <type_traits>
 #ifdef ABSL_BASE_CONFIG_H_
-#warning "Abseil library detected. I recommend you to use the original Abseil library."
+#warning "Abseil library detected. Better to use the original Abseil library. :)"
 #endif
 // NOTE:
 // The contents of this header are derived in part from Googles' Abseil library under the following license:
@@ -316,7 +316,9 @@ public:
   inline AC_CONSTEXPR20 explicit operator bool() const noexcept {
     return this->ok();
   }
-  [[nodiscard]] constexpr bool ok() const noexcept { return my_code == kOk; }
+  [[nodiscard]] constexpr bool ok() const noexcept {
+    return my_code == kOk;
+  }
   [[nodiscard]] AC_CONSTEXPR20 bool is_return() const noexcept {
     return my_code == kReturning;
   }
@@ -328,9 +330,15 @@ public:
   auto raw_code() const noexcept {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
-  [[nodiscard]] string_view message() const { return my_message; }
-  [[nodiscard]] std::source_location location() const { return my_location; }
-  [[nodiscard]] string stacktrace() const { return AC_UTILS_STACKTRACE; }
+  [[nodiscard]] string_view message() const {
+    return my_message;
+  }
+  [[nodiscard]] std::source_location location() const {
+    return my_location;
+  }
+  [[nodiscard]] string stacktrace() const {
+    return AC_UTILS_STACKTRACE;
+  }
   void ignore_error() const noexcept {
     if (ok())
       return;
@@ -358,6 +366,11 @@ public:
 ///         `absl::StatusOr` class.
 /// @tparam Ty the type of the value
 template <typename Ty> class StatusOr : public Status {
+  static_assert(std::is_same_v<std::remove_reference_t<Ty>, Ty> &&
+                    std::is_nothrow_move_assignable_v<Ty> &&
+                    std::is_nothrow_move_constructible_v<Ty>,
+                "StatusOr should not be used with reference types.");
+
 public:
   using base_type = Status;
   using value_type = Ty;
@@ -402,8 +415,7 @@ public:
   virtual ~StatusOr() override = default;
 
 public:
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[nodiscard]]
   inline value_type value(this auto &&self) {
     contract_assert(self.ok() or self.code() == Status::kReturning,
@@ -431,8 +443,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[nodiscard]]
   inline value_type value_or(this auto &&self,
                              const value_type &default_value) {
@@ -453,8 +464,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[nodiscard]]
   inline constexpr value_type operator*(this auto &&self) noexcept {
     precondition(self.ok() or self.code() == Status::kReturning,
@@ -482,8 +492,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[nodiscard]]
   inline constexpr auto operator->(this auto &&self) noexcept
       -> decltype(auto) {
@@ -500,8 +509,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[nodiscard]] AC_FLATTEN inline constexpr base_type
   as_status(this auto &&self) noexcept {
     return static_cast<base_type &&>(self);
@@ -519,8 +527,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F, Ty>
   auto and_then(this auto &&self, F &&f) -> StatusOr<Ty> {
@@ -556,8 +563,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F>
   auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
@@ -593,8 +599,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
     requires std::is_invocable_v<F, Ty>
   auto transform(this auto &&self, F &&f)
@@ -631,8 +636,7 @@ public:
   }
 #  endif
 
-#  if defined(__cpp_explicit_this_parameter) &&                                \
-      __cpp_explicit_this_parameter >= 202110L
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
     requires std::is_invocable_v<F, base_type>
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {

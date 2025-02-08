@@ -59,8 +59,7 @@ public:
     return *this;
   }
 
-#if defined(__cpp_explicit_this_parameter) &&                                  \
-    __cpp_explicit_this_parameter >= 202110L
+#if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename Callable>
   auto visit(this auto &&self, Callable &&callable) -> decltype(auto) {
     using ReturnType = decltype(std::forward<Callable>(callable)(
@@ -102,7 +101,9 @@ public:
     })
                       : "invalid state"sv;
   }
-  auto index() const noexcept { return my_variant.index(); }
+  auto index() const noexcept {
+    return my_variant.index();
+  }
   template <typename... Args>
     requires requires {
       std::declval<variant_type>().template emplace<Args...>(
@@ -127,14 +128,17 @@ public:
       -> decltype(auto) {
     return my_variant.template emplace<Args>();
   }
-#if defined(__cpp_explicit_this_parameter) &&                                  \
-    __cpp_explicit_this_parameter >= 202110L
+#if AC_HAS_EXPLICIT_THIS_PARAMETER
   constexpr auto get(this auto &&self) noexcept -> decltype(auto) {
     return self.my_variant;
   }
 #else
-  constexpr auto get() noexcept -> decltype(auto) { return my_variant; }
-  constexpr auto get() const noexcept -> decltype(auto) { return my_variant; }
+  constexpr auto get() noexcept -> decltype(auto) {
+    return my_variant;
+  }
+  constexpr auto get() const noexcept -> decltype(auto) {
+    return my_variant;
+  }
 #endif
 
   constexpr auto swap(Variant &that) noexcept(
@@ -144,8 +148,7 @@ public:
     return *this;
   }
 
-#if defined(__cpp_explicit_this_parameter) &&                                  \
-    __cpp_explicit_this_parameter >= 202110L
+#if AC_HAS_EXPLICIT_THIS_PARAMETER
   constexpr auto clear(this auto &&self) noexcept(
       noexcept(self.my_variant.template emplace<monostate_like_type>()))
       -> decltype(auto) {
