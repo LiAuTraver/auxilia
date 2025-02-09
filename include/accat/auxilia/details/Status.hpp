@@ -679,138 +679,144 @@ public:
 private:
   value_type my_value;
 };
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status OkStatus(
-    const std::string_view message = "Ok"sv,
-    const std::source_location &location = std::source_location::current()) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+OkStatus(const std::string_view message = "Ok"sv,
+         const std::source_location &location =
+             std::source_location::current()) noexcept {
   return {Status::kOk, message, location};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status Cancelled(
-    const std::string_view message = "Cancelled"sv,
-    const std::source_location &location = std::source_location::current()) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+Cancelled(const std::string_view message = "Cancelled"sv,
+          const std::source_location &location =
+              std::source_location::current()) noexcept {
   return {Status::kCancelled, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnknownError(
-    const std::string_view message = "Unknown"sv,
-    const std::source_location &location = std::source_location::current()) {
+UnknownError(const std::string_view message = "Unknown"sv,
+             const std::source_location &location =
+                 std::source_location::current()) noexcept {
   return {Status::kUnknown, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InvalidArgumentError(
-    const std::string_view message = "Invalid argument"sv,
-    const std::source_location &location = std::source_location::current()) {
+InvalidArgumentError(const std::string_view message = "Invalid argument"sv,
+                     const std::source_location &location =
+                         std::source_location::current()) noexcept {
   return {Status::kInvalidArgument, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DeadlineExceededError(
-    const std::string_view message = "Deadline exceeded"sv,
-    const std::source_location &location = std::source_location::current()) {
+DeadlineExceededError(const std::string_view message = "Deadline exceeded"sv,
+                      const std::source_location &location =
+                          std::source_location::current()) noexcept {
   return {Status::kDeadlineExceeded, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-NotFoundError(
-    const std::string_view message = "Not found"sv,
-    const std::source_location &location = std::source_location::current()) {
+NotFoundError(const std::string_view message = "Not found"sv,
+              const std::source_location &location =
+                  std::source_location::current()) noexcept {
   return {Status::kNotFound, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AlreadyExistsError(
-    const std::string_view message = "Already exists"sv,
-    const std::source_location &location = std::source_location::current()) {
+AlreadyExistsError(const std::string_view message = "Already exists"sv,
+                   const std::source_location &location =
+                       std::source_location::current()) noexcept {
   return {Status::kAlreadyExists, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-PermissionDeniedError(
-    const std::string_view message = "Permission denied"sv,
-    const std::source_location &location = std::source_location::current()) {
+PermissionDeniedError(const std::string_view message = "Permission denied"sv,
+                      const std::source_location &location =
+                          std::source_location::current()) noexcept {
   return {Status::kPermissionDenied, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ResourceExhaustedError(
-    const std::string_view message = "Resource exhausted"sv,
-    const std::source_location &location = std::source_location::current()) {
+ResourceExhaustedError(const std::string_view message = "Resource exhausted"sv,
+                       const std::source_location &location =
+                           std::source_location::current()) noexcept {
   return {Status::kResourceExhausted, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
 FailedPreconditionError(
     const std::string_view message = "Failed precondition"sv,
-    const std::source_location &location = std::source_location::current()) {
+    const std::source_location &location =
+        std::source_location::current()) noexcept {
   return {Status::kFailedPrecondition, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AbortedError(
-    const std::string_view message = "Aborted"sv,
-    const std::source_location &location = std::source_location::current()) {
+AbortedError(const std::string_view message = "Aborted"sv,
+             const std::source_location &location =
+                 std::source_location::current()) noexcept {
   return {Status::kAborted, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-OutOfRangeError(
-    const std::string_view message = "Out of range"sv,
-    const std::source_location &location = std::source_location::current()) {
+OutOfRangeError(const std::string_view message = "Out of range"sv,
+                const std::source_location &location =
+                    std::source_location::current()) noexcept {
   return {Status::kOutOfRange, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnimplementedError(
-    const std::string_view message = "Unimplemented"sv,
-    const std::source_location &location = std::source_location::current()) {
+UnimplementedError(const std::string_view message = "Unimplemented"sv,
+                   const std::source_location &location =
+                       std::source_location::current()) noexcept {
   return {Status::kUnimplemented, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InternalError(
-    const std::string_view message = "Internal"sv,
-    const std::source_location &location = std::source_location::current()) {
+InternalError(const std::string_view message = "Internal"sv,
+              const std::source_location &location =
+                  std::source_location::current()) noexcept {
   return {Status::kInternal, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnavailableError(
-    const std::string_view message = "Unavailable"sv,
-    const std::source_location &location = std::source_location::current()) {
+UnavailableError(const std::string_view message = "Unavailable"sv,
+                 const std::source_location &location =
+                     std::source_location::current()) noexcept {
   return {Status::kUnavailable, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DataLossError(
-    const std::string_view message = "Data loss"sv,
-    const std::source_location &location = std::source_location::current()) {
+DataLossError(const std::string_view message = "Data loss"sv,
+              const std::source_location &location =
+                  std::source_location::current()) noexcept {
   return {Status::kDataLoss, message, location};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnauthenticatedError(
-    const std::string_view message = "Unauthenticated"sv,
-    const std::source_location &location = std::source_location::current()) {
+UnauthenticatedError(const std::string_view message = "Unauthenticated"sv,
+                     const std::source_location &location =
+                         std::source_location::current()) noexcept {
   return {Status::kUnauthenticated, message, location};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ReturnMe(
-    const std::string_view message = "Returning",
-    const std::source_location &location = std::source_location::current()) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+ReturnMe(const std::string_view message = "Returning",
+         const std::source_location &location =
+             std::source_location::current()) noexcept {
   return {Status::kReturning, message, location};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ParseError(
-    const std::string_view message = "Parse error",
-    const std::source_location &location = std::source_location::current()) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+ParseError(const std::string_view message = "Parse error",
+           const std::source_location &location =
+               std::source_location::current()) noexcept {
   return {Status::kParseError, message, location};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status LexError(
-    const std::string_view message = "Lex error",
-    const std::source_location &location = std::source_location::current()) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+LexError(const std::string_view message = "Lex error",
+         const std::source_location &location =
+             std::source_location::current()) noexcept {
   return {Status::kLexError, message, location};
 }
 
