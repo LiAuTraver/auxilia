@@ -8,8 +8,10 @@ using ::fmt::format;
 using ::fmt::format_to;
 using ::fmt::print;
 #  ifdef __clang__
-// NOLINTNEXTLINE (-Wcxx-attribute-extension)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wcxx-attribute-extension"
 [[clang::using_if_exists]] using ::fmt::println;
+#    pragma clang diagnostic pop
 #  elif _WIN32
 using ::fmt::println;
 #  else
@@ -187,9 +189,7 @@ template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable<Derived>,
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
-  constexpr auto parse(format_parse_context &ctx) const {
-    return ctx.begin();
-  }
+  constexpr auto parse(format_parse_context &ctx) const { return ctx.begin(); }
   template <typename FormatContext>
   constexpr auto format(const Derived &p, FormatContext &ctx) const {
     return format_to(
