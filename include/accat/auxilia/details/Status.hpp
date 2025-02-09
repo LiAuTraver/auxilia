@@ -87,9 +87,10 @@ namespace accat::auxilia {
 /// like `throw` or `return to ...`
 class Status {
 public:
-  // clang-format off
   /// @enum Code
-  enum class [[nodiscard]] Code : uint8_t {
+  // clang-format off
+  enum class AC_NODISCARD_REASON(
+      "Discarding Status Code is strongly discouraged.") Code : uint8_t {
 
   /// kOK (gRPC code "OK") does not indicate an error; this value is returned on
   /// success. It is typical to check for this value before proceeding on any
@@ -257,15 +258,15 @@ public:
   using enum Code;
 
 public:
-  [[nodiscard]]
+  AC_NODISCARD
   constexpr Status() = default;
-  [[nodiscard]]
+  AC_NODISCARD
   AC_CONSTEXPR20
   Status(const Code code,
          const string_view message = "<no message provided>",
          const std::source_location &location = std::source_location::current())
       : my_code(code), my_message(message), my_location(location) {}
-  [[nodiscard]]
+  AC_NODISCARD
   Status(Status &&that) noexcept
       : my_code(that.my_code), my_message(std::move(that.my_message)),
         my_location(that.my_location) {
@@ -273,13 +274,13 @@ public:
     that.my_message = "This status has been moved from."s;
     that.my_location = std::source_location::current();
   }
-  // [[nodiscard]]
+  // AC_NODISCARD
   Status(const Status &that) = default;
   auto operator=(const Status &that) -> Status & = default;
   /// @brief Logical OR operator.
   /// @note Useful for chaining status checks rather than
   /// a bunch of `if` statements.
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr auto operator||(const Status &that) -> Status {
     if (this->ok())
       return *this;
@@ -288,7 +289,7 @@ public:
   /// @brief Logical AND operator.
   /// @note Useful for chaining status checks rather than
   /// a bunch of `if` statements.
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr auto operator&&(const Status &that) -> Status {
     if (!this->ok())
       return *this;
@@ -299,7 +300,7 @@ public:
       return *this;
     return that;
   }
-  // [[nodiscard]]
+  // AC_NODISCARD
   Status &operator=(Status &&that) noexcept {
     my_code = that.my_code;
     my_message = std::move(that.my_message);
@@ -312,31 +313,31 @@ public:
   virtual ~Status() = default;
 
 public:
-  [[nodiscard]]
+  AC_NODISCARD
   inline AC_CONSTEXPR20 explicit operator bool() const noexcept {
     return this->ok();
   }
-  [[nodiscard]] constexpr bool ok() const noexcept {
+  AC_NODISCARD constexpr bool ok() const noexcept {
     return my_code == kOk;
   }
-  [[nodiscard]] AC_CONSTEXPR20 bool is_return() const noexcept {
+  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const noexcept {
     return my_code == kReturning;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   Code code() const noexcept {
     return my_code;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   auto raw_code() const noexcept {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
-  [[nodiscard]] string_view message() const {
+  AC_NODISCARD string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
-  [[nodiscard]] std::source_location location() const {
+  AC_NODISCARD std::source_location location() const {
     return my_location;
   }
-  [[nodiscard]] string stacktrace() const {
+  AC_NODISCARD string stacktrace() const {
     return AC_UTILS_STACKTRACE;
   }
   void ignore_error() const noexcept {
@@ -344,7 +345,7 @@ public:
       return;
     contract_assert(ok(), "Ignoring an error status.");
   }
-  [[nodiscard]] inline string from_source_location() const {
+  AC_NODISCARD inline string from_source_location() const {
     return auxilia::format("file {0}\n"
                            "              function {1},\n"
                            "              Ln {2} Col {3}\n",
@@ -376,30 +377,25 @@ public:
   using value_type = Ty;
 
 public:
-  [[nodiscard]]
+  AC_NODISCARD
   constexpr StatusOr() = default;
-  [[nodiscard]]
-  StatusOr(const Status &status)
-      : base_type(status) {}
-  [[nodiscard]]
-  StatusOr(Status &&status)
-      : base_type(std::move(status)) {}
-  [[nodiscard]]
-  StatusOr(const value_type &value)
-      : base_type(kOk), my_value(value) {}
-  [[nodiscard]]
-  StatusOr(value_type &&value)
-      : base_type(kOk), my_value(std::move(value)) {}
-  [[nodiscard]]
+  AC_NODISCARD
+  StatusOr(const Status &status) : base_type(status) {}
+  AC_NODISCARD
+  StatusOr(Status &&status) : base_type(std::move(status)) {}
+  AC_NODISCARD
+  StatusOr(const value_type &value) : base_type(kOk), my_value(value) {}
+  AC_NODISCARD
+  StatusOr(value_type &&value) : base_type(kOk), my_value(std::move(value)) {}
+  AC_NODISCARD
   StatusOr(const Status &status, const value_type &value)
       : base_type(status), my_value(value) {}
-  [[nodiscard]]
+  AC_NODISCARD
   StatusOr(Status &&status, value_type &&value)
       : base_type(std::move(status)), my_value(std::move(value)) {}
-  [[nodiscard]]
-  StatusOr(const StatusOr &that)
-      : base_type(that), my_value(that.my_value) {}
-  [[nodiscard]]
+  AC_NODISCARD
+  StatusOr(const StatusOr &that) : base_type(that), my_value(that.my_value) {}
+  AC_NODISCARD
   StatusOr(StatusOr &&that) noexcept
       : base_type(std::move(that)), my_value(std::move(that.my_value)) {}
   StatusOr &operator=(const StatusOr &that) {
@@ -416,26 +412,26 @@ public:
 
 public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value(this auto &&self) {
     contract_assert(self.ok() or self.code() == Status::kReturning,
                     "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
 #  else
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value() & {
     contract_assert(ok() or code() == Status::kReturning,
                     "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value() const & {
     contract_assert(ok() or code() == Status::kReturning,
                     "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value() && {
     contract_assert(ok() or code() == Status::kReturning,
                     "Cannot dereference a status that is not OK.");
@@ -444,47 +440,47 @@ public:
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value_or(this auto &&self,
                              const value_type &default_value) {
     return self.ok() ? self.my_value : default_value;
   }
 #  else
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value_or(const value_type &default_value) & {
     return ok() ? my_value : default_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value_or(const value_type &default_value) const & {
     return ok() ? my_value : default_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline value_type value_or(const value_type &default_value) && {
     return ok() ? std::move(my_value) : default_value;
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr value_type operator*(this auto &&self) noexcept {
     precondition(self.ok() or self.code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
 #  else
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr value_type operator*() & noexcept {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr value_type operator*() const & noexcept {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr value_type operator*() && noexcept {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
@@ -493,36 +489,36 @@ public:
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr auto operator->(this auto &&self) noexcept
       -> decltype(auto) {
     return std::addressof(self.my_value);
   }
 #  else
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr auto operator->() & noexcept -> value_type * {
     return std::addressof(my_value);
   }
-  [[nodiscard]]
+  AC_NODISCARD
   inline constexpr auto operator->() const & noexcept -> const value_type * {
     return std::addressof(my_value);
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  [[nodiscard]] AC_FLATTEN inline constexpr base_type
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type
   as_status(this auto &&self) noexcept {
     return static_cast<base_type &&>(self);
   }
 #  else
-  [[nodiscard]] AC_FLATTEN inline constexpr base_type as_status() & noexcept {
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() & noexcept {
     return static_cast<base_type &>(*this);
   }
-  [[nodiscard]] AC_FLATTEN inline constexpr base_type
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type
   as_status() const & noexcept {
     return static_cast<const base_type &>(*this);
   }
-  [[nodiscard]] AC_FLATTEN inline constexpr base_type as_status() && noexcept {
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() && noexcept {
     return static_cast<base_type &&>(*this);
   }
 #  endif
@@ -683,121 +679,136 @@ public:
 private:
   value_type my_value;
 };
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status OkStatus(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status OkStatus(
     const std::string_view message = "Ok"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kOk, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status Cancelled(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status Cancelled(
     const std::string_view message = "Cancelled"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kCancelled, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status UnknownError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+UnknownError(
     const std::string_view message = "Unknown"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kUnknown, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status InvalidArgumentError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+InvalidArgumentError(
     const std::string_view message = "Invalid argument"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kInvalidArgument, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status DeadlineExceededError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+DeadlineExceededError(
     const std::string_view message = "Deadline exceeded"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kDeadlineExceeded, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status NotFoundError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+NotFoundError(
     const std::string_view message = "Not found"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kNotFound, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status AlreadyExistsError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+AlreadyExistsError(
     const std::string_view message = "Already exists"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kAlreadyExists, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status PermissionDeniedError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+PermissionDeniedError(
     const std::string_view message = "Permission denied"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kPermissionDenied, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ResourceExhaustedError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+ResourceExhaustedError(
     const std::string_view message = "Resource exhausted"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kResourceExhausted, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status FailedPreconditionError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+FailedPreconditionError(
     const std::string_view message = "Failed precondition"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kFailedPrecondition, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status AbortedError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+AbortedError(
     const std::string_view message = "Aborted"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kAborted, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status OutOfRangeError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+OutOfRangeError(
     const std::string_view message = "Out of range"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kOutOfRange, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status UnimplementedError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+UnimplementedError(
     const std::string_view message = "Unimplemented"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kUnimplemented, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status InternalError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+InternalError(
     const std::string_view message = "Internal"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kInternal, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status UnavailableError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+UnavailableError(
     const std::string_view message = "Unavailable"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kUnavailable, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status DataLossError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+DataLossError(
     const std::string_view message = "Data loss"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kDataLoss, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status UnauthenticatedError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+UnauthenticatedError(
     const std::string_view message = "Unauthenticated"sv,
     const std::source_location &location = std::source_location::current()) {
   return {Status::kUnauthenticated, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ReturnMe(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ReturnMe(
     const std::string_view message = "Returning",
     const std::source_location &location = std::source_location::current()) {
   return {Status::kReturning, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ParseError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status ParseError(
     const std::string_view message = "Parse error",
     const std::source_location &location = std::source_location::current()) {
   return {Status::kParseError, message, location};
 }
 
-AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status LexError(
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status LexError(
     const std::string_view message = "Lex error",
     const std::source_location &location = std::source_location::current()) {
   return {Status::kLexError, message, location};

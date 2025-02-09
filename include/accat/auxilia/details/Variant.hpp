@@ -147,9 +147,9 @@ public:
     my_variant.swap(that.my_variant);
     return *this;
   }
-
+  [[clang::reinitializes]]
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
-  constexpr auto clear(this auto &&self) noexcept(
+   constexpr auto clear(this auto &&self) noexcept(
       noexcept(self.my_variant.template emplace<monostate_like_type>()))
       -> decltype(auto) {
     self.my_variant.template emplace<monostate_like_type>();

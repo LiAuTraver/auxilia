@@ -44,7 +44,7 @@
 #endif
 
 #ifdef __clang__
-#  define AC_FLATTEN
+#  define AC_FLATTEN [[gnu::flatten]]
 #elif defined(_MSC_VER)
 #  define AC_FLATTEN [[msvc::flatten]]
 #elif defined(__GNUC__)
@@ -352,6 +352,17 @@ inline bool _is_debugger_present() noexcept {
 #  define AC_CONSTEXPR23 constexpr
 #else
 #  define AC_CONSTEXPR23
+#endif
+
+#if __has_cpp_attribute(nodiscard) >= 201907L
+#  define AC_NODISCARD_REASON(...) [[nodiscard(__VA_ARGS__)]]
+#  define AC_NODISCARD [[nodiscard]]
+#elif __has_cpp_attribute(nodiscard) >= 201603L
+#  define AC_NODISCARD_REASON(...) [[nodiscard]]
+#  define AC_NODISCARD [[nodiscard]]
+#else
+#  define AC_NODISCARD_REASON(...)
+#  define AC_NODISCARD
 #endif
 
 #ifdef _WIN32

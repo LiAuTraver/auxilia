@@ -7,7 +7,7 @@ namespace accat::auxilia {
   contract_assert(0, "Failed to allocate memory")
   std::abort();
 }
-inline void *dynamic_alloc(const size_t size) {
+[[gnu::returns_nonnull]] inline void *dynamic_alloc(const size_t size) {
   if (auto ptr =
 #if defined(_malloca)
           _malloca(size)

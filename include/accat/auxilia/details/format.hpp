@@ -7,7 +7,10 @@ namespace accat::auxilia {
 using ::fmt::format;
 using ::fmt::format_to;
 using ::fmt::print;
-#  if _WIN32
+#  ifdef __clang__
+// NOLINTNEXTLINE (-Wcxx-attribute-extension)
+[[clang::using_if_exists]] using ::fmt::println;
+#  elif _WIN32
 using ::fmt::println;
 #  else
 // some wired issue `fmt::println not found` on gcc 13
