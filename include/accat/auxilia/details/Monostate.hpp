@@ -15,7 +15,7 @@ EXPORT_AUXILIA
 class Monostate : public Printable<Monostate>, public Viewable<Monostate> {
 public:
   inline constexpr Monostate() = default;
-  virtual inline AC_CONSTEXPR20 ~Monostate() = default;
+  /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() = default;
   inline constexpr Monostate(const Monostate &) {}
   inline constexpr Monostate(Monostate &&) noexcept {}
   inline /* not consteval */ constexpr auto operator=(const Monostate &)

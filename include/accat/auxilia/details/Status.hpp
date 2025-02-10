@@ -508,7 +508,8 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD AC_FLATTEN inline constexpr base_type
   as_status(this auto &&self) noexcept {
-    return static_cast<base_type &&>(self);
+    return static_cast<std::remove_reference_t<decltype(self)>::base_type>(
+        self);
   }
 #  else
   AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() & noexcept {
@@ -597,7 +598,8 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
-    requires std::is_invocable_v<F, Ty>
+    requires std::is_invocable_v<F, Ty> &&
+             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(this auto &&self, F &&f)
       -> StatusOr<std::invoke_result_t<F, Ty>> {
     if (!self.ok()) {
@@ -605,67 +607,167 @@ public:
     }
     return {std::invoke(std::forward<F>(f), self.my_value)};
   }
+  template <typename F>
+    requires std::is_invocable_v<F, Ty> &&
+             std::is_void_v<std::invoke_result_t<F, Ty>>
+  auto transform(this auto &&self, F &&f) -> StatusOr<Monostate> {
+    if (!self.ok()) {
+      return {self.as_status()};
+    }
+    std::invoke(std::forward<F>(f), self.my_value);
+    return {};
+  }
+
 #  else
   template <typename F>
-    requires std::is_invocable_v<F, Ty>
+    requires std::is_invocable_v<F, Ty> &&
+             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) & -> StatusOr<std::invoke_result_t<F, Ty>> {
     if (!ok()) {
       return {as_status()};
     }
     return {std::invoke(std::forward<F>(f), my_value)};
   }
+
   template <typename F>
-    requires std::is_invocable_v<F, Ty>
+    requires std::is_invocable_v<F, Ty> &&
+             std::is_void_v<std::invoke_result_t<F, Ty>>
+  auto transform(F &&f) & -> StatusOr<Monostate> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    std::invoke(std::forward<F>(f), my_value);
+    return {};
+  }
+
+  template <typename F>
+    requires std::is_invocable_v<F, Ty> &&
+             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) const & -> StatusOr<std::invoke_result_t<F, Ty>> {
     if (!ok()) {
       return {as_status()};
     }
     return {std::invoke(std::forward<F>(f), my_value)};
   }
+
   template <typename F>
-    requires std::is_invocable_v<F, Ty>
+    requires std::is_invocable_v<F, Ty> &&
+             std::is_void_v<std::invoke_result_t<F, Ty>>
+  auto transform(F &&f) const & -> StatusOr<Monostate> {
+    if (!ok()) {
+      return {as_status()};
+    }
+    std::invoke(std::forward<F>(f), my_value);
+    return {};
+  }
+
+  template <typename F>
+    requires std::is_invocable_v<F, Ty> &&
+             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) && -> StatusOr<std::invoke_result_t<F, Ty>> {
     if (!ok()) {
       return {std::move(*this).as_status()};
     }
     return {std::invoke(std::forward<F>(f), std::move(my_value))};
   }
+
+  template <typename F>
+    requires std::is_invocable_v<F, Ty> &&
+             std::is_void_v<std::invoke_result_t<F, Ty>>
+  auto transform(F &&f) && -> StatusOr<Monostate> {
+    if (!ok()) {
+      return {std::move(*this).as_status()};
+    }
+    std::invoke(std::forward<F>(f), std::move(my_value));
+    return {};
+  }
+
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
-    requires std::is_invocable_v<F, base_type>
+    requires std::is_invocable_v<F, base_type> &&
+             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
     if (self.ok()) {
       return self;
     }
     return std::invoke(std::forward<F>(f), self.as_status());
   }
+  template <typename F>
+    requires std::is_invocable_v<F, base_type> &&
+             std::is_void_v<std::invoke_result_t<F, base_type>>
+  auto transform_error(this auto &&self, F &&f) -> StatusOr<Monostate> {
+    if (self.ok()) {
+      return self;
+    }
+    std::invoke(std::forward<F>(f), self.as_status());
+    return {};
+  }
 #  else
   template <typename F>
-    requires std::is_invocable_v<F, base_type>
+    requires std::is_invocable_v<F, base_type> &&
+             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) & -> StatusOr<Ty> {
     if (ok()) {
       return *this;
     }
     return std::invoke(std::forward<F>(f), as_status());
   }
+
   template <typename F>
-    requires std::is_invocable_v<F, base_type>
+    requires std::is_invocable_v<F, base_type> &&
+             std::is_void_v<std::invoke_result_t<F, base_type>>
+  auto transform_error(F &&f) & -> StatusOr<Monostate> {
+    if (ok()) {
+      return *this;
+    }
+    std::invoke(std::forward<F>(f), as_status());
+    return {};
+  }
+
+  template <typename F>
+    requires std::is_invocable_v<F, base_type> &&
+             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) const & -> StatusOr<Ty> {
     if (ok()) {
       return *this;
     }
     return std::invoke(std::forward<F>(f), as_status());
   }
+
   template <typename F>
-    requires std::is_invocable_v<F, base_type>
+    requires std::is_invocable_v<F, base_type> &&
+             std::is_void_v<std::invoke_result_t<F, base_type>>
+  auto transform_error(F &&f) const & -> StatusOr<Monostate> {
+    if (ok()) {
+      return *this;
+    }
+    std::invoke(std::forward<F>(f), as_status());
+    return {};
+  }
+
+  template <typename F>
+    requires std::is_invocable_v<F, base_type> &&
+             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) && -> StatusOr<Ty> {
     if (ok()) {
       return std::move(*this);
     }
     return std::invoke(std::forward<F>(f), std::move(*this).as_status());
   }
+
+  template <typename F>
+    requires std::is_invocable_v<F, base_type> &&
+             std::is_void_v<std::invoke_result_t<F, base_type>>
+  auto transform_error(F &&f) && -> StatusOr<Monostate> {
+    if (ok()) {
+      return std::move(*this);
+    }
+    std::invoke(std::forward<F>(f), std::move(*this).as_status());
+    return {};
+  }
+
 #  endif
   /// @deprecated just uses operator=(StatusOr &&that) instead.
   inline auto reset(Ty &&value = {}) noexcept {
