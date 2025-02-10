@@ -5,6 +5,7 @@ EXPORT_AUXILIA
 namespace accat::auxilia {
 #if __has_include(<fmt/format.h>)
 using ::fmt::format;
+using ::fmt::format_string;
 using ::fmt::format_to;
 using ::fmt::print;
 #  ifdef __clang__
@@ -18,7 +19,7 @@ using ::fmt::println;
 // some wired issue `fmt::println not found` on gcc 13
 template <typename... T>
 inline void println(fmt::format_string<T...> fmt, T &&...args) {
-  return fmt::println(stdout, fmt, static_cast<T &&>(args)...);
+  return fmt::println(stdout, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline void println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
@@ -30,19 +31,19 @@ println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
   fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... Args>
-inline void
+inline auto
 println(std::wostream &os,
         fmt::basic_format_string<wchar_t, fmt::type_identity_t<Args>...> fmt,
         Args &&...args) {
-  fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
+  return fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
 }
 template <typename... T>
-inline void println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
+inline auto println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
   return print(f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 
 template <typename... T>
-inline void println(fmt::wformat_string<T...> fmt, T &&...args) {
+inline auto println(fmt::wformat_string<T...> fmt, T &&...args) {
   return print(L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 #  endif
@@ -89,7 +90,7 @@ template <typename Derived> struct Viewable;
 template <typename Ty>
   requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
 bool is_integer(Ty &&value) noexcept {
-  return std::trunc(std::forward<Ty>(value)) == value;
+  [[clang::musttail]] return std::trunc(std::forward<Ty>(value)) == value;
 }
 template <typename... Ts> struct match : Ts... {
   using Ts::operator()...;
@@ -130,6 +131,7 @@ private:
       -> std::ostream & {
     return os << p._to_string();
   }
+  [[nodiscard]]
   friend auto
   format_as(const Printable &p,
             const FormatPolicy &format_policy = FormatPolicy::kDefault)
@@ -163,25 +165,23 @@ private:
       } -> std::convertible_to<string_view_type>;
     }
   {
-    return static_cast<const Derived *>(this)->to_string_view(format_policy);
+    [[clang::musttail]] return static_cast<const Derived *>(this)
+        ->to_string_view(format_policy);
+  }
+
+private:
+  friend auto operator<<(std::ostream &os, const Viewable &v)
+      -> std::ostream & {
+    return os << v._to_string_view();
+  }
+  [[nodiscard]]
+  friend auto
+  format_as(const Viewable &v,
+            const FormatPolicy &format_policy = FormatPolicy::kDefault)
+      -> string_view_type {
+    [[clang::musttail]] return v._to_string_view(format_policy);
   }
 };
-} // namespace accat::auxilia
-
-namespace accat::auxilia {
-// clang-format off
-/*!
-   @brief cast the literal to the specified type and also log the value in debug mode.
-   @note clang-cl.exe does not fully support `try` and `catch` blocks but
-   `any_cast` will throw an exception if the cast fails. For more information, see
-   <a href="https://clang.llvm.org/docs/MSVCCompatibility.html#asynchronous-exceptions">Asynchronous Exceptions</a>,
-   <a href="https://stackoverflow.com/questions/7049502/c-try-and-try-catch-finally">try-catch-finally</a>,
-   and <a href="https://learn.microsoft.com/en-us/cpp/cpp/try-except-statement">try-except-statement</a>.
-   @deprecated use @link std::any_cast @endlink instead.
- */
- void _deprecated_any_cast() = delete;
-// the note's function has been removed so the note is not needed above.
-// clang-format on
 } // namespace accat::auxilia
 
 namespace std {
@@ -189,10 +189,12 @@ template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable<Derived>,
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
-  constexpr auto parse(format_parse_context &ctx) const { return ctx.begin(); }
+  constexpr auto parse(format_parse_context &ctx) const noexcept {
+    [[clang::musttail]] return ctx.begin();
+  }
   template <typename FormatContext>
   constexpr auto format(const Derived &p, FormatContext &ctx) const {
-    return format_to(
+    [[clang::musttail]] return format_to(
         ctx.out(), "{}", p.to_string(::accat::auxilia::FormatPolicy::kDefault));
   }
 };

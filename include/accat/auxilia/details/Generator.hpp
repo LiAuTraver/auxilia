@@ -19,7 +19,7 @@ namespace accat::auxilia {
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class Generator {
+class [[clang::coro_return_type]] [[clang::coro_lifetimebound]] Generator {
   static_assert(std::is_default_constructible_v<YieldType>,
                 "YieldType must be default constructible");
   static_assert(std::is_nothrow_move_constructible_v<YieldType>,
@@ -28,6 +28,10 @@ class Generator {
                 "YieldType must not be void; why use a generator for void?");
 
   template <typename R, bool = std::is_void_v<R>> struct promise_type_impl;
+
+public:
+  struct iterator;
+
 public:
   using promise_type = promise_type_impl<ReturnType>;
 
@@ -86,11 +90,13 @@ private:
           my_alloc, static_cast<char *>(ptr), size);
     }
   };
+
 private:
   template <typename R>
   struct promise_type_impl<R, false> : public promise_type_base<promise_type> {
     static_assert(std::is_nothrow_move_constructible_v<R>,
                   "ReturnType must be nothrow move constructible");
+    friend struct iterator;
     union {
       const YieldType *current_value = nullptr;
       R final_return_value;
@@ -101,6 +107,7 @@ private:
   };
   template <typename R>
   struct promise_type_impl<R, true> : public promise_type_base<promise_type> {
+    friend struct iterator;
     const YieldType *current_value = nullptr;
     void return_void() noexcept {}
   };

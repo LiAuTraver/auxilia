@@ -1,7 +1,5 @@
 #pragma once
 
-#include <ranges>
-
 #include "./config.hpp"
 
 namespace accat::auxilia::ranges::views::detail {

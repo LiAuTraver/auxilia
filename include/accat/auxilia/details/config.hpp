@@ -36,12 +36,15 @@ using ostringstream = ::std::ostringstream;
 using namespace ::std::string_view_literals;
 using namespace ::std::string_literals;
 inline constexpr auto isspacelike =
-    [](const char &c) constexpr noexcept -> bool {
+     [] (const char c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 };
 inline constexpr auto isnotspacelike =
-    [](const char &c) constexpr noexcept -> bool { return not isspacelike(c); };
-inline consteval const char *raw(const char *str) {
+      [](const char c) constexpr noexcept -> bool {
+  return not isspacelike(c);
+};
+inline consteval const char *raw(const char *str) noexcept {
+
   while (str && *str && (*str == '\n')) {
     ++str;
   }
@@ -60,13 +63,33 @@ inline consteval auto operator""_raw(const char *str, const size_t) noexcept
     -> const char * {
   return raw(str);
 }
-template <typename T = void> inline T *alloc(const size_t size) {
+[[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {
+  fprintf(stderr, "Failed to allocate memory. The program will now exit.");
+  dbg_break
+  std::abort();
+}
+template <typename T = void>
+[[using gnu: malloc, returns_nonnull]] inline T *alloc(const size_t size)
+    [[clang::allocating]] {
   if (auto ptr = malloc(size))
     return static_cast<T *>(ptr);
 
-  fprintf(stderr, "Failed to allocate memory. The program will now exit.");
-  contract_assert(0, "Failed to allocate memory")
-  std::abort();
+  [[unlikely]] return OnMemAllocFailed();
+}
+template <typename T = void>
+[[using gnu: malloc, returns_nonnull]]
+inline T *dynamic_alloc(const size_t size) [[clang::allocating]] {
+  if (auto ptr =
+#if defined(_malloca)
+          _malloca(size)
+#elif defined(alloca)
+          alloca(size)
+#else
+          malloc(size)
+#endif
+  )
+    return static_cast<T *>(ptr);
+  [[unlikely]] return OnMemAllocFailed();
 }
 
 template <const auto &Str> struct array_size_t {

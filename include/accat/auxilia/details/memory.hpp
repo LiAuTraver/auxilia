@@ -3,24 +3,7 @@
 #include "./config.hpp"
 
 namespace accat::auxilia {
-[[noreturn]] inline void alloc_failed() {
-  contract_assert(0, "Failed to allocate memory")
-  std::abort();
-}
-[[gnu::returns_nonnull]] inline void *dynamic_alloc(const size_t size) {
-  if (auto ptr =
-#if defined(_malloca)
-          _malloca(size)
-#elif defined(alloca)
-          alloca(size)
-#else
-          malloc(size)
-#endif
-  )
-    return ptr;
-  alloc_failed();
-}
-/// @note this allocator has some issues when using MSVC compiler
+
 EXPORT_AUXILIA
 class MemoryPool : public std::pmr::memory_resource {
 private:
@@ -29,7 +12,7 @@ private:
   const size_t total_size;
 
 public:
-  MemoryPool(void *t, const size_t size)
+  MemoryPool(void *t, const size_t size) noexcept
       : buffer(t), remaining_size(size), total_size(size) {}
   static MemoryPool FromSize(const size_t size) noexcept {
     return {dynamic_alloc(size), size};

@@ -4,15 +4,12 @@
 //! @brief A class that represents the status of a function call.
 //! @copyright Ancillarycat & The Abseil Authors
 //! @note Part of the contents of this header are derived in part from Google's Abseil Common Libraries.
-#include <variant>
+
 #ifndef ACCAT_AUXILIA_STATUS_HPP
 #define ACCAT_AUXILIA_STATUS_HPP
 
 #include "./macros.hpp"
-#include <type_traits>
-#ifdef ABSL_BASE_CONFIG_H_
-#warning "Abseil library detected. Better to use the original Abseil library. :)"
-#endif
+
 // NOTE:
 // The contents of this header are derived in part from Googles' Abseil library under the following license:
 /////////////////////////////////////// Apache License 2.0 ////////////////////////////////////////////////
@@ -73,12 +70,11 @@
 ///////////////////////////////// END OF ABSEIL COPYRIGHT ///////////////////////////////////////////
 
 // clang-format on
-
 #  include "./config.hpp"
 #  include "./format.hpp"
+
 EXPORT_AUXILIA
 namespace accat::auxilia {
-
 /// @brief A class that represents the status of a function call. it's
 /// designed to be as identical as possible to the `absl::Status`
 /// class, for `absl::Status` seems to fail to compile with clang++ on
@@ -260,19 +256,14 @@ public:
 public:
   AC_NODISCARD
   constexpr Status() = default;
-  AC_NODISCARD
-  AC_CONSTEXPR20
-  Status(const Code code,
-         const string_view message = "<no message provided>",
-         const std::source_location &location = std::source_location::current())
-      : my_code(code), my_message(message), my_location(location) {}
+  AC_NODISCARD AC_CONSTEXPR20
+  Status(const Code code, const string_view message = "<no message provided>")
+      : my_code(code), my_message(message) {}
   AC_NODISCARD
   Status(Status &&that) noexcept
-      : my_code(that.my_code), my_message(std::move(that.my_message)),
-        my_location(that.my_location) {
+      : my_code(that.my_code), my_message(std::move(that.my_message)) {
     that.my_code = kMovedFrom;
-    that.my_message = "This status has been moved from."s;
-    that.my_location = std::source_location::current();
+    that.my_message = "This status has been moved from.";
   }
   // AC_NODISCARD
   Status(const Status &that) = default;
@@ -287,8 +278,6 @@ public:
     return that;
   }
   /// @brief Logical AND operator.
-  /// @note Useful for chaining status checks rather than
-  /// a bunch of `if` statements.
   AC_NODISCARD
   inline constexpr auto operator&&(const Status &that) -> Status {
     if (!this->ok())
@@ -304,13 +293,11 @@ public:
   Status &operator=(Status &&that) noexcept {
     my_code = that.my_code;
     my_message = std::move(that.my_message);
-    my_location = that.my_location;
     that.my_code = kMovedFrom;
     that.my_message = "status accessed after moved from."s;
-    that.my_location = std::source_location::current();
     return *this;
   }
-  virtual ~Status() = default;
+  constexpr ~Status() = default;
 
 public:
   AC_NODISCARD
@@ -334,31 +321,15 @@ public:
   AC_NODISCARD string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
-  AC_NODISCARD std::source_location location() const {
-    return my_location;
-  }
-  AC_NODISCARD string stacktrace() const {
-    return AC_UTILS_STACKTRACE;
-  }
   void ignore_error() const noexcept {
     if (ok())
       return;
     contract_assert(ok(), "Ignoring an error status.");
   }
-  AC_NODISCARD inline string from_source_location() const {
-    return auxilia::format("file {0}\n"
-                           "              function {1},\n"
-                           "              Ln {2} Col {3}\n",
-                           my_location.file_name(),
-                           my_location.function_name(),
-                           my_location.line(),
-                           my_location.column());
-  }
 
-public:
-  Code my_code = kOk;
+protected:
+  Code my_code{};
   string my_message{};
-  std::source_location my_location = std::source_location::current();
 };
 
 /// @brief A class that represents the status of a function call, or a
@@ -408,7 +379,7 @@ public:
     my_value = std::move(that.my_value);
     return *this;
   }
-  virtual ~StatusOr() override = default;
+  ~StatusOr() = default;
 
 public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
@@ -767,14 +738,12 @@ public:
     std::invoke(std::forward<F>(f), std::move(*this).as_status());
     return {};
   }
-
 #  endif
   /// @deprecated just uses operator=(StatusOr &&that) instead.
-  inline auto reset(Ty &&value = {}) noexcept {
+  [[clang::reinitializes]] inline auto reset(Ty &&value = {}) noexcept {
     my_value = std::move(value);
     my_code = kOk;
     my_message.clear();
-    my_location = std::source_location::current();
     return *this;
   }
 
@@ -782,144 +751,422 @@ private:
   value_type my_value;
 };
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-OkStatus(const std::string_view message = "Ok"sv,
-         const std::source_location &location =
-             std::source_location::current()) noexcept {
-  return {Status::kOk, message, location};
+OkStatus(string_view message = "") noexcept {
+  return {Status::kOk, message};
+}
+
+// New overloads for other status codes using string_view messages:
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
+Cancelled(string_view message = "") noexcept {
+  return {Status::kCancelled, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-Cancelled(const std::string_view message = "Cancelled"sv,
-          const std::source_location &location =
-              std::source_location::current()) noexcept {
-  return {Status::kCancelled, message, location};
+UnknownError(string_view message = "") noexcept {
+  return {Status::kUnknown, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnknownError(const std::string_view message = "Unknown"sv,
-             const std::source_location &location =
-                 std::source_location::current()) noexcept {
-  return {Status::kUnknown, message, location};
+InvalidArgumentError(string_view message = "") noexcept {
+  return {Status::kInvalidArgument, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InvalidArgumentError(const std::string_view message = "Invalid argument"sv,
-                     const std::source_location &location =
-                         std::source_location::current()) noexcept {
-  return {Status::kInvalidArgument, message, location};
+DeadlineExceededError(string_view message = "") noexcept {
+  return {Status::kDeadlineExceeded, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DeadlineExceededError(const std::string_view message = "Deadline exceeded"sv,
-                      const std::source_location &location =
-                          std::source_location::current()) noexcept {
-  return {Status::kDeadlineExceeded, message, location};
+NotFoundError(string_view message = "") noexcept {
+  return {Status::kNotFound, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-NotFoundError(const std::string_view message = "Not found"sv,
-              const std::source_location &location =
-                  std::source_location::current()) noexcept {
-  return {Status::kNotFound, message, location};
+AlreadyExistsError(string_view message = "") noexcept {
+  return {Status::kAlreadyExists, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AlreadyExistsError(const std::string_view message = "Already exists"sv,
-                   const std::source_location &location =
-                       std::source_location::current()) noexcept {
-  return {Status::kAlreadyExists, message, location};
+PermissionDeniedError(string_view message = "") noexcept {
+  return {Status::kPermissionDenied, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-PermissionDeniedError(const std::string_view message = "Permission denied"sv,
-                      const std::source_location &location =
-                          std::source_location::current()) noexcept {
-  return {Status::kPermissionDenied, message, location};
+ResourceExhaustedError(string_view message = "") noexcept {
+  return {Status::kResourceExhausted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ResourceExhaustedError(const std::string_view message = "Resource exhausted"sv,
-                       const std::source_location &location =
-                           std::source_location::current()) noexcept {
-  return {Status::kResourceExhausted, message, location};
+FailedPreconditionError(string_view message = "") noexcept {
+  return {Status::kFailedPrecondition, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-FailedPreconditionError(
-    const std::string_view message = "Failed precondition"sv,
-    const std::source_location &location =
-        std::source_location::current()) noexcept {
-  return {Status::kFailedPrecondition, message, location};
+AbortedError(string_view message = "") noexcept {
+  return {Status::kAborted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AbortedError(const std::string_view message = "Aborted"sv,
-             const std::source_location &location =
-                 std::source_location::current()) noexcept {
-  return {Status::kAborted, message, location};
+OutOfRangeError(string_view message = "") noexcept {
+  return {Status::kOutOfRange, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-OutOfRangeError(const std::string_view message = "Out of range"sv,
-                const std::source_location &location =
-                    std::source_location::current()) noexcept {
-  return {Status::kOutOfRange, message, location};
+UnimplementedError(string_view message = "") noexcept {
+  return {Status::kUnimplemented, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnimplementedError(const std::string_view message = "Unimplemented"sv,
-                   const std::source_location &location =
-                       std::source_location::current()) noexcept {
-  return {Status::kUnimplemented, message, location};
+InternalError(string_view message = "") noexcept {
+  return {Status::kInternal, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InternalError(const std::string_view message = "Internal"sv,
-              const std::source_location &location =
-                  std::source_location::current()) noexcept {
-  return {Status::kInternal, message, location};
+UnavailableError(string_view message = "") noexcept {
+  return {Status::kUnavailable, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnavailableError(const std::string_view message = "Unavailable"sv,
-                 const std::source_location &location =
-                     std::source_location::current()) noexcept {
-  return {Status::kUnavailable, message, location};
+DataLossError(string_view message = "") noexcept {
+  return {Status::kDataLoss, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DataLossError(const std::string_view message = "Data loss"sv,
-              const std::source_location &location =
-                  std::source_location::current()) noexcept {
-  return {Status::kDataLoss, message, location};
+UnauthenticatedError(string_view message = "") noexcept {
+  return {Status::kUnauthenticated, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnauthenticatedError(const std::string_view message = "Unauthenticated"sv,
-                     const std::source_location &location =
-                         std::source_location::current()) noexcept {
-  return {Status::kUnauthenticated, message, location};
+ReturnMe(string_view message = "") noexcept {
+  return {Status::kReturning, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ReturnMe(const std::string_view message = "Returning",
-         const std::source_location &location =
-             std::source_location::current()) noexcept {
-  return {Status::kReturning, message, location};
+ParseError(string_view message = "") noexcept {
+  return {Status::kParseError, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ParseError(const std::string_view message = "Parse error",
-           const std::source_location &location =
-               std::source_location::current()) noexcept {
-  return {Status::kParseError, message, location};
+LexError(string_view message = "") noexcept {
+  return {Status::kLexError, message};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-LexError(const std::string_view message = "Lex error",
-         const std::source_location &location =
-             std::source_location::current()) noexcept {
-  return {Status::kLexError, message, location};
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+OkStatus(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kOk,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+OkStatus(const fmt::text_style &ts,
+         fmt::format_string<Args...> fmt,
+         Args &&...args) {
+  return {Status::kOk,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+Cancelled(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kCancelled,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+Cancelled(const fmt::text_style &ts,
+          fmt::format_string<Args...> fmt,
+          Args &&...args) {
+  return {Status::kCancelled,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnknownError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnknown,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnknownError(const fmt::text_style &ts,
+             fmt::format_string<Args...> fmt,
+             Args &&...args) {
+  return {Status::kUnknown,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InvalidArgumentError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kInvalidArgument,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InvalidArgumentError(const fmt::text_style &ts,
+                     fmt::format_string<Args...> fmt,
+                     Args &&...args) {
+  return {Status::kInvalidArgument,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DeadlineExceededError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kDeadlineExceeded,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DeadlineExceededError(const fmt::text_style &ts,
+                      fmt::format_string<Args...> fmt,
+                      Args &&...args) {
+  return {Status::kDeadlineExceeded,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+NotFoundError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kNotFound,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+NotFoundError(const fmt::text_style &ts,
+              fmt::format_string<Args...> fmt,
+              Args &&...args) {
+  return {Status::kNotFound,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AlreadyExistsError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kAlreadyExists,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AlreadyExistsError(const fmt::text_style &ts,
+                   fmt::format_string<Args...> fmt,
+                   Args &&...args) {
+  return {Status::kAlreadyExists,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+PermissionDeniedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kPermissionDenied,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+PermissionDeniedError(const fmt::text_style &ts,
+                      fmt::format_string<Args...> fmt,
+                      Args &&...args) {
+  return {Status::kPermissionDenied,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ResourceExhaustedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kResourceExhausted,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ResourceExhaustedError(const fmt::text_style &ts,
+                       fmt::format_string<Args...> fmt,
+                       Args &&...args) {
+  return {Status::kResourceExhausted,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+FailedPreconditionError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kFailedPrecondition,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+FailedPreconditionError(const fmt::text_style &ts,
+                        fmt::format_string<Args...> fmt,
+                        Args &&...args) {
+  return {Status::kFailedPrecondition,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AbortedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kAborted,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AbortedError(const fmt::text_style &ts,
+             fmt::format_string<Args...> fmt,
+             Args &&...args) {
+  return {Status::kAborted,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+OutOfRangeError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kOutOfRange,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+OutOfRangeError(const fmt::text_style &ts,
+                fmt::format_string<Args...> fmt,
+                Args &&...args) {
+  return {Status::kOutOfRange,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnimplementedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnimplemented,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnimplementedError(const fmt::text_style &ts,
+                   fmt::format_string<Args...> fmt,
+                   Args &&...args) {
+  return {Status::kUnimplemented,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InternalError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kInternal,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InternalError(const fmt::text_style &ts,
+              fmt::format_string<Args...> fmt,
+              Args &&...args) {
+  return {Status::kInternal,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnavailableError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnavailable,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnavailableError(const fmt::text_style &ts,
+                 fmt::format_string<Args...> fmt,
+                 Args &&...args) {
+  return {Status::kUnavailable,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DataLossError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kDataLoss,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DataLossError(const fmt::text_style &ts,
+              fmt::format_string<Args...> fmt,
+              Args &&...args) {
+  return {Status::kDataLoss,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnauthenticatedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnauthenticated,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnauthenticatedError(const fmt::text_style &ts,
+                     fmt::format_string<Args...> fmt,
+                     Args &&...args) {
+  return {Status::kUnauthenticated,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ReturnMe(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kReturning,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ReturnMe(const fmt::text_style &ts,
+         fmt::format_string<Args...> fmt,
+         Args &&...args) {
+  return {Status::kReturning,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ParseError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kParseError,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ParseError(const fmt::text_style &ts,
+           fmt::format_string<Args...> fmt,
+           Args &&...args) {
+  return {Status::kParseError,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+LexError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kLexError,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+LexError(const fmt::text_style &ts,
+         fmt::format_string<Args...> fmt,
+         Args &&...args) {
+  return {Status::kLexError,
+          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
 }
 
 #  define AC_RETURN_IF_NOT(_status_)                                           \
