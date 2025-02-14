@@ -18,48 +18,53 @@ using ::fmt::println;
 #  else
 // some wired issue `fmt::println not found` on gcc 13
 template <typename... T>
-inline void println(fmt::format_string<T...> fmt, T &&...args) {
-  return fmt::println(stdout, fmt, std::forward<T>(args)...);
+inline auto println(fmt::format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return fmt::println(
+      stdout, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline void println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
   fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... T>
-inline void
+inline auto
 println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
-  fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  [[clang::musttail]] return fmt::print(
+      os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... Args>
 inline auto
 println(std::wostream &os,
         fmt::basic_format_string<wchar_t, fmt::type_identity_t<Args>...> fmt,
         Args &&...args) {
-  return fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
+  [[clang::musttail]] return fmt::print(
+      os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
 }
 template <typename... T>
 inline auto println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
-  return print(f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  [[clang::musttail]] return fmt::print(
+      f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 
 template <typename... T>
 inline auto println(fmt::wformat_string<T...> fmt, T &&...args) {
-  return print(L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  [[clang::musttail]] return fmt::print(
+      L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 #  endif
 template <class... T>
-inline void
+inline auto
 println(const fmt::text_style &ts, fmt::format_string<T...> fmt, T &&...args) {
   fmt::print(ts, fmt, std::forward<decltype(args)>(args)...);
-  putchar('\n');
+  ::putchar('\n');
 }
 template <class... T>
-inline void println(FILE *f,
+inline auto println(FILE *f,
                     const fmt::text_style &ts,
                     fmt::format_string<T...> fmt,
                     T &&...args) {
   fmt::print(f, ts, fmt, std::forward<decltype(args)>(args)...);
-  putchar('\n');
+  ::putchar('\n');
 }
 #else
 using ::std::format;
@@ -69,12 +74,12 @@ using ::std::println;
 
 // compatible with fmt::text_style, for std::format does not support it
 template <class... T>
-inline void println(const auto &, std::format_string<T...> fmt, T &&...args) {
+inline auto println(const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');
 }
 template <class... T>
-inline void
+inline auto
 println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(f, fmt, std::forward<decltype(args)>(args)...);
   putchar('\n');

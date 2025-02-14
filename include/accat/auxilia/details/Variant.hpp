@@ -50,10 +50,16 @@ public:
     that.my_variant.template emplace<monostate_like_type>();
     return *this;
   }
+  bool operator==(const Variant &that) const noexcept {
+    return my_variant == that.my_variant;
+  }
+  bool operator!=(const Variant &that) const noexcept {
+    return my_variant != that.my_variant;
+  }
   ~Variant() = default;
 
 public:
-  auto set(Variant &&that = {}) noexcept -> Variant & {
+  [[clang::reinitializes]] auto set(Variant &&that = {}) noexcept -> Variant & {
     my_variant = std::move(that.my_variant);
     that.my_variant.template emplace<monostate_like_type>();
     return *this;
@@ -65,9 +71,9 @@ public:
     using ReturnType = decltype(std::forward<Callable>(callable)(
         std::declval<variant_type>()));
     static_assert(std::is_default_constructible_v<ReturnType> ||
-                      std::is_same_v<ReturnType, void>,
+                      std::is_void_v<ReturnType>,
                   "ReturnType must be default constructible");
-    if constexpr (std::is_same_v<ReturnType, void>) {
+    if constexpr (std::is_void_v<ReturnType>) {
       return std::visit(std::forward<Callable>(callable), self.my_variant);
     } else {
       return self.is_valid()
@@ -82,9 +88,9 @@ public:
     using ReturnType = decltype(std::forward<Callable>(callable)(
         std::declval<variant_type>()));
     static_assert(std::is_default_constructible_v<ReturnType> ||
-                      std::is_same_v<ReturnType, void>,
+                      std::is_void_v<ReturnType>,
                   "ReturnType must be default constructible");
-    if constexpr (std::is_same_v<ReturnType, void>) {
+    if constexpr (std::is_void_v<ReturnType>) {
       return std::visit(std::forward<Callable>(callable), my_variant);
     } else {
       return is_valid() ? static_cast<ReturnType>(std::visit(
@@ -97,6 +103,7 @@ public:
   auto type_name() const {
     return is_valid() ? this->visit([]([[maybe_unused]] const auto &value)
                                         -> string_view_type {
+      // doesn't require rtti
       return typeid(value).name();
     })
                       : "invalid state"sv;
@@ -149,7 +156,7 @@ public:
   }
   [[clang::reinitializes]]
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
-   constexpr auto clear(this auto &&self) noexcept(
+  constexpr auto clear(this auto &&self) noexcept(
       noexcept(self.my_variant.template emplace<monostate_like_type>()))
       -> decltype(auto) {
     self.my_variant.template emplace<monostate_like_type>();
@@ -205,6 +212,7 @@ public:
   constexpr auto to_string_view(const FormatPolicy &format_policy) const
       -> string_view_type {
     if (format_policy == FormatPolicy::kDefault) {
+      // ditto
       return typeid(decltype(*this)).name();
     } else if (format_policy == FormatPolicy::kDetailed) {
       return typeid(decltype(*this))
@@ -230,7 +238,7 @@ private:
 /// @brief check if the variant holds a specific type;
 ///  a wrapper around @link std::holds_alternative @endlink
 template <class Ty, class... MyTypes>
-inline constexpr bool holds_alternative(const Variant<MyTypes...> &v) noexcept {
+inline constexpr auto holds_alternative(const Variant<MyTypes...> &v) noexcept {
   return std::holds_alternative<Ty>(v.get());
 }
 template <class Ty, class... MyTypes>
