@@ -17,9 +17,10 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\auxilia.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\defines.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\bit.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\config.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\file_reader.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\format.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\id.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\includes-inl.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\memory.hpp" />
@@ -30,5 +31,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\variadic-inl.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Variant.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\macros.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\views.hpp" />
   </ItemGroup>
 </Project>
