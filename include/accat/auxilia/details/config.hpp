@@ -1,5 +1,6 @@
 #pragma once
 #include "./macros.hpp"
+
 EXPORT_AUXILIA
 namespace accat::auxilia {
 class Monostate;
@@ -103,5 +104,14 @@ using array_size_v = typename array_size_t<Str>::size;
 template <typename To, typename From>
 inline constexpr To as(From &&from) noexcept {
   return static_cast<To>(from);
+}
+/// @brief Asynchronously execute a function with the given arguments
+/// @note just a wrapper, but it's REAL async
+auto async(auto &&func, auto... args) -> decltype(auto)
+  requires std::invocable<decltype(func), decltype(args)...>
+{
+  return std::async(std::launch::async,
+                    std::forward<decltype(func)>(func),
+                    std::forward<decltype(args)>(args)...);
 }
 } // namespace accat::auxilia

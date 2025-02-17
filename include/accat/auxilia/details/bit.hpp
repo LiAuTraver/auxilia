@@ -93,13 +93,4 @@ read_raw_bytes(const std::filesystem::path &path) {
   }
 }
 #endif
-/// @brief Asynchronously execute a function with the given arguments
-/// @note just a wrapper, but it's REAL async
-auto async(auto &&func, auto... args) -> decltype(auto)
-  requires std::invocable<decltype(func), decltype(args)...>
-{
-  return std::async(std::launch::async,
-                    std::forward<decltype(func)>(func),
-                    std::forward<decltype(args)>(args)...);
-}
 } // namespace accat::auxilia

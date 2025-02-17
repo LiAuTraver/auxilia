@@ -36,6 +36,7 @@ import std;
 #  include <filesystem>
 #  include <fstream>
 #  include <functional>
+#  include <future>
 #  include <ios>
 #  include <iostream>
 #  include <limits>

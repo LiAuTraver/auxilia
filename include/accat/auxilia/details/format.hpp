@@ -110,7 +110,7 @@ enum class FormatPolicy : uint8_t {
 /// @brief A class that represents a printable object; can be directly
 /// printed via `std::cout` or `fmt::print`.
 /// @note use public inheritance to make fmt::print work.
-template <typename Derived> struct AC_NOVTABLE Printable {
+template <typename Derived> struct AC_NOVTABLE AC_EMPTY_BASES Printable {
 public:
   using string_type = string;
 
@@ -146,7 +146,7 @@ private:
 };
 
 /// @interface Viewable
-template <typename Derived> struct AC_NOVTABLE Viewable {
+template <typename Derived> struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
 public:
   using string_view_type = std::string_view;
 

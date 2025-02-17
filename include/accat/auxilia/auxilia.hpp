@@ -18,7 +18,7 @@
 #include "./details/random.hpp"
 #include "./details/Status.hpp"
 #include "./details/Variant.hpp"
-#include "./details/file_reader.hpp"
+#include "./details/bit.hpp"
 #include "./details/format.hpp"
 #include "./details/views.hpp"
 #include "./details/Generator.hpp"

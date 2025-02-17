@@ -22,7 +22,7 @@ install(
 )
 
 install(EXPORT auxilia-targets
-    FILE auxilia-config.cmake
+    FILE auxilia-config
     NAMESPACE auxilia::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/auxilia
 )

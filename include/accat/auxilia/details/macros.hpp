@@ -337,7 +337,8 @@ inline bool _is_debugger_present() noexcept {
 #  endif
 #endif
 /// @def TODO mimic from kotlin's `TODO` function, which throws an
-/// exception and is also discoverable by IDE.
+/// exception and is also discoverable
+/// by IDE(which is why this macro exists).
 #define TODO(...) AC_UTILS_TODO_(__VA_ARGS__)
 
 #if defined(_MSC_VER) && !defined(__clang__)
@@ -368,12 +369,17 @@ inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
 /// @def AC_NOVTABLE
 /// @note msvc-specific keyword to prevent vtable generation.
-///     Used in(and should only in) interface classes.
+///     Used in(and should only in) interface classes(i.e., pure interface and
+///     never instantiated directly).
+/// @remark no gcc/clang equivalent.
 #  define AC_NOVTABLE __declspec(novtable)
-#  define AC_INTERFACE __interface
+/// @def AC_EMPTY_BASES
+/// @note msvc-specific keyword to enforce empty base optimization.
+/// @remark no gcc/clang equivalent.
+#  define AC_EMPTY_BASES __declspec(empty_bases)
 #else
 #  define AC_NOVTABLE
-#  define AC_INTERFACE struct
+#  define AC_EMPTY_BASES
 #endif
 
 #ifndef AC_HAS_EXPLICIT_THIS_PARAMETER
@@ -416,7 +422,6 @@ inline AC_CONSTEXPR20 auto operator*(_accat_utils_defer_helper_struct_,
 #endif
 #define defer AC_DEFER
 #define postcondition(...) AC_DEFER{AC_UTILS_RUNTIME_ASSERT(__VA_ARGS__)};
-#define interface AC_INTERFACE
 
 // NOLINTBEGIN(bugprone-macro-parentheses)
 
