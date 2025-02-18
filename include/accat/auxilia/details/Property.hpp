@@ -3,12 +3,6 @@
 #include "./config.hpp"
 
 namespace accat::auxilia {
-#define AC_UTILS_PROPERTY_DBG_CHECK()                                          \
-  dbg_block                                                                    \
-  {                                                                            \
-    precondition(instance, "Property instance is null")                        \
-  }
-
 /// @brief (almost) zero-cost fancy wrapper around
 /// the getter and setter functions.
 /// @tparam Instance the parent class
@@ -37,7 +31,7 @@ struct Property {
   }
   AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &
   operator=(const Field &value) noexcept(noexcept((instance->*setter)(value))) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     (instance->*setter)(value);
     return *this;
   }
@@ -54,33 +48,32 @@ struct Property {
                            ThatGetter,
                            ThatSetter>
                 &that) noexcept(noexcept((that.instance->*ThatGetter)())) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     return *this = (that.instance->*ThatGetter)();
   }
 
   AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &operator=(
       const Property &that) noexcept(noexcept((that.instance->*getter)())) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     return *this = (that.instance->*getter)();
   }
 
   AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &operator=(
       const ReturnType &value) noexcept(noexcept((instance->*setter)(value))) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     return *this = (instance->*setter)(value);
   }
   AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 bool
   operator==(const Field &value) const
       noexcept(noexcept((instance->*getter)())) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     return (instance->*getter)() == value;
   }
   AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 auto
   operator<=>(const Field &value) const
       noexcept(noexcept((instance->*getter)())) {
-    AC_UTILS_PROPERTY_DBG_CHECK();
+    precondition(instance, "Property instance is null")
     return (instance->*getter)() <=> value;
   }
 };
-#undef AC_UTILS_PROPERTY_DBG_CHECK
 } // namespace accat::auxilia

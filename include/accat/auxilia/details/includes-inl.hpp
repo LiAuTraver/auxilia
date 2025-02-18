@@ -26,7 +26,6 @@
 import std;
 #else
 #  include <algorithm>
-#  include <any>
 #  include <atomic>
 #  include <bit>
 #  include <cmath>
@@ -35,14 +34,13 @@ import std;
 #  include <cstdint>
 #  include <filesystem>
 #  include <fstream>
-#  include <functional>
 #  include <future>
 #  include <ios>
+#  include <iosfwd>
 #  include <iostream>
 #  include <limits>
 #  include <memory_resource>
 #  include <mutex>
-#  include <ostream>
 #  include <random>
 #  include <ranges>
 #  include <source_location>
@@ -55,7 +53,9 @@ import std;
 #  include <unordered_set>
 #  include <utility>
 #  include <variant>
-#  include <version>
+#  if __has_include(<version>)
+#    include <version>
+#  endif
 /// @note I use Source Code Annotation sometimes; but libstdc++
 /// doesn't support; so we manually define it here.
 #  if __has_include(<sal.h>)
