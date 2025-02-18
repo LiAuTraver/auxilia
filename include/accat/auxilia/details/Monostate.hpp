@@ -12,7 +12,7 @@ namespace accat::auxilia {
 /// my @link Variant @endlink class;
 /// dont't use consteval because the class is not final
 EXPORT_AUXILIA
-class Monostate : public Printable<Monostate>, public Viewable<Monostate> {
+struct Monostate : Printable, Viewable {
 public:
   inline constexpr Monostate() = default;
   /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() = default;

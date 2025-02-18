@@ -3,7 +3,7 @@
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
-class Monostate;
+struct Monostate;
 /// @brief a concept that checks if the types are variantable for my custom
 /// @link Variant @endlink class,
 /// where the first type must be @link Monostate @endlink or its derived class

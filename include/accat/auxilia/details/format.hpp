@@ -90,8 +90,8 @@ println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
 namespace accat::auxilia {
 template <typename... Ts> class Variant;
 enum class FormatPolicy : uint8_t;
-template <typename Derived> struct Printable;
-template <typename Derived> struct Viewable;
+struct Printable;
+struct Viewable;
 template <typename Ty>
   requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
 bool is_integer(Ty &&value) noexcept {
@@ -110,88 +110,49 @@ enum class FormatPolicy : uint8_t {
 /// @brief A class that represents a printable object; can be directly
 /// printed via `std::cout` or `fmt::print`.
 /// @note use public inheritance to make fmt::print work.
-template <typename Derived> struct AC_NOVTABLE AC_EMPTY_BASES Printable {
-public:
-  using string_type = string;
-
-public:
-  constexpr Printable() = default;
-  constexpr Printable(const Printable &) = default;
-  constexpr Printable(Printable &&) noexcept = default;
-  constexpr auto operator=(const Printable &) -> Printable & = default;
-  constexpr auto operator=(Printable &&) noexcept -> Printable & = default;
-
+struct AC_NOVTABLE AC_EMPTY_BASES Printable {
 protected:
-  constexpr ~Printable() = default;
-
-private:
-  [[nodiscard]] auto
-  _to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
-      -> string_type {
-    return static_cast<const Derived *>(this)->to_string(format_policy);
+  using string_type = std::string;
+  template <typename T>
+    requires std::is_base_of_v<Printable, T>
+  [[nodiscard]]
+  friend auto operator<<(std::ostream &os, const T &p) -> std::ostream & {
+    return os << p.to_string();
   }
-
-private:
-  friend auto operator<<(std::ostream &os, const Printable &p)
-      -> std::ostream & {
-    return os << p._to_string();
-  }
+  template <typename T>
+    requires std::is_base_of_v<Printable, T>
   [[nodiscard]]
   friend auto
-  format_as(const Printable &p,
+  format_as(const T &p,
             const FormatPolicy &format_policy = FormatPolicy::kDefault)
-      -> string_type {
-    return p._to_string(format_policy);
+      -> Printable::string_type {
+    return p.to_string(format_policy);
   }
 };
 
 /// @interface Viewable
-template <typename Derived> struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
-public:
+struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
   using string_view_type = std::string_view;
-
-public:
-  constexpr Viewable() = default;
-  constexpr Viewable(const Viewable &) = default;
-  constexpr Viewable(Viewable &&) noexcept = default;
-  constexpr auto operator=(const Viewable &) -> Viewable & = default;
-  constexpr auto operator=(Viewable &&) noexcept -> Viewable & = default;
-
-protected:
-  constexpr ~Viewable() = default;
-
-private:
-  [[nodiscard]] auto _to_string_view(
-      const FormatPolicy &format_policy = FormatPolicy::kDefault) const
-      -> string_view_type
-    requires requires(const Derived &d) {
-      {
-        d.to_string_view(format_policy)
-      } -> std::convertible_to<string_view_type>;
-    }
-  {
-    [[clang::musttail]] return static_cast<const Derived *>(this)
-        ->to_string_view(format_policy);
-  }
-
-private:
-  friend auto operator<<(std::ostream &os, const Viewable &v)
-      -> std::ostream & {
-    return os << v._to_string_view();
-  }
-  [[nodiscard]]
-  friend auto
-  format_as(const Viewable &v,
-            const FormatPolicy &format_policy = FormatPolicy::kDefault)
-      -> string_view_type {
-    [[clang::musttail]] return v._to_string_view(format_policy);
-  }
+};
+template <typename T>
+  requires std::is_base_of_v<Viewable, T>
+[[nodiscard]]
+auto operator<<(std::ostream &os, const T &v) -> std::ostream & {
+  [[clang::musttail]] return os << v.to_string_view();
+}
+template <typename T>
+  requires std::is_base_of_v<Viewable, T>
+[[nodiscard]] auto
+format_as(const T &v,
+          const FormatPolicy &format_policy = FormatPolicy::kDefault)
+    -> Viewable::string_view_type {
+  [[clang::musttail]] return v.to_string_view(format_policy);
 };
 } // namespace accat::auxilia
 
 namespace std {
 template <typename Derived>
-  requires is_base_of_v<::accat::auxilia::Printable<Derived>,
+  requires is_base_of_v<::accat::auxilia::Printable,
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
   constexpr auto parse(format_parse_context &ctx) const noexcept {

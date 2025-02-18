@@ -13,8 +13,8 @@ namespace accat::auxilia {
 /// `to_string` or check the type's name when debugging.
 /// @note exception-free variant wrapper
 template <typename... Types>
-class Variant : public Printable<Variant<Types...>>,
-                public Viewable<Variant<Types...>> {
+class Variant : public Printable,
+                public Viewable {
   static_assert(Variantable<Types...>, "Types must be variantable");
 
   using monostate_like_type = std::tuple_element_t<0, std::tuple<Types...>>;
@@ -22,8 +22,8 @@ class Variant : public Printable<Variant<Types...>>,
 
 public:
   using variant_type = std::variant<Types...>;
-  using string_type = typename Printable<self_type>::string_type;
-  using string_view_type = typename Viewable<self_type>::string_view_type;
+  using string_type = typename Printable::string_type;
+  using string_view_type = typename Viewable::string_view_type;
 
 public:
   inline constexpr Variant() = default;
