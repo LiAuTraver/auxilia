@@ -2,6 +2,10 @@
 
 #include "./config.hpp"
 
+#if defined(min) || defined(max)
+#  error "Bad user. Bad code."
+#endif
+
 namespace accat::auxilia {
 #ifdef __SIZEOF_INT128__
 using uint128_t = __uint128_t;
@@ -69,7 +73,7 @@ template <typename Ty>
 #endif
 inline Ty _random_integer_generator<Ty>::operator()(const Ty(min),
                                                     const Ty(max)) const {
-  contract_assert((min) < (max), "min must be less than max");
+  precondition((min) < (max), "min must be less than max");
   return (((*this).operator()()) % ((max) - (min))) + (min);
 }
 /// @brief A random integer generator for 8-bit unsigned integers.
@@ -85,7 +89,7 @@ template <> struct _random_integer_generator<uint8_t> {
   }
 
   inline uint8_t operator()(const uint8_t(min), const uint8_t(max)) const {
-    contract_assert((min) < (max), "min must be less than max");
+    precondition((min) < (max), "min must be less than max");
     return (((*this)() % ((max) - (min))) + (min));
   }
 };

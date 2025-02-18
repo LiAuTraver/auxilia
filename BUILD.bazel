@@ -4,6 +4,11 @@ cc_library(
         "include/**/*.hpp",
         "include/**/*.h",
     ]),
+    copts = [
+        "/std:c++latest",
+        "/Zc:preprocessor",
+        "/Zc:__cplusplus",
+    ],
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
