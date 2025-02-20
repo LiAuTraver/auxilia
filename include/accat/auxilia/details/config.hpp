@@ -4,6 +4,8 @@
 EXPORT_AUXILIA
 namespace accat::auxilia {
 struct Monostate;
+struct Printable;
+struct Viewable;
 /// @brief a concept that checks if the types are variantable for my custom
 /// @link Variant @endlink class,
 /// where the first type must be @link Monostate @endlink or its derived class
@@ -32,18 +34,14 @@ template <typename> class StatusOr;
 using string = ::std::string;
 using string_view = ::std::string_view;
 using path = ::std::filesystem::path;
-using ifstream = ::std::ifstream;
-using ostringstream = ::std::ostringstream;
 using namespace ::std::string_view_literals;
 using namespace ::std::string_literals;
 inline constexpr auto isspacelike =
-     [] (const char c) constexpr noexcept -> bool {
+    [](const char c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 };
 inline constexpr auto isnotspacelike =
-      [](const char c) constexpr noexcept -> bool {
-  return not isspacelike(c);
-};
+    [](const char c) constexpr noexcept -> bool { return not isspacelike(c); };
 inline consteval const char *raw(const char *str) noexcept {
 
   while (str && *str && (*str == '\n')) {

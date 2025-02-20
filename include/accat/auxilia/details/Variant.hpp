@@ -12,9 +12,7 @@ namespace accat::auxilia {
 /// convenience when evaluating expressions, especially when the operation was
 /// `to_string` or check the type's name when debugging.
 /// @note exception-free variant wrapper
-template <typename... Types>
-class Variant : public Printable,
-                public Viewable {
+template <typename... Types> class Variant : public Printable, public Viewable {
   static_assert(Variantable<Types...>, "Types must be variantable");
 
   using monostate_like_type = std::tuple_element_t<0, std::tuple<Types...>>;
@@ -177,10 +175,6 @@ public:
   auto underlying_string(const FormatPolicy &format_policy =
                              FormatPolicy::kDefault) const -> string_type {
     return this->visit([&](const auto &value) -> string_type
-                       //  requires requires {
-                       //    value.to_string(format_policy)
-                       //        ->std::template convertible_to<string_type>;
-                       //  }
                        { return value.to_string(format_policy); });
   }
 
@@ -197,32 +191,38 @@ private:
 public:
   constexpr auto to_string(const FormatPolicy &format_policy) const
       -> string_type {
+#ifdef __cpp_rtti
     if (format_policy == FormatPolicy::kDefault) {
       return typeid(decltype(*this)).name();
     } else if (format_policy == FormatPolicy::kDetailed) {
       return typeid(decltype(*this))
-#if _WIN32
+#  if _WIN32
           .raw_name();
-#else
+#  else
           .name(); // g++ doesn't support raw_name()
-#endif
+#  endif
     }
-    std::unreachable();
+#else
+    return "RTTI is disabled."s;
+#endif
   }
   constexpr auto to_string_view(const FormatPolicy &format_policy) const
       -> string_view_type {
+#ifdef __cpp_rtti
     if (format_policy == FormatPolicy::kDefault) {
       // ditto
       return typeid(decltype(*this)).name();
     } else if (format_policy == FormatPolicy::kDetailed) {
       return typeid(decltype(*this))
-#if _WIN32
+#  if _WIN32
           .raw_name();
-#else
+#  else
           .name();
-#endif
+#  endif
     }
-    std::unreachable();
+#else
+    return "RTTI is disabled."sv;
+#endif
   }
 
 private:

@@ -3,19 +3,11 @@
 #include "./config.hpp"
 
 namespace accat::auxilia::ranges::views::detail {
-#if defined(__cpp_lib_ranges_chunk_by) &&                                      \
-    __cpp_lib_ranges_chunk_by >= 202202L &&                                    \
-    defined(_MSC_VER) // workaround for gnu/llvm
 struct _swap_endian_fn {
   template <std::ranges::viewable_range R>
   [[nodiscard]] AC_STATIC_CALL_OPERATOR constexpr auto
   operator()(R &&r) AC_CONST_CALL_OPERATOR->decltype(auto) {
-    // clang-format off
-    return std::forward<R>(r)
-              | std::views::reverse
-              | std::views::common
-          ;
-    // clang-format on
+    return std::forward<R>(r) | std::views::reverse | std::views::common;
   }
 
   // Allow piping, temporary workaround
@@ -25,22 +17,10 @@ struct _swap_endian_fn {
     return e.operator()(std::forward<R>(r));
   }
 };
-#endif
 } // namespace accat::auxilia::ranges::views::detail
 namespace accat::auxilia::ranges::views {
-#if defined(__cpp_lib_ranges_chunk_by) &&                                      \
-    __cpp_lib_ranges_chunk_by >= 202202L &&                                    \
-    defined(_MSC_VER) // workaround for gnu/llvm
 /// @brief inverts the endianness of the given range(char-like elements)
 inline constexpr detail::_swap_endian_fn swap_endian;
-#endif
-} // namespace accat::auxilia::ranges::views
-
-namespace accat::auxilia {
-namespace views = ranges::views; // NOLINT(misc-unused-alias-decls)
-} // namespace accat::auxilia
-
-namespace accat::auxilia::ranges{
 /// @brief trims the leading and trailing whitespace-like characters
 /// from given range(char-like elements)
 inline constexpr auto trim(const string_view str) -> string_view {
@@ -48,4 +28,8 @@ inline constexpr auto trim(const string_view str) -> string_view {
   auto end = std::ranges::find_last_if_not(str, isspacelike).end();
   return {std::move(beg), std::move(end)};
 }
-}
+} // namespace accat::auxilia::ranges::views
+
+namespace accat::auxilia {
+namespace views = ranges::views; // NOLINT(misc-unused-alias-decls)
+} // namespace accat::auxilia
