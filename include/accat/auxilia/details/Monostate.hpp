@@ -15,7 +15,7 @@ EXPORT_AUXILIA
 struct Monostate : Printable, Viewable {
 public:
   inline constexpr Monostate() = default;
-  /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() = default;
+  /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() noexcept = default;
   inline constexpr Monostate(const Monostate &) {}
   inline constexpr Monostate(Monostate &&) noexcept {}
   inline /* not consteval */ constexpr auto operator=(const Monostate &)

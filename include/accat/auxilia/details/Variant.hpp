@@ -135,7 +135,7 @@ public:
   }
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
   constexpr auto get(this auto &&self) noexcept -> decltype(auto) {
-    return self.my_variant;
+    return (self.my_variant);
   }
 #else
   constexpr auto get() noexcept -> decltype(auto) {
@@ -184,7 +184,6 @@ private:
 private:
   inline bool is_valid() const noexcept {
     auto ans = my_variant.index() != std::variant_npos;
-    contract_assert(ans, "Invalid state");
     return ans;
   }
 
@@ -203,7 +202,7 @@ public:
 #  endif
     }
 #else
-    return "RTTI is disabled."s;
+    return __PRETTY_FUNCTION__;
 #endif
   }
   constexpr auto to_string_view(const FormatPolicy &format_policy) const
@@ -221,7 +220,7 @@ public:
 #  endif
     }
 #else
-    return "RTTI is disabled."sv;
+    return __PRETTY_FUNCTION__;
 #endif
   }
 
@@ -229,12 +228,14 @@ private:
   /// @brief get the value of the variant; a wrapper around @link std::get_if
   /// @endlink
   template <class Ty, class... MyTypes>
-  friend inline constexpr auto get_if(Variant<MyTypes...> *v) noexcept;
+  friend inline constexpr auto get_if(const Variant<MyTypes...> *v) noexcept;
   /// @brief get the value of the variant; a wrapper around @link std::get
   /// @endlink
   template <class Ty, class... MyTypes>
   friend inline auto get(const Variant<MyTypes...> &v) -> decltype(auto);
 };
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Waddress-of-temporary"
 /// @brief check if the variant holds a specific type;
 ///  a wrapper around @link std::holds_alternative @endlink
 template <class Ty, class... MyTypes>
@@ -247,7 +248,8 @@ inline auto get(const Variant<MyTypes...> &v) -> decltype(auto) {
 }
 template <class Ty, class... MyTypes>
 [[nodiscard]]
-inline constexpr auto get_if(Variant<MyTypes...> *v) noexcept {
+inline constexpr auto get_if(const Variant<MyTypes...> *v) noexcept {
   return v->is_valid() ? std::get_if<Ty>(&v->get()) : nullptr;
 }
+#pragma clang diagnostic pop
 } // namespace accat::auxilia

@@ -72,6 +72,7 @@
 // clang-format on
 #  include "./config.hpp"
 #  include "./format.hpp"
+#  include "./Monostate.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
@@ -337,7 +338,7 @@ protected:
 ///         it's designed to be as identical as possible to the
 ///         `absl::StatusOr` class.
 /// @tparam Ty the type of the value
-template <typename Ty> class StatusOr : public Status {
+template <typename Ty> class StatusOr : public Status, Printable {
   static_assert(std::is_same_v<std::remove_reference_t<Ty>, Ty> &&
                     std::is_nothrow_move_assignable_v<Ty> &&
                     std::is_nothrow_move_constructible_v<Ty>,
@@ -745,6 +746,25 @@ public:
     my_code = kOk;
     my_message.clear();
     return *this;
+  }
+
+public:
+  auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
+      -> string_type {
+    if (!this->ok())
+      return fmt::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}"
+                         " value: {}",
+                         typeid(Ty).name(),
+                         my_code,
+                         my_message,
+                         my_value);
+
+    else if constexpr (std::is_base_of_v<Printable, Ty>)
+      return my_value.to_string(policy);
+
+    else
+      return fmt::format("StatusOr<{}>. Type is unformattable.",
+                         typeid(Ty).name());
   }
 
 private:
