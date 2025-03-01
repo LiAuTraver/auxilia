@@ -269,6 +269,14 @@ public:
   // AC_NODISCARD
   Status(const Status &that) = default;
   auto operator=(const Status &that) -> Status & = default;
+  // AC_NODISCARD
+  Status &operator=(Status &&that) noexcept {
+    my_code = that.my_code;
+    my_message = std::move(that.my_message);
+    that.my_code = kMovedFrom;
+    that.my_message = "status accessed after moved from."s;
+    return *this;
+  }
   /// @brief Logical OR operator.
   /// @note Useful for chaining status checks rather than
   /// a bunch of `if` statements.
@@ -290,39 +298,31 @@ public:
       return *this;
     return that;
   }
-  // AC_NODISCARD
-  Status &operator=(Status &&that) noexcept {
-    my_code = that.my_code;
-    my_message = std::move(that.my_message);
-    that.my_code = kMovedFrom;
-    that.my_message = "status accessed after moved from."s;
-    return *this;
-  }
   constexpr ~Status() = default;
 
 public:
   AC_NODISCARD
-  inline AC_CONSTEXPR20 explicit operator bool() const noexcept {
+  inline AC_CONSTEXPR20 explicit operator bool() const AC_NOEXCEPT {
     return this->ok();
   }
-  AC_NODISCARD constexpr bool ok() const noexcept {
+  AC_NODISCARD constexpr bool ok() const AC_NOEXCEPT {
     return my_code == kOk;
   }
-  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const noexcept {
+  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const AC_NOEXCEPT {
     return my_code == kReturning;
   }
   AC_NODISCARD
-  Code code() const noexcept {
+  Code code() const AC_NOEXCEPT {
     return my_code;
   }
   AC_NODISCARD
-  auto raw_code() const noexcept {
+  auto raw_code() const AC_NOEXCEPT {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
   AC_NODISCARD string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
-  void ignore_error() const noexcept {
+  void ignore_error() const AC_NOEXCEPT {
     if (ok())
       return;
     contract_assert(ok(), "Ignoring an error status.");
@@ -434,26 +434,26 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
-  inline constexpr value_type operator*(this auto &&self) noexcept {
+  inline constexpr value_type operator*(this auto &&self) AC_NOEXCEPT {
     precondition(self.ok() or self.code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
 #  else
   AC_NODISCARD
-  inline constexpr value_type operator*() & noexcept {
+  inline constexpr value_type operator*() & AC_NOEXCEPT {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
-  inline constexpr value_type operator*() const & noexcept {
+  inline constexpr value_type operator*() const &AC_NOEXCEPT {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
-  inline constexpr value_type operator*() && noexcept {
+  inline constexpr value_type operator*() && AC_NOEXCEPT {
     precondition(ok() or code() == Status::kReturning,
                  "Cannot dereference a status that is not OK.");
     return std::move(my_value);
@@ -462,36 +462,37 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
-  inline constexpr auto operator->(this auto &&self) noexcept
-      -> decltype(auto) {
+  inline constexpr auto
+  operator->(this auto &&self) AC_NOEXCEPT->decltype(auto) {
     return std::addressof(self.my_value);
   }
 #  else
   AC_NODISCARD
-  inline constexpr auto operator->() & noexcept -> value_type * {
+  inline constexpr auto operator->() & AC_NOEXCEPT->value_type * {
     return std::addressof(my_value);
   }
   AC_NODISCARD
-  inline constexpr auto operator->() const & noexcept -> const value_type * {
+  inline constexpr auto operator->() const & AC_NOEXCEPT->const value_type * {
     return std::addressof(my_value);
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD AC_FLATTEN inline constexpr base_type
-  as_status(this auto &&self) noexcept {
+  as_status(this auto &&self) AC_NOEXCEPT {
     return static_cast<std::remove_reference_t<decltype(self)>::base_type>(
         self);
   }
 #  else
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() & noexcept {
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() & AC_NOEXCEPT {
     return static_cast<base_type &>(*this);
   }
   AC_NODISCARD AC_FLATTEN inline constexpr base_type
-  as_status() const & noexcept {
+  as_status() const &AC_NOEXCEPT {
     return static_cast<const base_type &>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() && noexcept {
+  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() &&
+      AC_NOEXCEPT {
     return static_cast<base_type &&>(*this);
   }
 #  endif
@@ -741,7 +742,7 @@ public:
   }
 #  endif
   /// @deprecated just uses operator=(StatusOr &&that) instead.
-  [[clang::reinitializes]] inline auto reset(Ty &&value = {}) noexcept {
+  [[clang::reinitializes]] inline auto reset(Ty &&value = {}) AC_NOEXCEPT {
     my_value = std::move(value);
     my_code = kOk;
     my_message.clear();
@@ -771,103 +772,103 @@ private:
   value_type my_value;
 };
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-OkStatus(string_view message = "") noexcept {
+OkStatus(string_view message = "") AC_NOEXCEPT {
   return {Status::kOk, message};
 }
 
 // New overloads for other status codes using string_view messages:
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-Cancelled(string_view message = "") noexcept {
+Cancelled(string_view message = "") AC_NOEXCEPT {
   return {Status::kCancelled, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnknownError(string_view message = "") noexcept {
+UnknownError(string_view message = "") AC_NOEXCEPT {
   return {Status::kUnknown, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InvalidArgumentError(string_view message = "") noexcept {
+InvalidArgumentError(string_view message = "") AC_NOEXCEPT {
   return {Status::kInvalidArgument, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DeadlineExceededError(string_view message = "") noexcept {
+DeadlineExceededError(string_view message = "") AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-NotFoundError(string_view message = "") noexcept {
+NotFoundError(string_view message = "") AC_NOEXCEPT {
   return {Status::kNotFound, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AlreadyExistsError(string_view message = "") noexcept {
+AlreadyExistsError(string_view message = "") AC_NOEXCEPT {
   return {Status::kAlreadyExists, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-PermissionDeniedError(string_view message = "") noexcept {
+PermissionDeniedError(string_view message = "") AC_NOEXCEPT {
   return {Status::kPermissionDenied, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ResourceExhaustedError(string_view message = "") noexcept {
+ResourceExhaustedError(string_view message = "") AC_NOEXCEPT {
   return {Status::kResourceExhausted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-FailedPreconditionError(string_view message = "") noexcept {
+FailedPreconditionError(string_view message = "") AC_NOEXCEPT {
   return {Status::kFailedPrecondition, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-AbortedError(string_view message = "") noexcept {
+AbortedError(string_view message = "") AC_NOEXCEPT {
   return {Status::kAborted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-OutOfRangeError(string_view message = "") noexcept {
+OutOfRangeError(string_view message = "") AC_NOEXCEPT {
   return {Status::kOutOfRange, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnimplementedError(string_view message = "") noexcept {
+UnimplementedError(string_view message = "") AC_NOEXCEPT {
   return {Status::kUnimplemented, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-InternalError(string_view message = "") noexcept {
+InternalError(string_view message = "") AC_NOEXCEPT {
   return {Status::kInternal, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnavailableError(string_view message = "") noexcept {
+UnavailableError(string_view message = "") AC_NOEXCEPT {
   return {Status::kUnavailable, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-DataLossError(string_view message = "") noexcept {
+DataLossError(string_view message = "") AC_NOEXCEPT {
   return {Status::kDataLoss, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-UnauthenticatedError(string_view message = "") noexcept {
+UnauthenticatedError(string_view message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ReturnMe(string_view message = "") noexcept {
+ReturnMe(string_view message = "") AC_NOEXCEPT {
   return {Status::kReturning, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-ParseError(string_view message = "") noexcept {
+ParseError(string_view message = "") AC_NOEXCEPT {
   return {Status::kParseError, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static AC_CONSTEXPR20 Status
-LexError(string_view message = "") noexcept {
+LexError(string_view message = "") AC_NOEXCEPT {
   return {Status::kLexError, message};
 }
 

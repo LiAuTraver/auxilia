@@ -8,6 +8,7 @@ cc_library(
         "/std:c++latest",
         "/Zc:preprocessor",
         "/Zc:__cplusplus",
+        "/wd4068",
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],

@@ -202,7 +202,6 @@ inline bool _is_debugger_present() noexcept {
 #endif
 }
 } // namespace accat::auxilia::detail
-
 #define AC_UTILS_DEBUG_BREAK                                                   \
   do {                                                                         \
     if (::accat::auxilia::detail::_is_debugger_present()) {                    \
@@ -237,16 +236,24 @@ inline bool _is_debugger_present() noexcept {
                      #x,                                                       \
                      (_msg_),                                                  \
                      AC_UTILS_STACKTRACE);
-
-#  define AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)                \
-    AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                            \
-    if ((_cond_))                                                              \
-      ;                                                                        \
-    else {                                                                     \
-      AC_UTILS_PRINT_ERROR_MSG_IMPL_WITH_MSG(_cond_, _msg_)                    \
-      AC_UTILS_DEBUG_BREAK                                                     \
-    }
-
+#  if defined(GTEST_API_) && defined(__cpp_exceptions) && __cpp_exceptions
+#    define AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)              \
+      AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                          \
+      if ((_cond_))                                                            \
+        ;                                                                      \
+      else {                                                                   \
+        throw std::runtime_error(_msg_);                                       \
+      }
+#  else
+#    define AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)              \
+      AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                          \
+      if ((_cond_))                                                            \
+        ;                                                                      \
+      else {                                                                   \
+        AC_UTILS_PRINT_ERROR_MSG_IMPL_WITH_MSG(_cond_, _msg_)                  \
+        AC_UTILS_DEBUG_BREAK                                                   \
+      }
+#  endif
 #  define AC_UTILS_RUNTIME_REQUIRE_IMPL(_cond_, ...)                           \
     AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                    \
         _cond_ __VA_OPT__(, ::fmt::format(__VA_ARGS__)))
@@ -256,8 +263,8 @@ inline bool _is_debugger_present() noexcept {
 
 #  define AC_UTILS_PRECONDITION(...) AC_UTILS_RUNTIME_REQUIRE_IMPL(__VA_ARGS__)
 #  define AC_UTILS_POSTCONDITION(...) AC_UTILS_RUNTIME_REQUIRE_IMPL(__VA_ARGS__)
-#  define AC_UTILS_NOEXCEPT_IF(...) // nothing
-#  define AC_UTILS_NOEXCEPT         // nothing
+#  define AC_NOEXCEPT_IF(...) // nothing
+#  define AC_NOEXCEPT         // nothing
 #else
 // if debug was turned off, do nothing.
 #  define AC_UTILS_RUNTIME_ASSERT(...) (void)0;
@@ -266,8 +273,8 @@ inline bool _is_debugger_present() noexcept {
 #  define AC_UTILS_DEBUG_LOGGING_SETUP(...) (void)0;
 #  define AC_UTILS_DEBUG_BLOCK []() -> void
 #  define AC_UTILS_DEBUG_ONLY(...)
-#  define AC_UTILS_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
-#  define AC_UTILS_NOEXCEPT noexcept
+#  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
+#  define AC_NOEXCEPT noexcept
 #  define AC_UTILS_DBG_BREAK (void)0;
 #endif
 /// @def AC_SPDLOG_INITIALIZATION(_exec_, _log_level_) initializes the

@@ -22,7 +22,6 @@ concept Variantable = requires {
 /// @tparam Ty the type of the value
 /// @remarks similiar to Microsoft's @link std::_SMF_control @endlink class,
 /// which was used in @link std::optional @endlink
-// FIXME: not working
 template <typename Ty>
 concept Storable = std::conjunction_v<std::is_default_constructible<Ty>,
                                       std::is_nothrow_destructible<Ty>,
