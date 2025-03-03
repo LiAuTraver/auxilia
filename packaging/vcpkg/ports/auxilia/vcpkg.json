@@ -1,0 +1,19 @@
+{
+  "name": "auxilia",
+  "version": "1.0.1",
+  "description": "utility library for C++",
+  "homepage": "https://www.example.com",
+  "license": "Apache-2.0",
+  "dependencies": [
+    "fmt",
+    "spdlog",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
