@@ -106,9 +106,7 @@ public:
     })
                       : "invalid state"sv;
   }
-  auto index() const noexcept {
-    return my_variant.index();
-  }
+  auto index() const noexcept { return my_variant.index(); }
   template <typename... Args>
     requires requires {
       std::declval<variant_type>().template emplace<Args...>(
@@ -134,18 +132,29 @@ public:
     return my_variant.template emplace<Args>();
   }
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
-  constexpr auto get(this auto &&self) noexcept -> decltype(auto) {
-    return (self.my_variant);
+  template <typename Ty>
+  inline constexpr auto get(this auto &&self) noexcept(false)
+      -> decltype(auto) {
+    return std::get<Ty>(self.my_variant);
+  }
+  template <typename Ty>
+  inline constexpr auto get_if(this auto &&self) noexcept -> decltype(auto) {
+    return std::get_if<Ty>(&self.my_variant);
   }
 #else
-  constexpr auto get() noexcept -> decltype(auto) {
-    return my_variant;
+  template <typename Ty> inline constexpr auto get() noexcept(false) {
+    return std::get<Ty>(my_variant);
   }
-  constexpr auto get() const noexcept -> decltype(auto) {
-    return my_variant;
+  template <typename Ty> inline constexpr auto get_if() noexcept {
+    return std::get_if<Ty>(&my_variant);
+  }
+  template <typename Ty> inline constexpr auto get_if() const noexcept {
+    return std::get_if<Ty>(&my_variant);
+  }
+  template <typename Ty> inline constexpr auto get_if() const noexcept {
+    return std::get_if<Ty>(&my_variant);
   }
 #endif
-
   constexpr auto swap(Variant &that) noexcept(
       std::conjunction_v<std::is_nothrow_move_constructible<Types...>,
                          std::is_nothrow_swappable<Types...>>) -> Variant & {
@@ -174,8 +183,12 @@ public:
   }
   auto underlying_string(const FormatPolicy &format_policy =
                              FormatPolicy::kDefault) const -> string_type {
-    return this->visit([&](const auto &value) -> string_type
-                       { return value.to_string(format_policy); });
+    return this->visit([&](const auto &value) -> string_type {
+      return value.to_string(format_policy);
+    });
+  }
+  template <typename Ty> inline auto is_type() const noexcept -> bool {
+    return std::holds_alternative<Ty>(my_variant);
   }
 
 private:
@@ -183,13 +196,23 @@ private:
 
 private:
   inline bool is_valid() const noexcept {
-    auto ans = my_variant.index() != std::variant_npos;
-    return ans;
+    return my_variant.index() != std::variant_npos;
   }
 
 public:
   constexpr auto to_string(const FormatPolicy &format_policy) const
       -> string_type {
+    return getTypedStrImpl(format_policy);
+  }
+  constexpr auto to_string_view(const FormatPolicy &format_policy) const
+      -> string_view_type {
+    return getTypedStrImpl(format_policy);
+  }
+
+private:
+  constexpr auto
+  getTypedStrImpl(const FormatPolicy &format_policy) const noexcept -> const
+      char * {
 #ifdef __cpp_rtti
     if (format_policy == FormatPolicy::kDefault) {
       return typeid(decltype(*this)).name();
@@ -205,51 +228,5 @@ public:
     return __PRETTY_FUNCTION__;
 #endif
   }
-  constexpr auto to_string_view(const FormatPolicy &format_policy) const
-      -> string_view_type {
-#ifdef __cpp_rtti
-    if (format_policy == FormatPolicy::kDefault) {
-      // ditto
-      return typeid(decltype(*this)).name();
-    } else if (format_policy == FormatPolicy::kDetailed) {
-      return typeid(decltype(*this))
-#  if _WIN32
-          .raw_name();
-#  else
-          .name();
-#  endif
-    }
-#else
-    return __PRETTY_FUNCTION__;
-#endif
-  }
-
-private:
-  /// @brief get the value of the variant; a wrapper around @link std::get_if
-  /// @endlink
-  template <class Ty, class... MyTypes>
-  friend inline constexpr auto get_if(const Variant<MyTypes...> *v) noexcept;
-  /// @brief get the value of the variant; a wrapper around @link std::get
-  /// @endlink
-  template <class Ty, class... MyTypes>
-  friend inline auto get(const Variant<MyTypes...> &v) -> decltype(auto);
 };
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Waddress-of-temporary"
-/// @brief check if the variant holds a specific type;
-///  a wrapper around @link std::holds_alternative @endlink
-template <class Ty, class... MyTypes>
-inline constexpr auto holds_alternative(const Variant<MyTypes...> &v) noexcept {
-  return std::holds_alternative<Ty>(v.get());
-}
-template <class Ty, class... MyTypes>
-inline auto get(const Variant<MyTypes...> &v) -> decltype(auto) {
-  return v.is_valid() ? std::get<Ty>(v.get()) : Ty{};
-}
-template <class Ty, class... MyTypes>
-[[nodiscard]]
-inline constexpr auto get_if(const Variant<MyTypes...> *v) noexcept {
-  return v->is_valid() ? std::get_if<Ty>(&v->get()) : nullptr;
-}
-#pragma clang diagnostic pop
 } // namespace accat::auxilia

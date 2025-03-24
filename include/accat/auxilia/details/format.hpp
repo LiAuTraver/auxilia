@@ -94,8 +94,8 @@ struct Printable;
 struct Viewable;
 template <typename Ty>
   requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
-bool is_integer(Ty &&value) noexcept {
-  [[clang::musttail]] return std::trunc(std::forward<Ty>(value)) == value;
+inline bool is_integer(Ty &&value) noexcept {
+  return std::trunc(std::forward<Ty>(value)) == value;
 }
 template <typename... Ts> struct match : Ts... {
   using Ts::operator()...;
@@ -118,7 +118,7 @@ protected:
     requires std::is_base_of_v<Printable, T>
   [[nodiscard]]
   friend auto operator<<(std::ostream &os, const T &p) -> std::ostream & {
-    return os << p.to_string();
+    return os << p.to_string(FormatPolicy::kDefault);
   }
   template <typename T>
     requires std::is_base_of_v<Printable, T>
