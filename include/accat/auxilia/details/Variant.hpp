@@ -106,7 +106,9 @@ public:
     })
                       : "invalid state"sv;
   }
-  auto index() const noexcept { return my_variant.index(); }
+  auto index() const noexcept {
+    return my_variant.index();
+  }
   template <typename... Args>
     requires requires {
       std::declval<variant_type>().template emplace<Args...>(
@@ -228,5 +230,14 @@ private:
     return __PRETTY_FUNCTION__;
 #endif
   }
+  template <typename Callable, typename... Variants>
+  friend inline constexpr auto visit(Callable &&callable, Variants &&...vs)
+      -> decltype(auto);
 };
+template <typename Callable, typename... Variants>
+inline constexpr auto visit(Callable &&callable, Variants &&...vs)
+    -> decltype(auto) {
+  return std::visit(std::forward<Callable>(callable),
+                    std::forward<Variants>(vs).my_variant...);
+}
 } // namespace accat::auxilia
