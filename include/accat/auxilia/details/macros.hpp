@@ -6,8 +6,7 @@
 #  error "Bad user. Bad code."
 #endif
 
-// support at least C++20
-#if __cplusplus < 202002L
+#if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
 #  error "This library requires at least C++20."
 #endif
 
@@ -173,7 +172,6 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 #  pragma warning(disable : 4716) // must return a value
 #  pragma warning(disable : 4530) // /EHsc
 #else
-#  include <csignal>
 #  define AC_FORCEINLINE inline
 #  define AC_UTILS_DEBUG_FUNCTION_NAME __func__
 #endif
@@ -184,11 +182,12 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 #elif defined(_MSC_VER)
 #  define AC_UTILS_DEBUG_BREAK_IMPL_ __debugbreak();
 #else
+#  include <csignal>
 #  define AC_UTILS_DEBUG_BREAK_IMPL_ raise(SIGTRAP);
 #endif
 
-extern "C"
 #ifdef _WIN32
+extern "C"
     __declspec(dllimport) int __stdcall IsDebuggerPresent();
 #endif
 
