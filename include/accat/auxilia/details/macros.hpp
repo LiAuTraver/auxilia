@@ -2,10 +2,6 @@
 
 #include "./variadic-inl.h"
 
-#if defined(min) || defined(max)
-#  error "Bad user. Bad code."
-#endif
-
 #if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
 #  error "This library requires at least C++20."
 #endif

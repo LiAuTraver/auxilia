@@ -1,11 +1,6 @@
 #pragma once
 
 #include "./config.hpp"
-
-#if defined(min) || defined(max)
-#  error "Bad user. Bad code."
-#endif
-
 namespace accat::auxilia {
 #ifdef __SIZEOF_INT128__
 using uint128_t = __uint128_t;
