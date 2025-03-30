@@ -71,6 +71,7 @@ using ::std::format;
 using ::std::format_to;
 using ::std::print;
 using ::std::println;
+using ::std::format_string;
 
 // compatible with fmt::text_style, for std::format does not support it
 template <class... T>

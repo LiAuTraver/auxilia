@@ -305,16 +305,12 @@ public:
   inline AC_CONSTEXPR20 explicit operator bool() const AC_NOEXCEPT {
     return this->ok();
   }
-  AC_NODISCARD constexpr bool ok() const AC_NOEXCEPT {
-    return my_code == kOk;
-  }
+  AC_NODISCARD constexpr bool ok() const AC_NOEXCEPT { return my_code == kOk; }
   AC_NODISCARD AC_CONSTEXPR20 bool is_return() const AC_NOEXCEPT {
     return my_code == kReturning;
   }
   AC_NODISCARD
-  Code code() const AC_NOEXCEPT {
-    return my_code;
-  }
+  Code code() const AC_NOEXCEPT { return my_code; }
   AC_NODISCARD
   auto raw_code() const AC_NOEXCEPT {
     return static_cast<std::underlying_type_t<Code>>(my_code);
@@ -753,7 +749,7 @@ public:
   auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
       -> string_type {
     if (!this->ok())
-      return fmt::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}"
+      return auxilia::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}"
                          " value: {}",
                          typeid(Ty).name(),
                          my_code,
@@ -764,7 +760,7 @@ public:
       return my_value.to_string(policy);
 
     else
-      return fmt::format("StatusOr<{}>. Type is unformattable.",
+      return auxilia::format("StatusOr<{}>. Type is unformattable.",
                          typeid(Ty).name());
   }
 
@@ -880,17 +876,144 @@ OkStatus(auxilia::format_string<Args...> fmt, Args &&...args) {
 }
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+Cancelled(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kCancelled,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnknownError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnknown,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InvalidArgumentError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kInvalidArgument,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DeadlineExceededError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kDeadlineExceeded,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+NotFoundError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kNotFound,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AlreadyExistsError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kAlreadyExists,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+PermissionDeniedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kPermissionDenied,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ResourceExhaustedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kResourceExhausted,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+FailedPreconditionError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kFailedPrecondition,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+AbortedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kAborted,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+OutOfRangeError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kOutOfRange,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnimplementedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnimplemented,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+InternalError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kInternal,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnavailableError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnavailable,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+DataLossError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kDataLoss,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+UnauthenticatedError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kUnauthenticated,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ReturnMe(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kReturning,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+ParseError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kParseError,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
+LexError(auxilia::format_string<Args...> fmt, Args &&...args) {
+  return {Status::kLexError,
+          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
+}
+#  if __has_include(<fmt/format.h>)
+template <typename... Args>
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 OkStatus(const fmt::text_style &ts,
          fmt::format_string<Args...> fmt,
          Args &&...args) {
   return {Status::kOk,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-Cancelled(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kCancelled,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -904,25 +1027,11 @@ Cancelled(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-UnknownError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnknown,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 UnknownError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
   return {Status::kUnknown,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-InvalidArgumentError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kInvalidArgument,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -936,25 +1045,11 @@ InvalidArgumentError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-DeadlineExceededError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kDeadlineExceeded,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 DeadlineExceededError(const fmt::text_style &ts,
                       fmt::format_string<Args...> fmt,
                       Args &&...args) {
   return {Status::kDeadlineExceeded,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-NotFoundError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kNotFound,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -968,25 +1063,11 @@ NotFoundError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-AlreadyExistsError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kAlreadyExists,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 AlreadyExistsError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
   return {Status::kAlreadyExists,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-PermissionDeniedError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kPermissionDenied,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1000,25 +1081,11 @@ PermissionDeniedError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-ResourceExhaustedError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kResourceExhausted,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 ResourceExhaustedError(const fmt::text_style &ts,
                        fmt::format_string<Args...> fmt,
                        Args &&...args) {
   return {Status::kResourceExhausted,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-FailedPreconditionError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kFailedPrecondition,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1032,25 +1099,11 @@ FailedPreconditionError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-AbortedError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kAborted,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 AbortedError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
   return {Status::kAborted,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-OutOfRangeError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kOutOfRange,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1064,25 +1117,11 @@ OutOfRangeError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-UnimplementedError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnimplemented,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 UnimplementedError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
   return {Status::kUnimplemented,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-InternalError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kInternal,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1096,25 +1135,11 @@ InternalError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-UnavailableError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnavailable,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 UnavailableError(const fmt::text_style &ts,
                  fmt::format_string<Args...> fmt,
                  Args &&...args) {
   return {Status::kUnavailable,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-DataLossError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kDataLoss,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1128,25 +1153,11 @@ DataLossError(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-UnauthenticatedError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnauthenticated,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 UnauthenticatedError(const fmt::text_style &ts,
                      fmt::format_string<Args...> fmt,
                      Args &&...args) {
   return {Status::kUnauthenticated,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-ReturnMe(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kReturning,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1160,25 +1171,11 @@ ReturnMe(const fmt::text_style &ts,
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-ParseError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kParseError,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 ParseError(const fmt::text_style &ts,
            fmt::format_string<Args...> fmt,
            Args &&...args) {
   return {Status::kParseError,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
-LexError(auxilia::format_string<Args...> fmt, Args &&...args) {
-  return {Status::kLexError,
-          auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
@@ -1189,6 +1186,7 @@ LexError(const fmt::text_style &ts,
   return {Status::kLexError,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
 }
+#  endif // __has_include(<fmt/format.h>)
 
 #  define AC_RETURN_IF_NOT(_status_)                                           \
     AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                            \

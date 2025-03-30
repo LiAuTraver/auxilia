@@ -34,6 +34,7 @@ import std;
 #  include <cstdint>
 #  include <filesystem>
 #  include <fstream>
+#  include <functional>
 #  include <future>
 #  include <ios>
 #  include <iosfwd>
@@ -63,6 +64,7 @@ import std;
 #  else
 #    define _In_
 #    define _Inout_
+#    define _In_opt_
 #    define _Out_
 #    define _Outptr_
 #    define _Outptr_result_maybenull_

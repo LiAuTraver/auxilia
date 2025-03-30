@@ -266,7 +266,7 @@ inline bool _is_debugger_present() noexcept {
 #  define AC_UTILS_PRECONDITION(...) (void)0;
 #  define AC_UTILS_POSTCONDITION(...) (void)0;
 #  define AC_UTILS_DEBUG_LOGGING_SETUP(...) (void)0;
-#  define AC_UTILS_DEBUG_BLOCK []() -> void
+#  define AC_UTILS_DEBUG_BLOCK [&]() -> void
 #  define AC_UTILS_DEBUG_ONLY(...)
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept
