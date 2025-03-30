@@ -1,24 +1,21 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
+project(auxilia
+VERSION 1.0.0
+DESCRIPTION "A collection of utilities for C++"
+HOMEPAGE_URL "https://github.com/liautraver/auxilia"
+LANGUAGES CXX
+)
+
 if(NOT DEFINED PROJECT_NAME)
   set(AUXILIA_IS_TOP_LEVEL ON)
 else()
   set(AUXILIA_IS_TOP_LEVEL OFF)
 endif()
 
-project(auxilia
-  VERSION 1.0.0
-  DESCRIPTION "A collection of utilities for C++"
-  HOMEPAGE_URL "https://github.com/liautraver/auxilia"
-  LANGUAGES CXX
-)
-
 option(AUXILIA_INSTALL "Include an install target" ${AUXILIA_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_TESTS "Build tests" ${AUXILIA_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_SAMPLES "Build samples" OFF)
-
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
 
 add_library(auxilia INTERFACE)
 add_library(auxilia::auxilia ALIAS auxilia)
@@ -38,6 +35,9 @@ if(AUXILIA_BUILD_TESTS)
 endif()
 
 if(AUXILIA_INSTALL)
+  include(GNUInstallDirs)
+  include(CMakePackageConfigHelpers)
+
   install(
     TARGETS auxilia EXPORT auxiliaConfig
   )
@@ -112,7 +112,7 @@ if(AUXILIA_INSTALL)
   set(CPACK_DEBIAN_COMPRESSION_TYPE "xz")
 
   set(PKG_CONFIG_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc")
-  
+
   configure_file("${PackagingTemplatesDir}/pkgconfig.pc.in" "${PKG_CONFIG_FILE_NAME}" @ONLY)
   install(FILES "${PKG_CONFIG_FILE_NAME}"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
