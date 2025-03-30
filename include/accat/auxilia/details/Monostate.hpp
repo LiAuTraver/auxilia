@@ -36,12 +36,12 @@ public:
   to_string_view(const FormatPolicy &) const -> string_view_type {
     return {};
   }
-  friend inline consteval auto operator==(const Monostate &,
-                                          const Monostate &) noexcept -> bool {
+  friend inline /* not consteval */ constexpr auto
+  operator==(const Monostate &, const Monostate &) noexcept -> bool {
     return true;
   }
-  friend inline consteval auto operator<=>(const Monostate &,
-                                           const Monostate &) noexcept
+  friend inline /* not consteval */ constexpr auto
+  operator<=>(const Monostate &, const Monostate &) noexcept
       -> std::strong_ordering {
     return std::strong_ordering::equal;
   }
