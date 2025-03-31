@@ -274,7 +274,7 @@ public:
     my_code = that.my_code;
     my_message = std::move(that.my_message);
     that.my_code = kMovedFrom;
-    that.my_message = "status accessed after moved from."s;
+    that.my_message = "status accessed after moved from.";
     return *this;
   }
   /// @brief Logical OR operator.
@@ -298,7 +298,7 @@ public:
       return *this;
     return that;
   }
-  constexpr ~Status() = default;
+  inline constexpr ~Status() = default;
 
 public:
   AC_NODISCARD
@@ -382,26 +382,26 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
   inline value_type value(this auto &&self) {
-    contract_assert(self.ok() or self.code() == Status::kReturning,
+    contract_assert(self.ok() or self.is_return(),
                     "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
 #  else
   AC_NODISCARD
   inline value_type value() & {
-    contract_assert(ok() or code() == Status::kReturning,
+    contract_assert(ok() or is_return(),
                     "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
   inline value_type value() const & {
-    contract_assert(ok() or code() == Status::kReturning,
+    contract_assert(ok() or is_return(),
                     "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
   inline value_type value() && {
-    contract_assert(ok() or code() == Status::kReturning,
+    contract_assert(ok() or is_return(),
                     "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
@@ -430,29 +430,29 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
-  inline constexpr value_type operator*(this auto &&self) AC_NOEXCEPT {
-    precondition(self.ok() or self.code() == Status::kReturning,
+  inline constexpr auto &operator*(this auto &&self) AC_NOEXCEPT {
+    precondition(self.ok() or self.is_return(),
                  "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
-#  else
   AC_NODISCARD
-  inline constexpr value_type operator*() & AC_NOEXCEPT {
-    precondition(ok() or code() == Status::kReturning,
-                 "Cannot dereference a status that is not OK.");
-    return my_value;
-  }
-  AC_NODISCARD
-  inline constexpr value_type operator*() const &AC_NOEXCEPT {
-    precondition(ok() or code() == Status::kReturning,
-                 "Cannot dereference a status that is not OK.");
-    return my_value;
-  }
-  AC_NODISCARD
-  inline constexpr value_type operator*() && AC_NOEXCEPT {
-    precondition(ok() or code() == Status::kReturning,
+  inline constexpr auto &&operator*() && AC_NOEXCEPT {
+    precondition(ok() or is_return(),
                  "Cannot dereference a status that is not OK.");
     return std::move(my_value);
+  }
+#  else
+  AC_NODISCARD
+  inline constexpr value_type &operator*() & AC_NOEXCEPT {
+    precondition(ok() or is_return(),
+                 "Cannot dereference a status that is not OK.");
+    return my_value;
+  }
+  AC_NODISCARD
+  inline constexpr const value_type &operator*() const &AC_NOEXCEPT {
+    precondition(ok() or is_return(),
+                 "Cannot dereference a status that is not OK.");
+    return my_value;
   }
 #  endif
 
@@ -474,21 +474,19 @@ public:
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type
-  as_status(this auto &&self) AC_NOEXCEPT {
-    return static_cast<std::remove_reference_t<decltype(self)>::base_type>(
-        self);
+  AC_NODISCARD AC_FLATTEN inline constexpr auto
+  as_status(this auto &&self) AC_NOEXCEPT -> decltype(auto) {
+    return (static_cast<base_type>(self));
   }
 #  else
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() & AC_NOEXCEPT {
+  AC_NODISCARD AC_FLATTEN inline constexpr auto as_status() & AC_NOEXCEPT {
     return static_cast<base_type &>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type
+  AC_NODISCARD AC_FLATTEN inline constexpr const auto
   as_status() const &AC_NOEXCEPT {
     return static_cast<const base_type &>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr base_type as_status() &&
-      AC_NOEXCEPT {
+  AC_NODISCARD AC_FLATTEN inline constexpr auto as_status() && AC_NOEXCEPT {
     return static_cast<base_type &&>(*this);
   }
 #  endif
@@ -738,7 +736,7 @@ public:
   }
 #  endif
   /// @deprecated just uses operator=(StatusOr &&that) instead.
-  [[clang::reinitializes]] inline auto reset(Ty &&value = {}) AC_NOEXCEPT {
+  [[clang::reinitializes]] inline auto reset(const Ty &value = {}) AC_NOEXCEPT {
     my_value = std::move(value);
     my_code = kOk;
     my_message.clear();
@@ -750,18 +748,21 @@ public:
       -> string_type {
     if (!this->ok())
       return auxilia::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}"
-                         " value: {}",
-                         typeid(Ty).name(),
-                         my_code,
-                         my_message,
-                         my_value);
+                             " value: {}",
+                             typeid(Ty).name(),
+                             my_code,
+                             my_message,
+                             my_value);
 
     else if constexpr (std::is_base_of_v<Printable, Ty>)
       return my_value.to_string(policy);
-
+#  if __has_include(<fmt/format.h>)
+    else if constexpr (fmt::is_formattable<Ty>::value)
+      return fmt::format("{}", my_value);
+#  endif
     else
       return auxilia::format("StatusOr<{}>. Type is unformattable.",
-                         typeid(Ty).name());
+                             typeid(Ty).name());
   }
 
 private:
@@ -1197,4 +1198,4 @@ LexError(const fmt::text_style &ts,
     }
 #  define return_if_not(_status_) AC_RETURN_IF_NOT(_status_)
 } // namespace accat::auxilia
-#endif
+#endif // ACCAT_AUXILIA_STATUS_HPP
