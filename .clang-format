@@ -1,0 +1,66 @@
+IncludeCategories:
+  - Regex: '^<.*\.h>$'
+    Priority: 0
+
+  - Regex: "^<.*>$"
+    Priority: 1
+
+  - Regex: '^<.*\.(hpp|hh)>$'
+    Priority: 2
+
+  - Regex: "^<(fmt|spdlog|magic_enum|absl|folly)/.*>$"
+    Priority: 3
+
+  - Regex: "^<gtest/.*>$"
+    Priority: 4
+
+  - Regex: '^"include/.*"$'
+    Priority: 5
+
+  - Regex: '^".*"$'
+    Priority: 6
+
+IncludeIsMainRegex: "(_test)?$"
+SortIncludes: Never
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+VerilogBreakBetweenInstancePorts: true
+WhitespaceSensitiveMacros:
+  - BOOST_PP_STRINGIZE
+  - CF_SWIFT_NAME
+  - NS_SWIFT_NAME
+  - PP_STRINGIZE
+  - STRINGIZE
+SpacesInParensOptions:
+  InCStyleCasts: false
+  InConditionalStatements: false
+  InEmptyParentheses: false
+  Other: false
+SpacesInSquareBrackets: false
+Standard: Latest
+StatementAttributeLikeMacros:
+  - Q_EMIT
+  - Q_SIGNALS
+  - Q_SIGNAL
+  - Q_SLOTS
+  - Q_SLOT
+  - emit
+  - signals
+  - slots
+StatementMacros:
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+  - dbg_only
+  - dbg_block
+  - dbg_break
+  - dbg
+  - contract_assert
+  - precondition
+  - postcondition
+  - TODO
+InsertNewlineAtEOF: true
+InsertTrailingCommas: Wrapped
+IndentPPDirectives: AfterHash
+BinPackArguments: false
+BinPackParameters: false

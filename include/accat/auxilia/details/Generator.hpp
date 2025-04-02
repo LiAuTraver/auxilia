@@ -48,12 +48,8 @@ private:
           *static_cast<Derived *>(this))};
     }
 
-    std::suspend_always initial_suspend() noexcept {
-      return {};
-    }
-    std::suspend_always final_suspend() noexcept {
-      return {};
-    }
+    std::suspend_always initial_suspend() noexcept { return {}; }
+    std::suspend_always final_suspend() noexcept { return {}; }
 
     std::suspend_always yield_value(const YieldType &value) noexcept {
       static_cast<Derived *>(this)->current_value = std::addressof(value);
@@ -101,9 +97,7 @@ private:
       const YieldType *current_value = nullptr;
       R final_return_value;
     };
-    void return_value(const R &value) noexcept {
-      final_return_value = value;
-    }
+    void return_value(const R &value) noexcept { final_return_value = value; }
   };
   template <typename R>
   struct promise_type_impl<R, true> : public promise_type_base<promise_type> {
@@ -145,16 +139,10 @@ public:
       return *this;
     }
 
-    void operator++(int) {
-      ++*this;
-    }
+    void operator++(int) { ++*this; }
 
-    reference operator*() const {
-      return *handle_.promise().current_value;
-    }
-    pointer operator->() const {
-      return handle_.promise().current_value;
-    }
+    reference operator*() const { return *handle_.promise().current_value; }
+    pointer operator->() const { return handle_.promise().current_value; }
 
     bool operator==(const iterator &other) const noexcept {
       return handle_ == other.handle_;
@@ -182,12 +170,8 @@ public:
       handle_.destroy();
   }
 
-  iterator begin() {
-    return {handle_};
-  }
-  static iterator end() noexcept {
-    return {};
-  }
+  iterator begin() { return {handle_}; }
+  static iterator end() noexcept { return {}; }
   /// @note not a shared resource, like a plain `future::get()`,
   /// which cannot be called multiple times
   auto get() {

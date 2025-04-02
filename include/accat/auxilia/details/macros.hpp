@@ -183,8 +183,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 #endif
 
 #ifdef _WIN32
-extern "C"
-    __declspec(dllimport) int __stdcall IsDebuggerPresent();
+extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
 #endif
 
 namespace accat::auxilia::detail {
@@ -192,8 +191,8 @@ inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
   return ::IsDebuggerPresent();
 #else
-    // not implemented
-    return false;
+  // not implemented
+  return false;
 #endif
 }
 } // namespace accat::auxilia::detail
@@ -403,9 +402,7 @@ struct _accat_utils_defer_helper_struct_ {};
 template <class Fun_> struct _accat_utils_deferrer_ {
   Fun_ f_;
   inline constexpr _accat_utils_deferrer_(Fun_ f_) noexcept : f_(f_) {}
-  inline constexpr ~_accat_utils_deferrer_() noexcept(noexcept(f_())) {
-    f_();
-  }
+  inline constexpr ~_accat_utils_deferrer_() noexcept(noexcept(f_())) { f_(); }
 };
 EXPORT_AUXILIA
 template <class Fun_>

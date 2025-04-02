@@ -106,9 +106,7 @@ public:
     })
                       : "invalid state"sv;
   }
-  auto index() const noexcept {
-    return my_variant.index();
-  }
+  auto index() const noexcept { return my_variant.index(); }
   template <typename... Args>
     requires requires {
       std::declval<variant_type>().template emplace<Args...>(

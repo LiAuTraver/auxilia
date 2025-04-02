@@ -321,7 +321,7 @@ public:
   void ignore_error() const AC_NOEXCEPT {
     if (ok())
       return;
-    contract_assert(ok(), "Ignoring an error status.");
+    dbg(warn, "Ignoring a Status which is not ok: {}", my_message)
   }
 
 protected:
