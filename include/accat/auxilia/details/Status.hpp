@@ -296,7 +296,14 @@ public:
   inline constexpr auto operator&=(const Status &that) -> Status {
     if (!this->ok())
       return *this;
-    return that;
+    *this = that;
+    return *this;
+  }
+  inline constexpr auto operator&=(Status &&that) -> Status {
+    if (!this->ok())
+      return *this;
+    *this = std::move(that);
+    return *this;
   }
   inline constexpr ~Status() = default;
 
