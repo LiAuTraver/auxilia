@@ -142,16 +142,20 @@ public:
     return std::get_if<Ty>(&self.my_variant);
   }
 #else
-  template <typename Ty> inline constexpr auto get() noexcept(false) {
+  template <typename Ty>
+  inline constexpr auto get() noexcept(false) -> decltype(auto) {
     return std::get<Ty>(my_variant);
   }
-  template <typename Ty> inline constexpr auto get_if() noexcept {
+  template <typename Ty>
+  inline constexpr auto get() const noexcept(false) -> decltype(auto) {
+    return std::get<Ty>(my_variant);
+  }
+  template <typename Ty>
+  inline constexpr auto get_if() noexcept -> decltype(auto) {
     return std::get_if<Ty>(&my_variant);
   }
-  template <typename Ty> inline constexpr auto get_if() const noexcept {
-    return std::get_if<Ty>(&my_variant);
-  }
-  template <typename Ty> inline constexpr auto get_if() const noexcept {
+  template <typename Ty>
+  inline constexpr auto get_if() const noexcept -> decltype(auto) {
     return std::get_if<Ty>(&my_variant);
   }
 #endif
