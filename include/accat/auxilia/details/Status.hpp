@@ -5,7 +5,6 @@
 //! @copyright Ancillarycat & The Abseil Authors
 //! @note Part of the contents of this header are derived in part from Google's Abseil Common Libraries.
 
-#include <type_traits>
 #ifndef ACCAT_AUXILIA_STATUS_HPP
 #define ACCAT_AUXILIA_STATUS_HPP
 
