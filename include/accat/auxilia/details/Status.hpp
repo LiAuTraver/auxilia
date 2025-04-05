@@ -5,6 +5,7 @@
 //! @copyright Ancillarycat & The Abseil Authors
 //! @note Part of the contents of this header are derived in part from Google's Abseil Common Libraries.
 
+#include <type_traits>
 #ifndef ACCAT_AUXILIA_STATUS_HPP
 #define ACCAT_AUXILIA_STATUS_HPP
 
@@ -569,13 +570,19 @@ public:
     return std::invoke(std::forward<F>(f));
   }
 #  endif
-
+#  define AC_DOLL_ASSERT(_name_)                                               \
+    static_assert(                                                             \
+        !is_specialization_v<std::invoke_result_t<F, Ty>, StatusOr>,           \
+        "Playing Russian doll with StatusOr is not allowed: `" #_name_ "()` "  \
+        "called to return a StatusOr inside another StatusOr is not "          \
+        "allowed. ");
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename F>
     requires std::is_invocable_v<F, Ty> &&
              (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(this auto &&self, F &&f)
       -> StatusOr<std::invoke_result_t<F, Ty>> {
+    AC_DOLL_ASSERT(transform)
     if (!self.ok()) {
       return {self.as_status()};
     }
@@ -597,6 +604,7 @@ public:
     requires std::is_invocable_v<F, Ty> &&
              (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) & -> StatusOr<std::invoke_result_t<F, Ty>> {
+    AC_DOLL_ASSERT(transform)
     if (!ok()) {
       return {as_status()};
     }
@@ -618,6 +626,7 @@ public:
     requires std::is_invocable_v<F, Ty> &&
              (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) const & -> StatusOr<std::invoke_result_t<F, Ty>> {
+    AC_DOLL_ASSERT(transform)
     if (!ok()) {
       return {as_status()};
     }
@@ -639,6 +648,7 @@ public:
     requires std::is_invocable_v<F, Ty> &&
              (!std::is_void_v<std::invoke_result_t<F, Ty>>)
   auto transform(F &&f) && -> StatusOr<std::invoke_result_t<F, Ty>> {
+    AC_DOLL_ASSERT(transform)
     if (!ok()) {
       return {std::move(*this).as_status()};
     }
@@ -663,6 +673,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
+    AC_DOLL_ASSERT(transform_error)
     if (self.ok()) {
       return self;
     }
@@ -683,6 +694,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) & -> StatusOr<Ty> {
+    AC_DOLL_ASSERT(transform_error)
     if (ok()) {
       return *this;
     }
@@ -704,6 +716,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) const & -> StatusOr<Ty> {
+    AC_DOLL_ASSERT(transform_error)
     if (ok()) {
       return *this;
     }
@@ -725,6 +738,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(F &&f) && -> StatusOr<Ty> {
+    AC_DOLL_ASSERT(transform_error)
     if (ok()) {
       return std::move(*this);
     }
@@ -757,7 +771,7 @@ public:
       return auxilia::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}"
                              " value: {}",
                              typeid(Ty).name(),
-                             my_code,
+                             std::to_underlying(my_code),
                              my_message,
                              my_value);
 

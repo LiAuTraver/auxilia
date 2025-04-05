@@ -97,6 +97,14 @@ template <const auto &Str> struct array_size_t {
 template <const auto &Str>
 using array_size_v = typename array_size_t<Str>::size;
 
+template <class Ty, template <class...> class Template>
+constexpr bool is_specialization_v = false;
+template <template <class...> class Template, class... _Types>
+constexpr bool is_specialization_v<Template<_Types...>, Template> = true;
+template <class Ty, template <class...> class Template>
+struct is_specialization
+    : std::bool_constant<is_specialization_v<Ty, Template>> {};
+
 /// @brief shorthand of static_cast. sugar is all you need :)
 template <typename To, typename From>
 inline constexpr To as(From &&from) noexcept {
