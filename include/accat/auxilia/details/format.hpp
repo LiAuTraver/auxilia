@@ -23,8 +23,8 @@ inline auto println(fmt::format_string<T...> fmt, T &&...args) {
       stdout, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
-inline void println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
-  fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+inline auto println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
+  return fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... T>
 inline auto
@@ -77,13 +77,13 @@ using ::std::println;
 template <class... T>
 inline auto println(const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(fmt, std::forward<decltype(args)>(args)...);
-  putchar('\n');
+  ::putchar('\n');
 }
 template <class... T>
 inline auto
 println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
   std::print(f, fmt, std::forward<decltype(args)>(args)...);
-  putchar('\n');
+  ::putchar('\n');
 }
 #endif
 } // namespace accat::auxilia
