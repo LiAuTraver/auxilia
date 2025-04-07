@@ -28,6 +28,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Property.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\random.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Status.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\StatusOr.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\variadic-inl.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Variant.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\macros.hpp" />

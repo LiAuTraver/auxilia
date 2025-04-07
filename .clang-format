@@ -45,6 +45,8 @@ StatementAttributeLikeMacros:
   - Q_SIGNAL
   - Q_SLOTS
   - Q_SLOT
+  - AC_NOEXCEPT
+  - AC_CONST_CALL_OPERATOR
   - emit
   - signals
   - slots
@@ -59,6 +61,7 @@ StatementMacros:
   - precondition
   - postcondition
   - TODO
+  - AC_DOLL_CHECK
 InsertNewlineAtEOF: true
 InsertTrailingCommas: Wrapped
 IndentPPDirectives: AfterHash

@@ -158,7 +158,7 @@ template <typename Derived>
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
   constexpr auto parse(format_parse_context &ctx) const noexcept {
-    [[clang::musttail]] return ctx.begin();
+    return ctx.begin();
   }
   template <typename FormatContext>
   constexpr auto format(const Derived &p, FormatContext &ctx) const {

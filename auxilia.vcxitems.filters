@@ -39,6 +39,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\Status.hpp">
       <Filter>Details</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\StatusOr.hpp">
+      <Filter>Details</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)include\accat\auxilia\details\bit.hpp">
       <Filter>Details</Filter>
     </ClInclude>

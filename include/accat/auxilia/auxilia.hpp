@@ -17,6 +17,7 @@
 #include "./details/Property.hpp"
 #include "./details/random.hpp"
 #include "./details/Status.hpp"
+#include "./details/StatusOr.hpp"
 #include "./details/Variant.hpp"
 #include "./details/bit.hpp"
 #include "./details/format.hpp"

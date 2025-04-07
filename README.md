@@ -54,25 +54,34 @@ if (auto maybeResult = func()) {
     std::println("Error: {}", maybeResult.message());
 }
 
-// or conveniently if only printing the result is needed:
+// or conveniently if only printing the result:
 std::println("Result: {}", func());
 
 // or more idiomatically,
 func()
   .and_then([](auto&& result) {
     // do something with the result
-    return a_new_value;
-}).or_else([](auto&& error) {
+    return new_status_or_with_anything;
+  })
+  .or_else([](auto&& error) {
     // handle the error
-    return a_new_value;
-});
+    return new_status_or;
+  });
 
 // additional monadic operations:
-func().transform([](auto&& result) {
+func()
+  .transform([](auto&& result) {
+    return anything;
+  })
+  .transform_error([](auto&& error) {
+    return new_status;
+  })
+  .transform([](auto&& result) {
     // no need to return a value, implicitly returns a `Monostate`(inside a `StatusOr`)
-}).transform_error([](auto&& error) {
-    // ditto
-});
+  })
+  .transform_error([](auto&& error) {
+    // no need to return a value, which means the error is not modified and will propagate
+  });
 ```
 - `Generator`: Similar to `std::generator` in C++23, used in some platforms where C++23's `std::generator` is not fully supported.
 
