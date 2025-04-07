@@ -100,14 +100,14 @@ if (v.is_type<std::string>()) {
 }
 v = Monostate{}; // reset to monostate, or v.reset() 
 v.visit(match(
-    [](const Monostate&) { std::println("monostate"); },
     [](const int& i) { std::println("int: {}", i); },
-    [](const std::string& s) { std::println("string: {}", s); }
+    [](const std::string& s) { std::println("string: {}", s); },
+    [](const auto&) { std::println("don't care"); } // catch-all
 ));
 // or when multiple variants are needed:
 accat::auxilia::visit(pattern, v1, v2, v3, ...);
 // printing:
-std::println("{}", v); // prints "accat::auxilia::Variant<accat::auxilia::Monostate, ...>"
+std::println("{}", v); // prints "class accat::auxilia::Variant<struct accat::auxilia::Monostate,int,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > "
 std::println("{}", v.underlying_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
 ```
 
@@ -117,7 +117,7 @@ std::println("{}", v.underlying_string()); // prints "Monostate" or "1" or "Hell
 ```cpp
 struct MyStruct : Printable {
   // no need to override
-  auto to_string(const accat::auxilia::FormatPolicy& policy) const -> string_type {
+  auto to_string(const accat::auxilia::FormatPolicy& policy = accat::auxilia::FormatPolicy::kDefault) const -> string_type {
     return "a string";
   }
 };

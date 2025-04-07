@@ -187,9 +187,31 @@ public:
   }
   auto underlying_string(const FormatPolicy &format_policy =
                              FormatPolicy::kDefault) const -> string_type {
-    return this->visit([&](const auto &value) -> string_type {
-      return value.to_string(format_policy);
-    });
+    // clang-format off
+    return this->visit(
+      match(
+        [=]<typename T>
+          requires auxilia::formattable<T, string_type::value_type>
+                  (const T &value) -> string_type {
+                    return auxilia::format("{}", value);
+                  },
+        [=]<typename T>
+          requires requires { T::to_string(format_policy); }
+                  (const T &value) -> string_type {
+                    return value.to_string(format_policy);
+                  },
+        [=]<typename T>
+          requires requires { T::to_string(); }
+                  (const T &value) -> string_type { 
+                    return value.to_string(); 
+                  },
+        [=]<typename T>
+                  (const T &value) -> string_type { 
+                    return typeid(value).name(); 
+                  }
+      )
+    );
+    // clang-format on
   }
   template <typename Ty> inline auto is_type() const noexcept -> bool {
     return std::holds_alternative<Ty>(my_variant);
@@ -204,13 +226,20 @@ private:
   }
 
 public:
-  constexpr auto to_string(const FormatPolicy &format_policy) const
+  constexpr auto
+  to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
       -> string_type {
     return getTypedStrImpl(format_policy);
   }
-  constexpr auto to_string_view(const FormatPolicy &format_policy) const
+  constexpr auto to_string_view(
+      const FormatPolicy &format_policy = FormatPolicy::kDefault) const
       -> string_view_type {
     return getTypedStrImpl(format_policy);
+  }
+  friend constexpr auto format_as(
+      const Variant &v,
+      const FormatPolicy &format_policy = FormatPolicy::kDefault) -> string_type {
+    return v.to_string(format_policy);
   }
 
 private:
@@ -228,9 +257,8 @@ private:
           .name(); // g++ doesn't support raw_name()
 #  endif
     }
-#else
-    return __PRETTY_FUNCTION__;
 #endif
+    return __PRETTY_FUNCTION__;
   }
   template <typename Callable, typename... Variants>
   friend inline constexpr auto visit(Callable &&callable, Variants &&...vs)

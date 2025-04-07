@@ -8,6 +8,7 @@ using ::fmt::format;
 using ::fmt::format_string;
 using ::fmt::format_to;
 using ::fmt::print;
+using ::fmt::formattable;
 #  ifdef __clang__
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wcxx-attribute-extension"
@@ -72,6 +73,7 @@ using ::std::format_string;
 using ::std::format_to;
 using ::std::print;
 using ::std::println;
+using ::std::formattable;
 
 // compatible with fmt::text_style, for std::format does not support it
 template <class... T>
