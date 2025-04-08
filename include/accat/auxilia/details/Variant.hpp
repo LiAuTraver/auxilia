@@ -1,18 +1,16 @@
 #pragma once
 
-#include <type_traits>
-#include <utility>
-
 #include "./config.hpp"
 #include "./Monostate.hpp"
 #include "./format.hpp"
+
 EXPORT_AUXILIA
 namespace accat::auxilia {
 /// @brief A simple variant wrapper class around @link std::variant @endlink for
 /// convenience when evaluating expressions, especially when the operation was
 /// `to_string` or check the type's name when debugging.
 /// @note exception-free variant wrapper
-template <typename... Types> class Variant : public Printable, public Viewable {
+template <typename... Types> class Variant : public Printable {
   static_assert(Variantable<Types...>, "Types must be variantable");
 
   using monostate_like_type = std::tuple_element_t<0, std::tuple<Types...>>;
@@ -21,7 +19,7 @@ template <typename... Types> class Variant : public Printable, public Viewable {
 public:
   using variant_type = std::variant<Types...>;
   using string_type = typename Printable::string_type;
-  using string_view_type = typename Viewable::string_view_type;
+  using string_view_type = std::string_view;
 
 public:
   inline constexpr Variant() = default;
@@ -57,7 +55,8 @@ public:
   ~Variant() = default;
 
 public:
-  [[clang::reinitializes]] auto set(Variant &&that = {}) noexcept -> Variant & {
+  [[clang::reinitializes]] auto reset(Variant &&that = {}) noexcept
+      -> Variant & {
     my_variant = std::move(that.my_variant);
     that.my_variant.template emplace<monostate_like_type>();
     return *this;
@@ -66,11 +65,11 @@ public:
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
   template <typename Callable>
   auto visit(this auto &&self, Callable &&callable) -> decltype(auto) {
-    using ReturnType = decltype(std::forward<Callable>(callable)(
-        std::declval<variant_type>()));
+    using ReturnType = decltype(std::visit(std::forward<Callable>(callable),
+                                           std::declval<variant_type>()));
     static_assert(std::is_default_constructible_v<ReturnType> ||
                       std::is_void_v<ReturnType>,
-                  "ReturnType must be default constructible");
+                  "ReturnType must be default constructible or void");
     if constexpr (std::is_void_v<ReturnType>) {
       return std::visit(std::forward<Callable>(callable), self.my_variant);
     } else {
@@ -82,12 +81,28 @@ public:
   }
 #else
   template <typename Callable>
-  auto visit(Callable &&callable) const -> decltype(auto) {
-    using ReturnType = decltype(std::forward<Callable>(callable)(
-        std::declval<variant_type>()));
+  auto visit(Callable &&callable) -> decltype(auto) {
+    using ReturnType = decltype(std::visit(std::forward<Callable>(callable),
+                                           std::declval<variant_type>()));
     static_assert(std::is_default_constructible_v<ReturnType> ||
                       std::is_void_v<ReturnType>,
-                  "ReturnType must be default constructible");
+                  "ReturnType must be default constructible or void");
+    if constexpr (std::is_void_v<ReturnType>) {
+      return std::visit(std::forward<Callable>(callable), my_variant);
+    } else {
+      return is_valid() ? static_cast<ReturnType>(std::visit(
+                              std::forward<Callable>(callable), my_variant))
+                        : ReturnType{};
+    }
+  }
+
+  template <typename Callable>
+  auto visit(Callable &&callable) const -> decltype(auto) {
+    using ReturnType = decltype(std::visit(std::forward<Callable>(callable),
+                                           std::declval<variant_type>()));
+    static_assert(std::is_default_constructible_v<ReturnType> ||
+                      std::is_void_v<ReturnType>,
+                  "ReturnType must be default constructible or void");
     if constexpr (std::is_void_v<ReturnType>) {
       return std::visit(std::forward<Callable>(callable), my_variant);
     } else {
@@ -185,33 +200,28 @@ public:
   constexpr auto empty() const noexcept -> bool {
     return my_variant.index() == 0;
   }
-  auto underlying_string(const FormatPolicy &format_policy =
-                             FormatPolicy::kDefault) const -> string_type {
-    // clang-format off
-    return this->visit(
-      match(
-        [=]<typename T>
-          requires auxilia::formattable<T, string_type::value_type>
-                  (const T &value) -> string_type {
-                    return auxilia::format("{}", value);
-                  },
-        [=]<typename T>
-          requires requires { T::to_string(format_policy); }
-                  (const T &value) -> string_type {
-                    return value.to_string(format_policy);
-                  },
-        [=]<typename T>
-          requires requires { T::to_string(); }
-                  (const T &value) -> string_type { 
-                    return value.to_string(); 
-                  },
-        [=]<typename T>
-                  (const T &value) -> string_type { 
-                    return typeid(value).name(); 
-                  }
-      )
-    );
-    // clang-format on
+  auto
+  to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
+      -> string_type {
+    return this->visit([format_policy](const auto &value) -> string_type {
+      using T = std::decay_t<decltype(value)>;
+
+      if constexpr (requires { T::to_string(format_policy); }) {
+        return value.to_string(format_policy);
+      } else if constexpr (requires { T::to_string(); }) {
+        return value.to_string();
+      } else if constexpr (requires { value->to_string(format_policy); }) {
+        return value.to_string(format_policy);
+      } else if constexpr (requires { value->to_string(); }) {
+        return value.to_string();
+      } else if constexpr (auxilia::formattable<T, string_type::value_type>) {
+        return auxilia::format("{}", value);
+      } else if constexpr (std::is_convertible_v<T, string_type>) {
+        return static_cast<string_type>(value);
+      } else {
+        return typeid(value).name(); // no rtti, compile time type info
+      }
+    });
   }
   template <typename Ty> inline auto is_type() const noexcept -> bool {
     return std::holds_alternative<Ty>(my_variant);
@@ -225,40 +235,12 @@ private:
     return my_variant.index() != std::variant_npos;
   }
 
-public:
-  constexpr auto
-  to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
-      -> string_type {
-    return getTypedStrImpl(format_policy);
-  }
-  constexpr auto to_string_view(
-      const FormatPolicy &format_policy = FormatPolicy::kDefault) const
-      -> string_view_type {
-    return getTypedStrImpl(format_policy);
-  }
-  friend constexpr auto format_as(
-      const Variant &v,
-      const FormatPolicy &format_policy = FormatPolicy::kDefault) -> string_type {
-    return v.to_string(format_policy);
-  }
-
 private:
-  constexpr auto
-  getTypedStrImpl(const FormatPolicy &format_policy) const noexcept -> const
-      char * {
-#ifdef __cpp_rtti
-    if (format_policy == FormatPolicy::kDefault) {
-      return typeid(decltype(*this)).name();
-    } else if (format_policy == FormatPolicy::kDetailed) {
-      return typeid(decltype(*this))
-#  if _WIN32
-          .raw_name();
-#  else
-          .name(); // g++ doesn't support raw_name()
-#  endif
-    }
-#endif
-    return __PRETTY_FUNCTION__;
+  friend constexpr auto
+  format_as(const Variant &v,
+            const FormatPolicy &format_policy = FormatPolicy::kDefault)
+      -> string_type {
+    return v.to_string(format_policy);
   }
   template <typename Callable, typename... Variants>
   friend inline constexpr auto visit(Callable &&callable, Variants &&...vs)

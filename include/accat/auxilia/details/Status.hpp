@@ -256,14 +256,14 @@ public:
 public:
   AC_NODISCARD
   constexpr Status() = default;
-  AC_NODISCARD AC_CONSTEXPR20
-  Status(const Code code, const string_view message = "<no message provided>")
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code,
+                                     const string_view message = {})
       : my_code(code), my_message(message) {}
   AC_NODISCARD
   Status(Status &&that) noexcept
       : my_code(that.my_code), my_message(std::move(that.my_message)) {
     that.my_code = kMovedFrom;
-    that.my_message = "This status has been moved from.";
+    dbg_only(that.my_message = "This status has been moved from.";)
   }
   // AC_NODISCARD
   Status(const Status &that) = default;
@@ -273,7 +273,7 @@ public:
     my_code = that.my_code;
     my_message = std::move(that.my_message);
     that.my_code = kMovedFrom;
-    that.my_message = "status accessed after moved from.";
+    dbg_only(that.my_message = "status accessed after moved from.";);
     return *this;
   }
   /// @brief Logical OR operator.
@@ -333,8 +333,14 @@ public:
 public:
   inline auto to_string(const FormatPolicy & = FormatPolicy::kDefault) const
       -> string_type {
-    return auxilia::format("Status: {}: {}", raw_code(), my_message);
+    return auxilia::format("Status {}: {}", raw_code(), my_message);
   }
+#  if AC_HAS_EXPLICIT_THIS_PARAMETER
+  inline auto rvalue(this auto &&self) { return std::move(self); }
+#  else
+  inline auto rvalue() & { return std::move(*this); }
+  inline auto rvalue() const & { return *this; }
+#  endif
 
 protected:
   Code my_code{};
@@ -580,7 +586,7 @@ LexError(auxilia::format_string<Args...> fmt, Args &&...args) {
   return {Status::kLexError,
           auxilia::format(fmt, std::forward<decltype(args)>(args)...)};
 }
-#  if __has_include(<fmt/format.h>)
+#  if !AC_USE_STD_FMT
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static Status
 OkStatus(const fmt::text_style &ts,
@@ -760,7 +766,7 @@ LexError(const fmt::text_style &ts,
   return {Status::kLexError,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
 }
-#  endif // __has_include(<fmt/format.h>)
+#  endif
 
 #  define AC_RETURN_IF_NOT(_status_)                                           \
     AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                            \

@@ -23,8 +23,24 @@
 /// c0000374 A breakpoint instruction (__debugbreak() statement or a
 /// similar call) was executed, which related to heap corruption. The
 /// program will terminate.
-/// @internal now it's ok again, why? maybe I called vcvarsall.bat?
-#  define AC_UTILS_USE_FMT_FORMAT 1
+/// @internal now it's ok again, dunno why.
+#  if !defined(AC_USE_STD_FMT) && __has_include(<fmt/format.h>)
+#    define AC_USE_STD_FMT 0
+#  endif
+#endif
+
+#if !AC_USE_STD_FMT
+#  include <fmt/format.h>
+#  include <fmt/ostream.h>
+#  include <fmt/color.h>
+#  include <fmt/std.h>
+#  include <fmt/xchar.h>
+#else
+#  include <format>
+#  include <iostream>
+#  if __has_include(<print>)
+#    include <print>
+#  endif
 #endif
 
 /// @def AC_NO_SANITIZE_ADDRESS
@@ -70,9 +86,9 @@
 
 /// @note GNU on Windows seems failed to perform linking for
 /// `stacktrace` and `spdlog`.
-#if defined(AC_UTILS_DEBUG_ENABLED) && defined(_WIN32)
+#if !AC_USE_STD_FMT && defined(_WIN32)
 #  include <stacktrace>
-#  if __has_include(<fmt/core.h>)
+#  if !AC_USE_STD_FMT
 #    define AC_UTILS_STACKTRACE                                                \
       (::std::format("\n{}", ::std::stacktrace::current()))
 #  else
@@ -248,9 +264,16 @@ inline bool _is_debugger_present() noexcept {
         AC_UTILS_DEBUG_BREAK                                                   \
       }
 #  endif
-#  define AC_UTILS_RUNTIME_REQUIRE_IMPL(_cond_, ...)                           \
-    AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                    \
-        _cond_ __VA_OPT__(, ::fmt::format(__VA_ARGS__)))
+
+#  if AC_USE_STD_FMT
+#    define AC_UTILS_RUNTIME_REQUIRE_IMPL(_cond_, ...)                         \
+      AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                  \
+          _cond_ __VA_OPT__(, ::std::format(__VA_ARGS__)))
+#  else
+#    define AC_UTILS_RUNTIME_REQUIRE_IMPL(_cond_, ...)                         \
+      AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                  \
+          _cond_ __VA_OPT__(, ::fmt::format(__VA_ARGS__)))
+#  endif
 
 #  define AC_UTILS_RUNTIME_ASSERT(_cond_, ...)                                 \
     AC_UTILS_RUNTIME_REQUIRE_IMPL(_cond_ __VA_OPT__(, ) __VA_ARGS__);
@@ -328,7 +351,7 @@ inline bool _is_debugger_present() noexcept {
 #    include <stdexcept>
 #    define AC_UTILS_TODO_(...)                                                \
       throw ::std::logic_error(::std::format("TODO: " #__VA_ARGS__));
-#  elif __has_include(<spdlog/spdlog.h>)
+#  elif __$(<spdlog / spdlog.h>)
 #    define AC_UTILS_TODO_(...)                                                \
       AC_UTILS_DEBUG_LOGGING(critical, "TODO: " #__VA_ARGS__);
 #  else
@@ -343,11 +366,13 @@ inline bool _is_debugger_present() noexcept {
 #define TODO(...) AC_UTILS_TODO_(__VA_ARGS__)
 
 #if defined(_MSC_VER) && !defined(__clang__)
-/// @remark currenty, MSVC's constexpr was really disgusting.
-#  define AC_CONSTEXPR20
 #  pragma warning(disable : 4244) // conversion from 'int' to 'char' warning
-#else
+#endif
+
+#if __cpp_constexpr >= 202000L
 #  define AC_CONSTEXPR20 constexpr
+#else
+#  define AC_CONSTEXPR20
 #endif
 
 #if __cpp_constexpr >= 202300L

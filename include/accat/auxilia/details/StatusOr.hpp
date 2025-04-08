@@ -13,6 +13,8 @@
 #  include "./format.hpp"
 #  include "./Status.hpp"
 #  include "./Monostate.hpp"
+
+EXPORT_AUXILIA
 namespace accat::auxilia {
 
 /// @brief A class that represents the status of a function call, or a
@@ -29,6 +31,8 @@ template <typename Ty> class StatusOr : public Status {
                 "StatusOr should not be used with non-storable types.");
   static_assert(!is_specialization_v<Ty, StatusOr>,
                 "Please do NOT store a StatusOr in a StatusOr.");
+  static_assert(!std::is_same_v<Ty, Status>,
+                "Please do NOT use Status as value type in StatusOr.");
 
 public:
   using base_type = Status;
@@ -265,10 +269,10 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   /// @brief Calls the function `f` with the status stored in the StatusOr
   /// if it is not OK, otherwise do nothing and return the StatusOr itself.
-  /// @param f Status -> StatusOr<Ty>
-  /// @return a StatusOr<Ty> that is the result of the function call
+  /// @param f Status -> StatusOr<Ty>, or simply Ty.
+  /// @return a StatusOr<Ty> that is the result of/from the function call
   template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, string_type>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
     if (self.ok()) {
       return self;
@@ -277,7 +281,7 @@ public:
   }
 #  else
   template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, string_type>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(F &&f) & -> StatusOr<Ty> {
     if (ok()) {
       return *this;
@@ -285,7 +289,7 @@ public:
     return std::invoke(std::forward<F>(f), as_status());
   }
   template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, string_type>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(F &&f) const & -> StatusOr<Ty> {
     if (ok()) {
       return *this;
@@ -293,7 +297,7 @@ public:
     return std::invoke(std::forward<F>(f), as_status());
   }
   template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, string_type>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(F &&f) && -> StatusOr<Ty> {
     if (ok()) {
       return std::move(*this);
@@ -301,7 +305,7 @@ public:
     return std::invoke(std::forward<F>(f), as_status());
   }
   template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, string_type>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(F &&f) const && -> StatusOr<Ty> {
     if (ok()) {
       return *this;
@@ -557,10 +561,8 @@ public:
 
     else if constexpr (std::is_base_of_v<Printable, Ty>)
       return my_value.to_string(policy);
-#  if __has_include(<fmt/format.h>)
-    else if constexpr (fmt::is_formattable<Ty>::value)
-      return fmt::format("{}", my_value);
-#  endif
+    else if constexpr ((auxilia::formattable<Ty, string_type::value_type>))
+      return auxilia::format("{}", my_value);
     else
       return auxilia::format("StatusOr<{}>: <unformattable>",
                              typeid(Ty).name());

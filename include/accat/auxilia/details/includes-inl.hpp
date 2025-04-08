@@ -9,19 +9,6 @@
 #else
 #  pragma system_header
 #endif
-#if __has_include(<fmt/format.h>)
-#  include <fmt/format.h>
-#  include <fmt/ostream.h>
-#  include <fmt/color.h>
-#  include <fmt/std.h>
-#  include <fmt/xchar.h>
-#else
-#  include <format>
-#  include <iostream>
-#  if __has_include(<print>)
-#    include <print>
-#  endif
-#endif
 #ifdef AC_USE_STD_MODULE
 import std;
 #else
@@ -31,6 +18,7 @@ import std;
 #  include <cmath>
 #  include <compare>
 #  include <concepts>
+#  include <coroutine>
 #  include <cstdint>
 #  include <filesystem>
 #  include <fstream>

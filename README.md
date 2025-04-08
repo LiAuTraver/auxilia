@@ -108,7 +108,7 @@ v.visit(match(
 accat::auxilia::visit(pattern, v1, v2, v3, ...);
 // printing:
 std::println("{}", v); // prints "class accat::auxilia::Variant<struct accat::auxilia::Monostate,int,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > "
-std::println("{}", v.underlying_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
+std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
 ```
 
 - `Property`: C#-like property system for C++ full of syntax sugar.

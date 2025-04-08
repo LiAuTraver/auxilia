@@ -30,11 +30,11 @@ public:
 public:
   inline /* not consteval */ constexpr auto
   to_string(const FormatPolicy &) const -> string_type {
-    return {};
+    return "Monostate";
   }
   inline /* not consteval */ constexpr auto
   to_string_view(const FormatPolicy &) const -> string_view_type {
-    return {};
+    return "Monostate";
   }
   friend inline /* not consteval */ constexpr auto
   operator==(const Monostate &, const Monostate &) noexcept -> bool {

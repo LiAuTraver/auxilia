@@ -3,12 +3,13 @@
 #include "./config.hpp"
 EXPORT_AUXILIA
 namespace accat::auxilia {
-#if __has_include(<fmt/format.h>)
+#if !AC_USE_STD_FMT
 using ::fmt::format;
 using ::fmt::format_string;
 using ::fmt::format_to;
-using ::fmt::print;
 using ::fmt::formattable;
+using ::fmt::is_formattable;
+using ::fmt::print;
 #  ifdef __clang__
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wcxx-attribute-extension"
@@ -20,31 +21,27 @@ using ::fmt::println;
 // some wired issue `fmt::println not found` on gcc 13
 template <typename... T>
 inline auto println(fmt::format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return fmt::println(
-      stdout, fmt, std::forward<T>(args)...);
+  fmt::println(stdout, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
-  return fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... T>
 inline auto
 println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return fmt::print(
-      os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 template <typename... Args>
 inline auto
 println(std::wostream &os,
         fmt::basic_format_string<wchar_t, fmt::type_identity_t<Args>...> fmt,
         Args &&...args) {
-  [[clang::musttail]] return fmt::print(
-      os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
+  fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
 }
 template <typename... T>
 inline auto println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return fmt::print(
-      f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
+  fmt::print(f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 
 template <typename... T>
@@ -71,9 +68,9 @@ inline auto println(FILE *f,
 using ::std::format;
 using ::std::format_string;
 using ::std::format_to;
+using ::std::formattable;
 using ::std::print;
 using ::std::println;
-using ::std::formattable;
 
 // compatible with fmt::text_style, for std::format does not support it
 template <class... T>
@@ -119,7 +116,6 @@ protected:
   using string_type = std::string;
   template <typename T>
     requires std::is_base_of_v<Printable, T>
-  [[nodiscard]]
   friend auto operator<<(std::ostream &os, const T &p) -> std::ostream & {
     return os << p.to_string(FormatPolicy::kDefault);
   }
@@ -136,21 +132,19 @@ protected:
 
 /// @interface Viewable
 struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
+protected:
   using string_view_type = std::string_view;
-};
-template <typename T>
-  requires std::is_base_of_v<Viewable, T>
-[[nodiscard]]
-auto operator<<(std::ostream &os, const T &v) -> std::ostream & {
-  [[clang::musttail]] return os << v.to_string_view();
-}
-template <typename T>
-  requires std::is_base_of_v<Viewable, T>
-[[nodiscard]] auto
-format_as(const T &v,
-          const FormatPolicy &format_policy = FormatPolicy::kDefault)
-    -> Viewable::string_view_type {
-  [[clang::musttail]] return v.to_string_view(format_policy);
+  template <typename T>
+    requires std::is_base_of_v<Viewable, T>
+  friend auto operator<<(std::ostream &os, const T &v) -> std::ostream & {
+    return os << v.to_string_view(FormatPolicy::kDefault);
+  }
+  template <typename T>
+    requires std::is_base_of_v<Viewable, T>
+  [[nodiscard]] friend auto operator<<(std::wostream &os, const T &v)
+      -> std::wostream & {
+    return os << v.to_string_view(FormatPolicy::kDefault);
+  }
 };
 } // namespace accat::auxilia
 
@@ -159,12 +153,12 @@ template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable,
                         Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
-  constexpr auto parse(format_parse_context &ctx) const noexcept {
+  inline constexpr auto parse(format_parse_context &ctx) const noexcept {
     return ctx.begin();
   }
   template <typename FormatContext>
-  constexpr auto format(const Derived &p, FormatContext &ctx) const {
-    [[clang::musttail]] return format_to(
+  inline constexpr auto format(const Derived &p, FormatContext &ctx) const {
+    return format_to(
         ctx.out(), "{}", p.to_string(::accat::auxilia::FormatPolicy::kDefault));
   }
 };
