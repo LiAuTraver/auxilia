@@ -29,13 +29,14 @@
 #  endif
 #endif
 
-#if !AC_USE_STD_FMT
+#if defined(AC_USE_STD_FMT) && !AC_USE_STD_FMT
 #  include <fmt/format.h>
 #  include <fmt/ostream.h>
 #  include <fmt/color.h>
 #  include <fmt/std.h>
 #  include <fmt/xchar.h>
 #else
+#  define AC_USE_STD_FMT 1
 #  include <format>
 #  include <iostream>
 #  if __has_include(<print>)
