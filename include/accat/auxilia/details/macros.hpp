@@ -245,7 +245,9 @@ inline bool _is_debugger_present() noexcept {
                      AC_UTILS_COLUMN,                                          \
                      #x,                                                       \
                      (_msg_),                                                  \
-                     AC_UTILS_STACKTRACE);
+                     ::accat::auxilia::detail::_is_debugger_present()          \
+                         ? "<please consult debugger>"                         \
+                         : AC_UTILS_STACKTRACE);
 #  if defined(GTEST_API_) && defined(__cpp_exceptions) && __cpp_exceptions
 #    define AC_UTILS_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)              \
       AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                          \
@@ -298,11 +300,8 @@ inline bool _is_debugger_present() noexcept {
 /// spdlog framework
 /// @note only call it once in the whole exec; never call it twice.
 #define AC_SPDLOG_INITIALIZATION(_exec_, _log_level_)                          \
-  [[maybe_unused]] /* AC_UTILS_API */                                          \
-  static           /* <- msvc can't get through this.*/                        \
-      const auto AC_SPDLOG_INITIALIZATION =                                    \
-          [](void) /* static constexpr <- msvc can't get through this.*/       \
-      -> ::std::nullptr_t {                                                    \
+  [[maybe_unused]]                                                             \
+  const auto AC_SPDLOG_INITIALIZATION = [](void) -> ::std::nullptr_t {         \
     AC_UTILS_DEBUG_LOGGING(info,                                               \
                            "\033[36mspdlog framework initialized.\033[0m")     \
     AC_UTILS_DEBUG_LOGGING_SETUP(_exec_, _log_level_, "Debug mode enabled")    \

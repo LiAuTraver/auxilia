@@ -58,6 +58,7 @@ StatementMacros:
   - dbg_break
   - dbg
   - contract_assert
+  - contract_check
   - precondition
   - postcondition
   - TODO

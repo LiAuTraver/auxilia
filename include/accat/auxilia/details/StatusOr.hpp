@@ -72,6 +72,24 @@ public:
     return *this;
   }
   ~StatusOr() = default;
+#  if __cpp_deleted_function >= 202403L
+#    define AC_STATUSOR_DELETE                                                 \
+      delete (                                                                 \
+          "Constructing a StatusOr<Ty> from a StatusOr<Uy> where Ty != Uy is " \
+          "not allowed. Please use explicit function `as_status()` if you "    \
+          "want to return the Status, or use monadic functions like "          \
+          "`and_then()` or `or_else()` to convert the StatusOr<Uy> to "        \
+          "StatusOr<Ty>.")
+#  else
+#    define AC_STATUSOR_DELETE delete
+#  endif
+  template <typename U> StatusOr(const StatusOr<U> &) = AC_STATUSOR_DELETE;
+  template <typename U> StatusOr(StatusOr<U> &&) = AC_STATUSOR_DELETE;
+  template <typename U>
+  StatusOr &operator=(const StatusOr<U> &) = AC_STATUSOR_DELETE;
+  template <typename U>
+  StatusOr &operator=(StatusOr<U> &&) = AC_STATUSOR_DELETE;
+#  undef AC_STATUSOR_DELETE
 
 public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
