@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include "./config.hpp"
 #include "./Monostate.hpp"
 #include "./format.hpp"
@@ -18,11 +19,12 @@ template <typename... Types> class Variant : public Printable {
 
 public:
   using variant_type = std::variant<Types...>;
-  using string_type = typename Printable::string_type;
+  using Printable::string_type;
   using string_view_type = std::string_view;
 
 public:
-  inline constexpr Variant() = default;
+  inline constexpr Variant() noexcept(
+      noexcept((std::is_nothrow_constructible_v<Types> && ...))) = default;
 
   template <typename Ty>
     requires(!std::same_as<std::decay_t<Ty>, Variant> &&
@@ -52,7 +54,8 @@ public:
   bool operator!=(const Variant &that) const noexcept {
     return my_variant != that.my_variant;
   }
-  ~Variant() = default;
+  AC_CONSTEXPR23 ~Variant() noexcept(
+      noexcept((std::is_nothrow_destructible_v<Types> && ...))) = default;
 
 public:
   [[clang::reinitializes]] auto reset(Variant &&that = {}) noexcept
@@ -236,7 +239,7 @@ private:
   }
 
 private:
-  friend constexpr auto
+  friend inline constexpr auto
   format_as(const Variant &v,
             const FormatPolicy &format_policy = FormatPolicy::kDefault)
       -> string_type {
