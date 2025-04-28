@@ -184,20 +184,12 @@ public:
   }
 #  else
   AC_NODISCARD
-  inline constexpr auto operator->() & AC_NOEXCEPT->value_type * {
+  inline constexpr auto operator->() AC_NOEXCEPT->value_type * {
     return std::addressof(my_value);
   }
   AC_NODISCARD
-  inline constexpr auto operator->() const & AC_NOEXCEPT->const value_type * {
+  inline constexpr auto operator->() const AC_NOEXCEPT->const value_type * {
     return std::addressof(my_value);
-  }
-  AC_NODISCARD
-  inline constexpr auto operator->() && AC_NOEXCEPT->value_type * {
-    return std::addressof(std::move(my_value));
-  }
-  AC_NODISCARD
-  inline constexpr auto operator->() const && AC_NOEXCEPT->const value_type * {
-    return std::addressof(std::move(my_value));
   }
 #  endif
 
