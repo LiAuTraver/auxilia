@@ -201,12 +201,16 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 
 #ifdef _WIN32
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
+#elif defined(__linux__)
+#  include <sys/ptrace.h>
 #endif
 
 namespace accat::auxilia::detail {
 inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
   return ::IsDebuggerPresent();
+#elif defined(__linux__)
+  return ::ptrace(PTRACE_TRACEME, 0, NULL, 0) == -1;
 #else
   // not implemented
   return false;
