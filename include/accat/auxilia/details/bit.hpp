@@ -5,7 +5,7 @@
 
 namespace accat::auxilia::details {
 template <typename TargetType>
-inline Status check_file(const std::filesystem::path &path) noexcept {
+inline auto check_file(const std::filesystem::path &path) noexcept {
   if (not std::filesystem::exists(path))
     return NotFoundError("The file does not exist");
 
@@ -20,7 +20,7 @@ inline Status check_file(const std::filesystem::path &path) noexcept {
     return InvalidArgumentError(
         "The file size is not a multiple of the target type size");
 
-  return {};
+  return OkStatus();
 }
 } // namespace accat::auxilia::details
 #pragma warning(push)
@@ -62,7 +62,7 @@ read_as_bytes(const std::filesystem::path &path) {
 #if defined(__cpp_lib_ranges_to_container) &&                                  \
     __cpp_lib_ranges_to_container >= 202202L
 template <typename CharType = char>
-std::vector<std::byte> as_raw_bytes(const std::basic_string<CharType> &data) {
+auto as_raw_bytes(const std::basic_string<CharType> &data) {
   // clang-format off
   return data 
           | std::views::transform([](auto &&c) {
@@ -76,10 +76,10 @@ std::vector<std::byte> as_raw_bytes(const std::basic_string<CharType> &data) {
 template <std::endian Endianess = std::endian::native>
 inline StatusOr<std::vector<std::byte>>
 read_raw_bytes(const std::filesystem::path &path) {
-  if (auto res = read_as_bytes<char, Endianess, char>(path); !res) {
-    return {res};
-  } else {
+  if (auto res = read_as_bytes<char, Endianess, char>(path)) {
     return as_raw_bytes(*std::move(res));
+  } else {
+    return {std::move(res).as_status()};
   }
 }
 #endif

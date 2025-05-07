@@ -23,9 +23,15 @@ concept Variantable = requires {
 /// @remarks similiar to Microsoft's @link std::_SMF_control @endlink class,
 /// which was used in @link std::optional @endlink
 template <typename Ty>
-concept Storable = std::conjunction_v<std::is_default_constructible<Ty>,
-                                      std::is_nothrow_destructible<Ty>,
-                                      std::is_nothrow_constructible<Ty>>;
+concept Storable =
+#if _WIN32
+    std::conjunction_v<std::is_default_constructible<Ty>,
+                       std::is_nothrow_destructible<Ty>,
+                       std::is_nothrow_constructible<Ty>>
+#else // workaround for linux
+    true
+#endif
+    ;
 
 template <typename...> class Variant;
 class Status;

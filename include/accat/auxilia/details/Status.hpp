@@ -324,10 +324,10 @@ public:
   AC_NODISCARD string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
-  void ignore_error() const AC_NOEXCEPT {
-    if (ok())
-      return;
-    dbg(warn, "Ignoring a Status which is not ok: {}", my_message)
+  inline void ignore_error() const AC_NOEXCEPT {
+    dbg_only(if (!this->ok()) dbg(
+                 warn, "Ignoring a Status which is not ok: {}", my_message);)
+    // else do nothing
   }
 
 public:
@@ -340,6 +340,8 @@ public:
 #  else
   inline auto rvalue() & { return std::move(*this); }
   inline auto rvalue() const & { return *this; }
+  inline auto rvalue() && { return std::move(*this); }
+  inline auto rvalue() const && { return std::move(*this); }
 #  endif
 
 protected:
