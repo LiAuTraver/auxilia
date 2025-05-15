@@ -225,7 +225,7 @@ inline bool _is_debugger_present() noexcept {
       ::std::fprintf(                                                          \
           stderr,                                                              \
           "Fatal: program exits abnormally. please consult debugger.\n");      \
-      ::std::abort();                                                          \
+      ::std::exit(3);                                                         \
     }                                                                          \
   } while (false);
 #ifdef AC_UTILS_DEBUG_ENABLED
