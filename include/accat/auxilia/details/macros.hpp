@@ -85,8 +85,8 @@
 #  define AC_CONST_CALL_OPERATOR const
 #endif
 
-/// @note GNU on Windows seems failed to perform linking for
-/// `stacktrace` and `spdlog`.
+/// @note by current time the library was written, GNU on Windows seems failed
+/// to perform linking for `stacktrace` and `spdlog`.
 #if !AC_USE_STD_FMT && defined(_WIN32)
 #  include <stacktrace>
 #  if !AC_USE_STD_FMT
@@ -225,7 +225,7 @@ inline bool _is_debugger_present() noexcept {
       ::std::fprintf(                                                          \
           stderr,                                                              \
           "Fatal: program exits abnormally. please consult debugger.\n");      \
-      ::std::exit(3);                                                         \
+      ::std::exit(3);                                                          \
     }                                                                          \
   } while (false);
 #ifdef AC_UTILS_DEBUG_ENABLED
@@ -318,9 +318,7 @@ inline bool _is_debugger_present() noexcept {
 /// @brief MSVC traditional preprocessor
 /// @def dbg(_level_, _msg_, ...)
 /// @note MSVC cross-platform compatible preprocessor acts like clang and gcc.
-/// @see <a
-/// href="https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview">MSVC
-/// Preprocessor</a>
+/// @see <a href="https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview">MSVC Preprocessor</a>
 #  pragma message                                                              \
       "MSVC traditional preprocessor was used. no additional debug info will be provided. to enable MSVC's new preprocessor, add compiler flag `/Zc:preprocessor`."
 #  define dbg(_level_, _msg_, ...)                                             \

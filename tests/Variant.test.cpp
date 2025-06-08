@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <accat/auxilia/details/Variant.hpp>
-#include "accat/auxilia/details/format.hpp"
+#include <accat/auxilia/details/format.hpp>
 
 using namespace accat::auxilia;
 
@@ -80,7 +80,7 @@ TEST(Variant, ToString) {
 }
 TEST(Variant, MonostateLikeType) {
   struct MyMonostate : Monostate {
-    auto to_string(const FormatPolicy &)const { return "MyMonostate"s; }
+    auto to_string(const FormatPolicy &) const { return "MyMonostate"s; }
     auto to_string_view(const FormatPolicy &) const { return "MyMonostate"s; }
   };
   Variant<MyMonostate, int, double> v1 = 42;

@@ -48,7 +48,7 @@ read_as_bytes(const std::filesystem::path &path) {
   buffer << file.rdbuf();
 
   if constexpr (Endianess == std::endian::native)
-    return {std::move(buffer.str())};
+    return {std::move(buffer).str()};
 
   // differs from the native endianess; reverse the bytes
   auto data = std::move(buffer).str();

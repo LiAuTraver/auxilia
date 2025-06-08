@@ -1,4 +1,14 @@
-﻿//
+﻿//===-------- auxilia.hpp - Auxilia Library Header -------*- C++ -*-===//
+//
+// Part of the auxilia project.
+// Licensed under the Apache License v2.0.
+//
+// auxilia - from Latin word, meaning "help, aid, or assistance".
+// A C++23 library for general-purpose utilities.
+//
+// This header file includes all the macros provided by the auxilia library.
+//
+//
 //   Copyright 2025 LiAuTraver
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +23,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 //
+//===---------------------------------------------------------------===//
 
 #pragma once
 

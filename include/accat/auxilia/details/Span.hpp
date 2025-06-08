@@ -4,7 +4,10 @@
 namespace accat::auxilia {
 /// @brief A span that can be used to access elements across multiple spans
 /// @remark has little usage
-template <typename T, size_t = std::dynamic_extent> class incontiguous_span {
+/// @deprecated This class is deprecated and will be removed in future versions.
+template <typename T, size_t = std::dynamic_extent>
+class [[deprecated("unsafe and has little usage; will be removed in future "
+                   "versions")]] incontiguous_span {
 public:
   using value_type = T;
   using size_type = std::size_t;
