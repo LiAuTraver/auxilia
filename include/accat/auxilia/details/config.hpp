@@ -49,18 +49,17 @@ inline constexpr auto isnotspacelike =
     [](const char c) constexpr noexcept -> bool { return not isspacelike(c); };
 inline consteval const char *raw(const char *str) noexcept {
 
-  while (str && *str && (*str == '\n')) {
+  while (str && *str && (*str == '\n'))
     ++str;
-  }
+
   auto ptr = const_cast<char *>(str);
   while (ptr && *ptr)
     ptr++;
 
   // remove trailing newline and space
-  while (ptr && ptr != str && isspacelike(*ptr)) {
-    *ptr = '\0';
-    ptr--;
-  }
+  while (ptr && ptr != str && isspacelike(*ptr))
+    *ptr-- = '\0';
+
   return str;
 }
 inline consteval auto operator""_raw(const char *str, const size_t) noexcept
@@ -121,8 +120,8 @@ using array_size_v = typename array_size_t<Str>::size;
 /// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
 template <class Ty, template <class...> class Template>
 constexpr bool is_specialization_v = false;
-template <template <class...> class Template, class... _Types>
-constexpr bool is_specialization_v<Template<_Types...>, Template> = true;
+template <template <class...> class Template, class... Types>
+constexpr bool is_specialization_v<Template<Types...>, Template> = true;
 template <class Ty, template <class...> class Template>
 struct is_specialization
     : std::bool_constant<is_specialization_v<Ty, Template>> {};

@@ -12,7 +12,7 @@ namespace accat::auxilia {
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class [[clang::coro_return_type]] [[clang::coro_lifetimebound]] Generator {
+class [[using clang: coro_return_type, coro_lifetimebound]] Generator {
   static_assert(std::is_default_constructible_v<YieldType>,
                 "YieldType must be default constructible");
   static_assert(std::is_nothrow_move_constructible_v<YieldType>,
@@ -56,9 +56,8 @@ private:
 
   private:
     void _rethrow_if_exception() {
-      if (exception) {
+      if (exception)
         std::rethrow_exception(exception);
-      }
     }
 
   public:
@@ -158,7 +157,7 @@ public:
     return *this;
   }
 
-  ~Generator() {
+  ~Generator() noexcept {
     if (handle_)
       handle_.destroy();
   }
