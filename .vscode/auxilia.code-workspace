@@ -1,0 +1,20 @@
+{
+  "folders": [
+    {
+      "path": ".."
+    },
+  ],
+  "settings": {
+    "animations.Command-Palette": "Slide",
+    "animations.Install-Method": "Apc Customize UI++",
+    "animations.Auto-Install": true,
+    "C_Cpp.clang_format_path": "clang-format",
+    "C_Cpp.clang_format_sortIncludes": true,
+    "[Log]": {
+      "editor.fontSize": 16,
+    },
+    "[log]": {
+      "editor.fontSize": 16,
+    },
+  }
+}
