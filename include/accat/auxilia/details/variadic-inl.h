@@ -23,13 +23,13 @@
 /// foo(42, 43);      // Calls foo_2(42, 43)
 /// @endcode
 //////////////////////////////////////////////////////////////////////////
-#ifndef AC_UTILS_DETAILS_VARIADIC_H
-#define AC_UTILS_DETAILS_VARIADIC_H
+#ifndef AC_DETAILS_VARIADIC_H
+#define AC_DETAILS_VARIADIC_H
 
 // clang-format off
-/// @def AC_UTILS_VFUNC_ARG_COUNT_IMPL
+/// @def AC_VFUNC_ARG_COUNT_IMPL
 /// @brief macros to count the number of arguments up to 63
-#define AC_UTILS_VFUNC_ARG_COUNT_IMPL(                                         \
+#define AC_VFUNC_ARG_COUNT_IMPL(                                         \
   _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,                                      \
   _10, _11, _12, _13, _14, _15, _16, _17, _18,                                 \
   _19, _20, _21, _22, _23, _24, _25, _26, _27,                                 \
@@ -40,10 +40,10 @@
   N, ...                                                                       \
 ) N
 
-/// @def AC_UTILS_VFUNC_ARG_COUNT
+/// @def AC_VFUNC_ARG_COUNT
 /// @brief macro to count the number of arguments
-#define AC_UTILS_VFUNC_ARG_COUNT(...)                                          \
-  AC_UTILS_VFUNC_ARG_COUNT_IMPL(_, ## __VA_ARGS__,                             \
+#define AC_VFUNC_ARG_COUNT(...)                                          \
+  AC_VFUNC_ARG_COUNT_IMPL(_, __VA_OPT__(,)                             \
   63, 62, 61, 60, 59, 58, 57, 56, 55, 54,                                      \
   53, 52, 51, 50, 49, 48, 47, 46, 45, 44,                                      \
   43, 42, 41, 40, 39, 38, 37, 36, 35, 34,                                      \
@@ -53,37 +53,36 @@
   0                                                                            \
 )
 // clang-format on
-/// @def AC_UTILS_VFUNC_CONCAT_IMPL
+/// @def AC_VFUNC_CONCAT_IMPL
 /// @brief Helper macros to concatenate function name and argument count
-#define AC_UTILS_VFUNC_CONCAT_IMPL(func, underscore, count)                    \
-  func##underscore##count
-/// @def AC_UTILS_VFUNC_CONCAT
-/// @copydoc AC_UTILS_VFUNC_CONCAT_IMPL
-#define AC_UTILS_VFUNC_CONCAT(func, count)                                     \
-  AC_UTILS_VFUNC_CONCAT_IMPL(func, _, count)
+#define AC_VFUNC_CONCAT_IMPL(func, underscore, count) func##underscore##count
+/// @def AC_VFUNC_CONCAT
+/// @copydoc AC_VFUNC_CONCAT_IMPL
+#define AC_VFUNC_CONCAT(func, count) AC_VFUNC_CONCAT_IMPL(func, _, count)
 
-/// @def AC_UTILS_VFUNC(func, ...)
+/// @def AC_VFUNC(func, ...)
 /// @brief Main macro to select the appropriate function
-#define AC_UTILS_VFUNC(func, ...)                                              \
-  AC_UTILS_VFUNC_CONCAT(func, AC_UTILS_VFUNC_ARG_COUNT(__VA_ARGS__))           \
+#define AC_VFUNC(func, ...)                                                    \
+  AC_VFUNC_CONCAT(func, AC_VFUNC_ARG_COUNT(__VA_ARGS__))                       \
   (__VA_ARGS__) // NOLINT(bugprone-reserved-identifier)
 
-/// @def AC_UTILS_COUNTER
+/// @def AC_COUNTER
 /// @brief Helper macro to expand __COUNTER__
 #if defined(__COUNTER__) && ((__COUNTER__ + 1) == (__COUNTER__ + 0))
-#  define AC_UTILS_COUNTER __COUNTER__
+#  define AC_COUNTER __COUNTER__
 #else
-#  define AC_UTILS_COUNTER __LINE__##__COLUMN__
+#  define AC_COUNTER __LINE__##__COLUMN__
 #endif
 
-/// @def EXPAND_COUNTER_HELPER
+/// @def AC_EXPAND_COUNTER_HELPER
 /// @brief Helper macros to expand __COUNTER__
-#define EXPAND_COUNTER_HELPER(prefix, underscore, counter)                     \
+#define AC_EXPAND_COUNTER_HELPER(prefix, underscore, counter)                  \
   prefix##underscore##counter
-#define EXPAND_COUNTER(name, counter) EXPAND_COUNTER_HELPER(name, _, counter)
+#define AC_EXPAND_COUNTER_(name, counter)                                      \
+  AC_EXPAND_COUNTER_HELPER(name, _, counter)
 
-/// @def AC_UTILS_EXPAND_COUNTER
-/// @copydoc EXPAND_COUNTER
-#define AC_UTILS_EXPAND_COUNTER(name) EXPAND_COUNTER(name, AC_UTILS_COUNTER)
+/// @def AC_EXPAND_COUNTER
+/// @copydoc AC_EXPAND_COUNTER_
+#define AC_EXPAND_COUNTER(name) AC_EXPAND_COUNTER_(name, AC_COUNTER)
 
-#endif // AC_UTILS_DETAILS_VARIADIC_H
+#endif // AC_DETAILS_VARIADIC_H

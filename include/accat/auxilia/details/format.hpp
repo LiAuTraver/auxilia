@@ -73,14 +73,16 @@ using ::std::print;
 using ::std::println;
 
 // compatible with fmt::text_style, for std::format does not support it
-template <class... T>
-inline auto println(const auto &, std::format_string<T...> fmt, T &&...args) {
+template <typename E, class... T>
+  requires std::is_enum_v<E>
+inline auto println(const E &, std::format_string<T...> fmt, T &&...args) {
   std::print(fmt, std::forward<decltype(args)>(args)...);
   ::putchar('\n');
 }
-template <class... T>
+template <typename E, class... T>
+  requires std::is_enum_v<E>
 inline auto
-println(FILE *f, const auto &, std::format_string<T...> fmt, T &&...args) {
+println(FILE *f, const E &, std::format_string<T...> fmt, T &&...args) {
   std::print(f, fmt, std::forward<decltype(args)>(args)...);
   ::putchar('\n');
 }

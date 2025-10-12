@@ -21,11 +21,11 @@ if(NOT GTest_FOUND)
   FetchContent_MakeAvailable(gtest)
 endif()
 
-
 add_executable(auxilia.test
-Variant.test.cpp
-Status.test.cpp
-StatusOr.test.cpp
+  Variant.test.cpp
+  Status.test.cpp
+  StatusOr.test.cpp
+  Options.test.cpp
 )
 
 target_compile_options(auxilia.test PRIVATE -DAC_USE_STD_FMT=1)
