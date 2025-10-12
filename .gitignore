@@ -524,3 +524,6 @@ conan_installed/
 ### CppDepend
 *.cdproj
 CppDependOut/
+
+### workaround
+CMakePresets.json
