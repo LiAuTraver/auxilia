@@ -150,6 +150,7 @@ protected:
 };
 } // namespace accat::auxilia
 
+// ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
 template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable,

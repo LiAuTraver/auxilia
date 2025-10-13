@@ -1,14 +1,8 @@
 #pragma once
 
 #include "./config.hpp"
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <span>
-#include <unordered_map>
-#include "accat/auxilia/details/format.hpp"
+#include "./format.hpp"
+#include "./StatusOr.hpp"
 
 namespace accat::auxilia::program_options {
 
@@ -60,13 +54,13 @@ public:
   auto shortname() const -> const string_view { return shortname_; }
   auto description(this auto &&self) -> string_view { return self.desc_; }
 
-  auto &required(bool is_required = true) {
+  auto &required(const bool is_required = true) {
     required_ = is_required;
     return *this;
   }
 
   /// @param num_args 0 for a flag, 1 for a single value, '+' for one or more.
-  auto &nargs(char num_args) {
+  auto &nargs(const char num_args) {
     nargs_ = num_args;
     return *this;
   }
@@ -80,6 +74,18 @@ public:
   }
 
   auto values() const -> std::span<const string> { return values_; }
+
+  /// @pre single value
+  auto value() const -> StatusOr<string_view> {
+    if (values_.empty()) {
+      return NotFoundError(format("Option {} has no value.", name_));
+    }
+    if (values_.size() > 1) {
+      return InvalidArgumentError(
+          format("Option {} does not have a single value.", name_));
+    }
+    return {values_[0]};
+  }
 
 private:
   string help() const {
@@ -107,7 +113,7 @@ private:
   string_view desc_;
   std::vector<string> values_;
   bool required_ = false;
-  // 0: flag, 1: single value, '+': one or more
+  // 0: flag, 1 or '1': single value, '+': one or more
   char nargs_ = 0;
 };
 
@@ -122,7 +128,8 @@ class Parser {
   Parser(const Parser &other) = delete;
   auto operator=(const Parser &other) -> Parser & = delete;
 
-  friend inline auto Local(string_view program_name, string_view version)
+  friend inline auto Local(const string_view program_name,
+                           const string_view version)
       -> Parser {
     return Parser(program_name, version);
   }
@@ -153,7 +160,8 @@ public:
     return *this;
   }
 
-  constexpr Parser(string_view program_name, string_view program_version)
+  constexpr Parser(const string_view program_name,
+                   const string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
 public:
@@ -200,7 +208,7 @@ public:
     return positional_args_;
   }
 
-  auto get_option(string_view name) const -> const Option * {
+  auto get_option(const string_view name) const -> const Option * {
     if (auto it = options_.find(name); it != options_.end()) {
       return &it->second;
     }
@@ -209,7 +217,7 @@ public:
 
 private:
   auto is_conflicting(const Option &opt) const -> const Option * {
-    for (auto const &[_, existing_opt] : options_) {
+    for (const auto &existing_opt : options_ | std::views::values) {
       if (opt.fullname() == existing_opt.fullname() &&
           !opt.fullname().empty()) {
         return &existing_opt;
@@ -223,14 +231,14 @@ private:
   }
 
 public:
-  auto parse(std::span<string_view> args) -> bool {
+  auto parse(const std::span<const string_view> args) -> bool {
     if (!error_msgs_.empty()) {
       return false;
     }
 
     std::unordered_map<string_view, Option *> name_map;
     std::unordered_map<string_view, Option *> short_name_map;
-    for (auto &[_, opt] : options_) {
+    for (auto &opt : options_ | std::views::values) {
       name_map[opt.fullname()] = &opt;
       if (!opt.shortname().empty()) {
         short_name_map[opt.shortname()] = &opt;
@@ -243,8 +251,10 @@ public:
 
       if (arg == "--help" or arg == "-h") {
         help();
+        exit(0); // workaround
       } else if (arg == "--version" or arg == "-v") {
         version();
+        exit(0); // workaround
       } else if (arg.starts_with("--")) {
         opt = name_map.contains(arg) ? name_map[arg] : nullptr;
       } else if (arg.starts_with('-')) {
@@ -253,7 +263,7 @@ public:
 
       if (opt) {
         opt->values_.clear();
-        if (opt->nargs_ == '1' || opt->nargs_ == '+') {
+        if (opt->nargs_ == 1 || opt->nargs_ == '1' || opt->nargs_ == '+') {
           if (i + 1 < args.size()) {
             i++;
             opt->values_.emplace_back(args[i]);
@@ -269,7 +279,7 @@ public:
       }
     }
 
-    for (auto const &[_, opt] : options_) {
+    for (const auto &opt : options_ | std::views::values) {
       if (opt.required_ && opt.values_.empty()) {
         error_msgs_.emplace_back(
             format("Required option {} is missing.", opt.fullname()));
@@ -286,7 +296,7 @@ public:
   -v, --version     Show program's version number and exit
 )"_raw;
 
-    for (auto const &[_, opt] : options_) {
+    for (const auto &opt : options_ | std::views::values) {
       os << opt.help();
     }
   }
@@ -302,7 +312,7 @@ inline auto _get_global_parsers() -> std::vector<Parser> & {
 } // namespace details
 
 /// @returns nullptr if the parser does not exist.
-inline auto find(string_view program_name) -> Parser * {
+inline auto find(const string_view program_name) -> Parser * {
   auto &parsers = details::_get_global_parsers();
   for (auto &parser : parsers) {
     if (parser.program_name() == program_name)
