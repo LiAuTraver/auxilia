@@ -66,10 +66,9 @@ inline consteval auto operator""_raw(const char *str, const size_t) noexcept
     -> const char * {
   return raw(str);
 }
+
 [[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {
-  fprintf(stderr, "Failed to allocate memory. The program will now exit.");
-  dbg_break
-  std::abort();
+  AC_THROW_OR_DIE("memory allocation failed");
 }
 template <typename T = void>
 [[using gnu: malloc, returns_nonnull]] inline T *alloc(const size_t size)
@@ -126,4 +125,5 @@ template <class Ty, template <class...> class Template>
 struct is_specialization
     : std::bool_constant<is_specialization_v<Ty, Template>> {};
 
+inline constexpr unsigned short char_bit = 8;
 } // namespace accat::auxilia

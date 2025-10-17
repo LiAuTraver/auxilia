@@ -362,6 +362,17 @@ inline bool _is_debugger_present() noexcept {
 /// by IDE(which is why this macro exists).
 #define TODO(...) AC_TODO_(__VA_ARGS__)
 
+#if defined(__cpp_exceptions) && __cpp_exceptions
+#  define AC_THROW_OR_DIE(_msg_) throw std::runtime_error(_msg_)
+#else
+#  define AC_THROW_OR_DIE(_msg_)                                               \
+    do {                                                                       \
+      fprintf(stderr, "Fatal error: %s\n", _msg_);                             \
+      AC_DEBUG_BREAK                                                           \
+      std::abort();                                                            \
+    } while (false)
+#endif
+
 #if defined(_MSC_VER) && !defined(__clang__)
 #  pragma warning(disable : 4244) // conversion from 'int' to 'char' warning
 #endif
@@ -379,6 +390,12 @@ inline bool _is_debugger_present() noexcept {
 #  define AC_CONSTEXPR23 constexpr
 #else
 #  define AC_CONSTEXPR23
+#endif
+
+#if __cpp_consteval >= 202211L
+#  define AC_CONSTEVAL consteval
+#else
+#  define AC_CONSTEVAL AC_CONSTEXPR20
 #endif
 
 #if __has_cpp_attribute(nodiscard) >= 201907L

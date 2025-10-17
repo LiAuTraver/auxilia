@@ -1,9 +1,9 @@
 #pragma once
 // clang-format off
-//! @file StatusOr.hpp
-//! @brief A class that represents a value or an error status.
-//! For more information of the class, please refer to the documentation of the
-//! @file Status.hpp
+/// @file StatusOr.hpp
+/// @brief A class that represents a value or an error status.
+/// For more information of the class, please refer to the documentation of the
+/// @file Status.hpp
 
 #ifndef ACCAT_AUXILIA_STATUSOR_HPP
 #define ACCAT_AUXILIA_STATUSOR_HPP

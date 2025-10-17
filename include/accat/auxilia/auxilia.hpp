@@ -42,3 +42,4 @@
 #include "./details/Generator.hpp"
 #include "./details/Span.hpp"
 #include "./details/program_options.hpp"
+#include "./details/bitset.hpp"
