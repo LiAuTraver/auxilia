@@ -7,12 +7,12 @@ namespace accat::auxilia {
 using ::fmt::format;
 using ::fmt::format_string;
 using ::fmt::format_to;
-using ::fmt::formattable;
 using ::fmt::is_formattable;
 using ::fmt::print;
 #  ifdef __clang__
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wcxx-attribute-extension"
+[[clang::using_if_exists]] using ::fmt::formattable;
 [[clang::using_if_exists]] using ::fmt::println;
 #    pragma clang diagnostic pop
 #  elif _WIN32
@@ -50,6 +50,8 @@ inline auto println(fmt::wformat_string<T...> fmt, T &&...args) {
       L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
 }
 #  endif
+#  ifdef _WIN32
+// workaround
 template <class... T>
 inline auto
 println(const fmt::text_style &ts, fmt::format_string<T...> fmt, T &&...args) {
@@ -64,6 +66,7 @@ inline auto println(FILE *f,
   fmt::print(f, ts, fmt, std::forward<decltype(args)>(args)...);
   ::putchar('\n');
 }
+#  endif
 #else
 using ::std::format;
 using ::std::format_string;

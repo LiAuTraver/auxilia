@@ -125,5 +125,14 @@ template <class Ty, template <class...> class Template>
 struct is_specialization
     : std::bool_constant<is_specialization_v<Ty, Template>> {};
 
-inline constexpr unsigned short char_bit = 8;
+/// @see Microsoft STL's @link std::_Is_any_of_v @endlink.
+template <typename Ty, typename... Candidates>
+inline constexpr bool is_any_of_v = (std::is_same_v<Ty, Candidates> || ...);
+template <typename Ty, typename... Candidates>
+struct is_any_of : std::bool_constant<is_any_of_v<Ty, Candidates...>> {};
+
+// idk how people came up with this magic number, here's the reference:
+// https://softwareengineering.stackexchange.com/a/402543
+inline constexpr auto hash_magic_number_32bit = 0x9e3779b9u;
+inline constexpr auto hash_magic_number_64bit = 0x9e3779b97f4a7c15ull;
 } // namespace accat::auxilia

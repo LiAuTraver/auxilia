@@ -84,3 +84,61 @@ read_raw_bytes(const std::filesystem::path &path) {
 }
 #endif
 } // namespace accat::auxilia
+
+namespace accat::auxilia::bit {
+// helper to extract bits [Beg, End)
+template <size_t Beg, size_t End, typename T>
+inline constexpr T extract(const T value) noexcept {
+  static_assert(Beg <= End, "Beg must be less than or equal to End");
+  static_assert(End <= sizeof(T) * 8, "End must be within the bit width of T");
+
+  constexpr T mask = (static_cast<T>(1) << (End - Beg)) - 1;
+  return (value >> Beg) & mask;
+}
+
+// helper to concatenate bits from multiple [Begin, End) ranges
+template <typename T, size_t Begin, size_t End, size_t... Rest>
+inline constexpr T concat(const T value) noexcept {
+  static_assert(sizeof...(Rest) % 2 == 0, "Rest must be a multiple of 2");
+  if constexpr (sizeof...(Rest) == 0) {
+    return extract<Begin, End>(value);
+  } else {
+    auto chunk = extract<Begin, End, T>(value);
+    constexpr auto bitCount = End - Begin;
+    return chunk | (concat<T, Rest...>(value) << bitCount);
+  }
+}
+
+// helper to perform sign extension
+// note: `NewWidthTy` shall be the same type as pc when used.
+template <size_t OrigWidth, typename OrigTy, typename NewWidthTy>
+inline constexpr auto sign_extend(const OrigTy value) noexcept {
+  static_assert(sizeof(OrigTy) * 8 >= OrigWidth, "OrigTy is too small");
+  static_assert(sizeof(NewWidthTy) * 8 >= OrigWidth, "NewWidthTy is too small");
+  static_assert(std::is_integral_v<OrigTy>, "OrigTy must be an integral type");
+  static_assert(std::is_integral_v<NewWidthTy>,
+                "NewWidthTy must be an integral type");
+
+  const auto signBit = (value >> (OrigWidth - 1)) & 1;
+  if (signBit) {
+    // if the sign bit is set, extend the sign bit to the left
+    return value | ~((static_cast<OrigTy>(1) << OrigWidth) - 1);
+  } else {
+    // if the sign bit is not set, just return the value
+    return value;
+  }
+}
+
+// helper to decode 2's complement, return original value if sign bit is 1,
+// otherwise return the negated value
+template <typename T>
+inline constexpr std::make_signed_t<T> two_complement(const T value) noexcept {
+  static_assert(std::is_integral_v<T>, "T must be an integral type");
+  const auto signBit = (value >> (sizeof(T) * 8 - 1)) & 1;
+  if (signBit) {
+    return value;
+  } else {
+    return ~value + 1;
+  }
+}
+} // namespace accat::auxilia::bit
