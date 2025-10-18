@@ -400,6 +400,7 @@ inline bool _is_debugger_present() noexcept {
 
 #if __has_cpp_attribute(nodiscard) >= 201907L
 #  define AC_NODISCARD_REASON(...) [[nodiscard(__VA_ARGS__)]]
+// why this macro? mostly because attribute with `[[]]` costs more typing. ;)
 #  define AC_NODISCARD [[nodiscard]]
 #elif __has_cpp_attribute(nodiscard) >= 201603L
 #  define AC_NODISCARD_REASON(...) [[nodiscard]]

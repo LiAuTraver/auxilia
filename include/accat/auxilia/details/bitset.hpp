@@ -450,7 +450,9 @@ std::basic_istream<char> &operator>>(std::basic_istream<char> &is,
   bs = bitset<N>(str);
   return is;
 }
-} // namespace accat::auxilia
+} // namespace accat`::auxilia
+
+// ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
 template <size_t N> struct hash<::accat::auxilia::bitset<N>> {
   AC_NODISCARD AC_STATIC_CALL_OPERATOR constexpr auto

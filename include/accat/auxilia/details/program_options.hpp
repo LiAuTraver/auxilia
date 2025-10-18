@@ -84,7 +84,9 @@ public:
       return InvalidArgumentError(
           format("Option {} does not have a single value.", name_));
     }
-    return {values_[0]};
+    return StatusOr<string_view>{values_[0]};
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^ workaround for MSCV C4927: illegal conversion;
+    // more than one user-defined conversion has been implicitly applied
   }
 
 private:
@@ -160,7 +162,7 @@ public:
     return *this;
   }
 
-  constexpr Parser(const string_view program_name,
+  AC_CONSTEXPR23 Parser(const string_view program_name,
                    const string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
