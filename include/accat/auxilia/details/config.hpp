@@ -109,12 +109,11 @@ auto async(auto &&func, auto... args) -> decltype(auto)
                     std::forward<decltype(args)>(args)...);
 }
 
-template <const auto &Str> struct array_size_t {
-  inline static constexpr auto size =
-      std::extent_v<std::remove_reference_t<decltype(Str)>>;
-};
-template <const auto &Str>
-using array_size_v = typename array_size_t<Str>::size;
+template <const auto &Chars>
+inline constexpr size_t array_size_v =
+    std::extent_v<std::remove_reference_t<decltype(Chars)>>;
+template <const auto &Chars>
+struct array_size : std::integral_constant<size_t, array_size_v<Chars>> {};
 
 /// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
 template <class Ty, template <class...> class Template>

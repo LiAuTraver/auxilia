@@ -295,9 +295,9 @@ inline bool _is_debugger_present() noexcept {
 #  define AC_DEBUG_LOGGING_SETUP(...) (void)0;
 #  define AC_DEBUG_BLOCK [&]() -> void
 #  define AC_DEBUG_ONLY(...)
+#  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept
-#  define AC_DBG_BREAK (void)0;
 #endif
 /// @def AC_SPDLOG_INITIALIZATION(_exec_, _log_level_) initializes the
 /// spdlog framework

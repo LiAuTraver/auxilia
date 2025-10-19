@@ -1,9 +1,9 @@
 #pragma once
+#include <cstddef>
 #include <ostream>
 #include "./config.hpp"
 #include "./format.hpp"
 #include "accat/auxilia/details/format.hpp"
-#include "macros.hpp"
 
 // I'm too lazy to sustitude those `constexpr` to provide compatibility for
 // older standards. So I just guard the whole file for C++23 and later.
@@ -20,10 +20,11 @@ namespace accat::auxilia {
  *  For compatibility reasons, it the same interface as `std::bitset`
  *      although I do not agree with some design decisions of `std::bitset`.
  *  @tparam N The number of bits in the bitset.
- *  @todo string support.
+ *  @todo string-related operations are not optimized yet. Hence you got no
+ *      performance advantage over `std::bitset` when using this feature.
  */
 template <size_t N> class bitset : Printable {
-  friend ::std::hash<bitset<N>>;
+  friend struct ::std::hash<bitset<N>>;
 
 public:
   constexpr bitset() noexcept {}
@@ -123,7 +124,7 @@ public:
   /**
    * @name Standard compliant member functions
    */
-  AC_NODISCARD constexpr auto test(const size_t pos) const noexcept {
+  AC_NODISCARD constexpr auto test(const size_t pos) const AC_NOEXCEPT {
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
     return do_subscript_unchecked(pos);
   }
@@ -153,12 +154,14 @@ public:
     size_t total = 0;
 
     for (auto i = 0ull; i < arr_length; ++i)
+      // popcount from standard library has been optimized via vectorization
+      // so we just use it directly. it's better than writing our own version.
       total += std::popcount(myArr[i]);
 
     return total;
   }
   AC_NODISCARD consteval auto size() const noexcept { return N; }
-  constexpr auto &set(const size_t pos, const bool val = true) noexcept {
+  constexpr auto &set(const size_t pos, const bool val = true) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support set(pos, val)");
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
     return do_set_unchecked(pos, val);
@@ -173,7 +176,7 @@ public:
         ::memset(&myArr, static_cast<int>(-1), sizeof(myArr));
       }
     }
-    return *this;
+    return trim();
   }
   constexpr auto &reset(const size_t pos) noexcept {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support reset(pos)");
@@ -190,7 +193,7 @@ public:
     }
     return *this;
   }
-  constexpr auto &flip(const size_t pos) noexcept {
+  constexpr auto &flip(const size_t pos) AC_NOEXCEPT {
     AC_PRECONDITION(pos < N, "invalid bit position; position out of range")
     return do_flip_unchecked(pos);
   }
@@ -402,12 +405,12 @@ public:
     tmp >>= shift;
     return tmp;
   }
-  AC_NODISCARD constexpr auto operator[](const size_t pos) const noexcept {
+  AC_NODISCARD constexpr auto operator[](const size_t pos) const AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[] const");
     AC_PRECONDITION(pos < N, "subscript out of range")
     return do_subscript_unchecked(pos);
   }
-  AC_NODISCARD constexpr auto operator[](const size_t pos) noexcept {
+  AC_NODISCARD constexpr auto operator[](const size_t pos) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[]");
     AC_PRECONDITION(pos < N, "subscript out of range")
     return reference{*this, pos};
@@ -450,7 +453,7 @@ std::basic_istream<char> &operator>>(std::basic_istream<char> &is,
   bs = bitset<N>(str);
   return is;
 }
-} // namespace accat`::auxilia
+} // namespace accat::auxilia
 
 // ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {

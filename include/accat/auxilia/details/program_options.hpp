@@ -130,13 +130,15 @@ class Parser {
   Parser(const Parser &other) = delete;
   auto operator=(const Parser &other) -> Parser & = delete;
 
+  /// @brief Create a local parser,
+  ///        whose lifetime is limited to the current scope.
+  /// @returns the parser object.
   friend inline auto Local(const string_view program_name,
-                           const string_view version)
-      -> Parser {
+                           const string_view version) -> Parser {
     return Parser(program_name, version);
   }
   /// @brief Create a global parser, whose lifetime is the entire program.
-  /// @returns nullptr if the parser already exists.
+  /// @returns nullptr if the parser with the same name already exists.
   friend inline auto Global(string_view program_name, string_view version)
       -> Parser * {
     if (find(program_name))
@@ -163,7 +165,7 @@ public:
   }
 
   AC_CONSTEXPR23 Parser(const string_view program_name,
-                   const string_view program_version)
+                        const string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
 public:
@@ -253,10 +255,14 @@ public:
 
       if (arg == "--help" or arg == "-h") {
         help();
+#ifndef GTEST_API_
         exit(0); // workaround
+#endif
       } else if (arg == "--version" or arg == "-v") {
         version();
+#ifndef GTEST_API_
         exit(0); // workaround
+#endif
       } else if (arg.starts_with("--")) {
         opt = name_map.contains(arg) ? name_map[arg] : nullptr;
       } else if (arg.starts_with('-')) {
@@ -292,7 +298,6 @@ public:
   }
   auto help(std::ostream &os = std::cout) const -> void {
     os << format("Usage: {} [options]\n\nOptions:\n", program_name_);
-    // Add built-in help and version
     os << R"(
   -h, --help        Show this help message and exit
   -v, --version     Show program's version number and exit

@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <sstream>
 
 #include "accat/auxilia/details/config.hpp"
 #include "accat/auxilia/details/program_options.hpp"
