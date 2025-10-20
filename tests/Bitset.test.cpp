@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <bitset>
 #include <iostream>
 
 #include "accat/auxilia/details/config.hpp"
@@ -20,6 +21,25 @@ TEST(Bitset, BasicOperations) {
   EXPECT_EQ(and_result.to_ullong(), lhs & rhs);
   EXPECT_EQ(or_result.to_ullong(), lhs | rhs);
   EXPECT_EQ(xor_result.to_ullong(), lhs ^ rhs);
+
+  using namespace accat::auxilia::literals;
+  constexpr auto lhs_bs = "11001100"_bs;
+  constexpr auto rhs_bs = "10101010"_bs;
+
+  static_assert(lhs_bs.size() == b1.size(), "Size mismatch");
+  static_assert(rhs_bs.size() == b2.size(), "Size mismatch");
+
+  constexpr auto std_bs1 = std::bitset<8>("11001100");
+  constexpr auto std_bs2 = std::bitset<8>("10101010");
+
+  EXPECT_EQ(lhs_bs.to_ullong(), std_bs1.to_ullong());
+  EXPECT_EQ(rhs_bs.to_ullong(), std_bs2.to_ullong());
+
+  EXPECT_EQ(lhs_bs.to_ullong(), lhs);
+  EXPECT_EQ(rhs_bs.to_ullong(), rhs);
+
+  EXPECT_EQ(b1.to_string(), "11001100");
+  EXPECT_EQ(b2.to_string(), "10101010");
 }
 
 TEST(Bitset, ConstructionAndSize) {

@@ -36,7 +36,4 @@ int main() {
             << "\n";
   std::cout << "Count of 'l': " << helloWorld.count('l') << "\n";
   std::cout << helloWorld.at(0) << "\n";
-
-  // helloWorld.replace(8, 'o').replace(9, 'r').replace(10, 'l').replace(11,
-  // 'd');
 }

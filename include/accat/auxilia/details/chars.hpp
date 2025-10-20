@@ -1,26 +1,7 @@
 #pragma once
 #include <string>
 #include <string_view>
-
-namespace accat::auxilia::details {
-/// @brief helper aggregate struct for NTTP
-template <typename CharT, size_t N> struct basic_chars_storage {
-  using value_type = CharT;
-  value_type myArr[N] = {};
-  consteval basic_chars_storage(const value_type (&arr)[N]) noexcept {
-    for (size_t i = 0; i < N; ++i)
-      myArr[i] = arr[i];
-  }
-};
-// CTAD
-template <typename CharT, size_t N>
-basic_chars_storage(const CharT (&)[N]) -> basic_chars_storage<CharT, N>;
-// NTTP helper
-template <const basic_chars_storage MyChars>
-static consteval auto as_basic_chars_storage() noexcept {
-  return MyChars;
-}
-} // namespace accat::auxilia::details
+#include "./chars_helper.hpp"
 
 namespace accat::auxilia {
 /// @brief a tiny compile-time character array wrapper
@@ -199,13 +180,14 @@ basic_chars(const CharT (&)[N]) -> basic_chars<CharT, N>;
 template <size_t N> consteval auto as_chars(const char (&arr)[N]) noexcept {
   return basic_chars<char, N>(arr);
 }
+template <size_t N> using Chars = basic_chars<char, N>;
 namespace literals {
 // NTTP magic
 template <const details::basic_chars_storage MyChars>
 consteval auto operator""_c() noexcept {
   return basic_chars<typename decltype(MyChars)::value_type,
-                     sizeof(MyChars.myArr)>(
-      static_cast<decltype((MyChars.myArr)) &&>(MyChars.myArr));
+                     sizeof(MyChars.arr)>(
+      static_cast<decltype((MyChars.arr)) &&>(MyChars.arr));
 }
 } // namespace literals
 } // namespace accat::auxilia

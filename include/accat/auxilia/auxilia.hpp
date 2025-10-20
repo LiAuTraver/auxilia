@@ -40,6 +40,6 @@
 #include "./details/format.hpp"
 #include "./details/views.hpp"
 #include "./details/Generator.hpp"
-#include "./details/Span.hpp"
 #include "./details/program_options.hpp"
 #include "./details/bitset.hpp"
+#include "./details/chars_helper.hpp"

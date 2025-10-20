@@ -3,7 +3,7 @@
 #include <ostream>
 #include "./config.hpp"
 #include "./format.hpp"
-#include "accat/auxilia/details/format.hpp"
+#include "./chars_helper.hpp"
 
 // I'm too lazy to sustitude those `constexpr` to provide compatibility for
 // older standards. So I just guard the whole file for C++23 and later.
@@ -31,29 +31,13 @@ public:
   constexpr bitset(const unsigned long long val) noexcept
       : myArr(static_cast<storage_type>(needs_mask ? val & mask : val)) {}
   constexpr ~bitset() noexcept {}
-  // TODO: construct from string, and to string
+  constexpr bitset(const char (&arr)[N]) { construct_from_string(arr); }
   constexpr bitset(const std::string_view str,
                    const size_t pos = 0,
                    size_t len = std::string_view::npos,
                    const char zero = '0',
                    const char one = '1') {
-    if (str.size() < pos) {
-      AC_THROW_OR_DIE("bitset constructor: position out of range");
-      return;
-    }
-    len = std::min(len, str.size() - pos);
-
-    // I know nothing of vectorization at all, so here is a naive implementation
-    // for constructing from string. The speed is not optimized.
-    for (size_t i = 0; i < len; ++i) {
-      const char c = str[pos + i];
-      if (c == one)
-        do_set_unchecked(i, true);
-      else if (c == zero)
-        do_set_unchecked(i, false);
-      else
-        AC_THROW_OR_DIE("bitset constructor: invalid character");
-    }
+    construct_from_string(str, pos, len, zero, one);
   }
 
 protected:
@@ -75,6 +59,31 @@ private:
   /**
    * @name Internal helpers functions
    */
+  constexpr auto construct_from_string(const std::string_view str,
+                                       const size_t pos,
+                                       size_t len,
+                                       const char zero,
+                                       const char one) AC_NOEXCEPT {
+    if (str.size() < pos) {
+      AC_THROW_OR_DIE("bitset constructor: position out of range");
+      return;
+    }
+    len = std::min(len, str.size() - pos);
+
+    // I know nothing of vectorization at all, so here is a naive implementation
+    // for constructing from string. The speed is not optimized.
+
+    // vvv read the string in reverse order vvv
+    for (size_t i = 0; i < len; ++i) {
+      const char c = str[pos + len - 1 - i];
+      if (c == one)
+        do_set_unchecked(i, true);
+      else if (c == zero)
+        do_set_unchecked(i, false);
+      else
+        AC_THROW_OR_DIE("bitset constructor: invalid character");
+    }
+  }
   constexpr auto &do_set_unchecked(const size_t pos, const bool val) noexcept {
     auto &my_word = myArr[word_offset(pos)];
     const auto my_bit = storage_type{1} << bit_offset(pos);
@@ -257,7 +266,7 @@ public:
    *    most of which are just syntactic sugar.
    */
   template <typename NumType = unsigned long long>
-  AC_NODISCARD constexpr auto num() const noexcept {
+  AC_NODISCARD constexpr auto num() const noexcept((N <= 64)) {
     static_assert(std::is_integral_v<NumType>,
                   "template parameter T must be an integral type");
     if constexpr (std::is_same_v<NumType, unsigned long long>) {
@@ -454,6 +463,13 @@ std::basic_istream<char> &operator>>(std::basic_istream<char> &is,
   return is;
 }
 } // namespace accat::auxilia
+namespace accat::auxilia::literals {
+template <const details::basic_chars_storage MyChars>
+consteval auto operator""_bs() noexcept {
+  return bitset<array_size_v<MyChars.arr> - 1>(
+      static_cast<decltype((MyChars.arr)) &&>(MyChars.arr));
+}
+} // namespace accat::auxilia::literals
 
 // ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
