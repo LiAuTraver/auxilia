@@ -5,8 +5,8 @@
 namespace accat::auxilia::ranges::views::detail {
 struct _swap_endian_fn {
   template <std::ranges::viewable_range R>
-  [[nodiscard]] AC_STATIC_CALL_OPERATOR constexpr auto operator()(R &&r)
-      AC_CONST_CALL_OPERATOR->decltype(auto) {
+  [[nodiscard]] AC_STATIC_CALL_OPERATOR_ constexpr auto operator()(R &&r)
+      AC_CONST_CALL_OPERATOR_->decltype(auto) {
     return std::forward<R>(r) | std::views::reverse | std::views::common;
   }
 

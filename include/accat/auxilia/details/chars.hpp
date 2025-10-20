@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <string_view>
-#include "./chars_helper.hpp"
+#include "./type_traits.hpp"
 
 namespace accat::auxilia {
 /// @brief a tiny compile-time character array wrapper

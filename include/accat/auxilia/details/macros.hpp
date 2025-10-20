@@ -3,7 +3,13 @@
 #include "./variadic-inl.h"
 
 #if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
-#  error "This library requires at least C++20."
+#  if defined(_MSC_VER) && !defined(__clang__)
+#    error "This library requires at least C++20."
+#  else
+#    error "This library requires at least C++20. " \
+           "If you are certain C++20 has turned on, " \
+           "maybe you forgot to add /Zc:__cplusplus."
+#  endif
 #endif
 
 #if defined(AC_CPP_DEBUG)
@@ -44,25 +50,75 @@
 #  endif
 #endif
 
-/// @def AC_NO_SANITIZE_ADDRESS
-#ifdef __clang__
-#  define AC_NO_SANITIZE_ADDRESS [[clang::no_sanitize("address")]]
-#elif defined(_MSC_VER)
-#  define AC_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
-#elif defined(__GNUC__)
-#  define AC_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#include "./includes-inl.hpp"
+
+// although C++ standard may be updated, the constexpr feature may not be
+// supported by all compilers.
+#if __cpp_constexpr >= 202000L
+#  define AC_CONSTEXPR20_ constexpr
 #else
-#  define AC_NO_SANITIZE_ADDRESS
+#  define AC_CONSTEXPR20_
+#endif
+
+#if __cpp_constexpr >= 202211L
+#  define AC_CONSTEXPR23_ constexpr
+#else
+#  define AC_CONSTEXPR23_
+#endif
+
+#if __cpp_consteval >= 202211L
+#  define AC_CONSTEVAL_ consteval
+#else
+#  define AC_CONSTEVAL_ AC_CONSTEXPR20_
+#endif
+
+#if __cpp_static_call_operator >= 202207L
+#  define AC_STATIC_CALL_OPERATOR_ static
+#  define AC_CONST_CALL_OPERATOR_
+#else
+#  define AC_STATIC_CALL_OPERATOR_
+#  define AC_CONST_CALL_OPERATOR_ const
+#endif
+
+#if __has_cpp_attribute(nodiscard) >= 201907L
+#  define AC_NODISCARD_REASON_(...) [[nodiscard(__VA_ARGS__)]]
+#  define AC_NODISCARD_ [[nodiscard]]
+#elif __has_cpp_attribute(nodiscard) >= 201603L
+#  define AC_NODISCARD_REASON_(...) [[nodiscard]]
+#  define AC_NODISCARD_ [[nodiscard]]
+#else
+#  define AC_NODISCARD_REASON_(...)
+#  define AC_NODISCARD_
 #endif
 
 #ifdef __clang__
-#  define AC_FLATTEN [[gnu::flatten]]
+#  define AC_FLATTEN_ [[gnu::flatten]]
+#  define AC_NO_SANITIZE_ADDRESS_ [[clang::no_sanitize("address")]]
+#  define AC_FORCEINLINE_ [[clang::always_inline]]
+#  define AC_DEBUG_FUNCTION_NAME_ __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
-#  define AC_FLATTEN [[msvc::flatten]]
+#  define AC_FLATTEN_ [[msvc::flatten]]
+#  define AC_NO_SANITIZE_ADDRESS_ __declspec(no_sanitize_address)
+#  define AC_FORCEINLINE_ [[msvc::forceinline]]
+#  define AC_DEBUG_FUNCTION_NAME_ __FUNCSIG__
 #elif defined(__GNUC__)
-#  define AC_FLATTEN [[gnu::flatten]]
+#  define AC_FLATTEN_ [[gnu::flatten]]
+#  define AC_NO_SANITIZE_ADDRESS_ __attribute__((no_sanitize("address")))
+#  define AC_FORCEINLINE_ [[gnu::always_inline]]
+#  define AC_DEBUG_FUNCTION_NAME_ __PRETTY_FUNCTION__
 #else
-#  define AC_FLATTEN
+#  define AC_FLATTEN_
+#  define AC_NO_SANITIZE_ADDRESS_
+#  define AC_FORCEINLINE_ inline
+#  define AC_DEBUG_FUNCTION_NAME_ __func__
+#endif
+
+#ifdef _WIN32
+#  define AC_NOVTABLE_ __declspec(novtable)
+#  define AC_EMPTY_BASES_ __declspec(empty_bases)
+#else
+#  define AC_NOVTABLE_
+#  define AC_EMPTY_BASES_
 #endif
 
 #ifdef AUXILIA_BUILD_MODULE
@@ -73,16 +129,6 @@
 #  if AC_DEBUG_ENABLED
 #    include <spdlog/spdlog.h>
 #  endif
-#endif
-
-#include "./includes-inl.hpp"
-
-#if __cpp_static_call_operator >= 202207L
-#  define AC_STATIC_CALL_OPERATOR static
-#  define AC_CONST_CALL_OPERATOR
-#else
-#  define AC_STATIC_CALL_OPERATOR
-#  define AC_CONST_CALL_OPERATOR const
 #endif
 
 /// @note by current time the library was written, GNU on Windows seems failed
@@ -113,10 +159,22 @@ struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
 #else
 #  define AC_STACKTRACE ("<no further information>")
 #endif
-#ifdef AC_DEBUG_ENABLED
-#  define AC_DEBUG_LOGGING(_level_, _msg_, ...)                                \
-    ::spdlog::_level_(_msg_ __VA_OPT__(, ) __VA_ARGS__);
 
+#ifdef AC_DEBUG_ENABLED
+#  if __has_include(<spdlog/spdlog.h>)
+#    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
+      ::spdlog::_level_(_msg_ __VA_OPT__(, ) __VA_ARGS__);
+#  elif __has_include(<print>)
+#    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
+      std::print(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__);              \
+      std::print("\n");
+#  elif __has_include(<format>)
+#    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
+      std::cout << std::format(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__) \
+                << std::endl;
+#  else
+#    define AC_DEBUG_LOGGING(_level_, _msg_, ...)
+#  endif
 namespace accat::auxilia::details {
 EXPORT_AUXILIA
 struct _dbg_block_helper_struct_ {};
@@ -129,20 +187,21 @@ template <class Fun_> struct _dbg_block_ {
 };
 EXPORT_AUXILIA
 template <class Fun_>
-AC_STATIC_CALL_OPERATOR inline constexpr auto
-operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
-    -> _dbg_block_<Fun_> {
+AC_STATIC_CALL_OPERATOR_ inline constexpr auto
+operator*(_dbg_block_helper_struct_, Fun_ f_) AC_CONST_CALL_OPERATOR_
+    noexcept(noexcept(f_())) -> _dbg_block_<Fun_> {
   return {f_};
 }
 } // namespace accat::auxilia::details
+
 #  define AC_DEBUG_BLOCK                                                       \
     ::accat::auxilia::details::_dbg_block_helper_struct_{} *[&]()              \
         -> void // NOLINT(bugprone-macro-parentheses)
 
 #  define AC_DEBUG_ONLY(...) __VA_ARGS__
+
 /// @note detect if gtest was included, if so, emit a different message.
 #  ifdef GTEST_API_
-
 #    define AC_DEBUG_LOGGING_SETUP(_exec_, _level_, _msg_, ...)                \
       ::spdlog::set_level(spdlog::level::_level_);                             \
       ::spdlog::set_pattern("[\033[33m" #_exec_ ":\033[0m %^%5l%$] %v");       \
@@ -160,6 +219,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 #else
 #  define AC_DEBUG_LOGGING(...) (void)0;
 #endif
+
 /// @note magic_enum seems to require __PRETTY_FUNCTION__ to be defined; also
 /// language server clangd does not work.
 #if !defined(__PRETTY_FUNCTION__) && !defined(__INTELLISENSE__)
@@ -169,23 +229,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 #    define __PRETTY_FUNCTION__ __func__
 #  endif
 #endif
-#ifdef __clang__
-#  define AC_FORCEINLINE [[clang::always_inline]]
-#  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
-// Visual Studio's intellisense cannot recognize `elifdef` yet.
-// Use the old, good `#elif` here.
-#elif defined(__GNUC__)
-#  define AC_FORCEINLINE [[gnu::always_inline]]
-#  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
-#elif defined(_MSC_VER)
-#  define AC_FORCEINLINE [[msvc::forceinline]]
-#  define AC_DEBUG_FUNCTION_NAME __FUNCSIG__
-#  pragma warning(disable : 4716) // must return a value
-#  pragma warning(disable : 4530) // /EHsc
-#else
-#  define AC_FORCEINLINE inline
-#  define AC_DEBUG_FUNCTION_NAME __func__
-#endif
+
 #ifdef __clang__
 #  define AC_DEBUG_BREAK_IMPL_ __builtin_debugtrap();
 #elif defined(__GNUC__)
@@ -204,7 +248,7 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
 #endif
 
 namespace accat::auxilia::details {
-inline bool _is_debugger_present() noexcept {
+AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
   return ::IsDebuggerPresent();
 #elif defined(__linux__)
@@ -226,13 +270,14 @@ inline bool _is_debugger_present() noexcept {
       ::std::exit(3);                                                          \
     }                                                                          \
   } while (false);
+
 #ifdef AC_DEBUG_ENABLED
 #  define AC_AMBIGUOUS_ELSE_BLOCKER                                            \
     switch (0)                                                                 \
     case 0:                                                                    \
     default:
 #  define AC_FILENAME (::std::source_location::current().file_name())
-#  define AC_FUNCTION_NAME AC_DEBUG_FUNCTION_NAME
+#  define AC_FUNCTION_NAME AC_DEBUG_FUNCTION_NAME_
 #  define AC_LINE (::std::source_location::current().line())
 #  define AC_COLUMN (::std::source_location::current().column())
 #  define AC_PRINT_ERROR_MSG_IMPL_WITH_MSG(x, _msg_)                           \
@@ -284,66 +329,24 @@ inline bool _is_debugger_present() noexcept {
     AC_RUNTIME_REQUIRE_IMPL(_cond_ __VA_OPT__(, ) __VA_ARGS__);
 
 #  define AC_PRECONDITION(...) AC_RUNTIME_REQUIRE_IMPL(__VA_ARGS__)
-#  define AC_POSTCONDITION(...) AC_RUNTIME_REQUIRE_IMPL(__VA_ARGS__)
 #  define AC_NOEXCEPT_IF(...) // nothing
 #  define AC_NOEXCEPT         // nothing
+#  define AC_TODO_(...)                                                        \
+    AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
+    std::abort(); // shut up the warning 'not all control paths return a
+                  // value'
+#  define DebugUnreachable(...) AC_RUNTIME_ASSERT(false, "Unreachable code.")
+
 #else
 // if debug was turned off, do nothing.
 #  define AC_RUNTIME_ASSERT(...) (void)0;
 #  define AC_PRECONDITION(...) (void)0;
-#  define AC_POSTCONDITION(...) (void)0;
 #  define AC_DEBUG_LOGGING_SETUP(...) (void)0;
 #  define AC_DEBUG_BLOCK [&]() -> void
 #  define AC_DEBUG_ONLY(...)
 #  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept
-#endif
-/// @def AC_SPDLOG_INITIALIZATION(_exec_, _log_level_) initializes the
-/// spdlog framework
-/// @note only call it once in the whole exec; never call it twice.
-#define AC_SPDLOG_INITIALIZATION(_exec_, _log_level_)                          \
-  [[maybe_unused]]                                                             \
-  const auto AC_SPDLOG_INITIALIZATION = [](void) -> ::std::nullptr_t {         \
-    AC_DEBUG_LOGGING(info, "\033[36mspdlog framework initialized.\033[0m")     \
-    AC_DEBUG_LOGGING_SETUP(_exec_, _log_level_, "Debug mode enabled")          \
-    return nullptr;                                                            \
-  }();
-
-// clang-format off
-#if (defined(_MSVC_TRADITIONAL) && _MSVC_TRADITIONAL) && !defined(__clang__)
-/// @brief MSVC traditional preprocessor
-/// @def dbg(_level_, _msg_, ...)
-/// @note MSVC cross-platform compatible preprocessor acts like clang and gcc.
-/// @see <a href="https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview">MSVC Preprocessor</a>
-#  pragma message                                                              \
-      "MSVC traditional preprocessor was used. no additional debug info will be provided. to enable MSVC's new preprocessor, add compiler flag `/Zc:preprocessor`."
-#  define dbg(_level_, _msg_, ...)                                             \
-    AC_DEBUG_LOGGING(_level_, _msg_ __VA_OPT__(, ) __VA_ARGS__)
-#  define contract_assert(...)
-#  define contract_check(...) assert(__VA_ARGS__)
-#  define precondition(...)
-#else
-/// @def contract_assert(condition, message)
-/// @note idea borrowed from c++2c's contract programming proposal. See
-///  <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2961r2.pdf">P2961R2</a>
-#  define contract_assert(...) AC_RUNTIME_ASSERT(__VA_ARGS__)
-#  define contract_check(_cond_) AC_RUNTIME_ASSERT(_cond_, "expect " #_cond_)
-#  define precondition(...) AC_PRECONDITION(__VA_ARGS__)
-// clang-format on
-#  define dbg(...) AC_DEBUG_LOGGING(__VA_ARGS__)
-#endif
-#define dbg_block AC_DEBUG_BLOCK
-#define dbg_only(...) AC_DEBUG_ONLY(__VA_ARGS__)
-#define dbg_break AC_DEBUG_BREAK
-
-#ifdef AC_DEBUG_ENABLED
-#  define AC_TODO_(...)                                                        \
-    AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
-    std::abort(); // shut up the warning 'not all control paths return a value'
-#  define DebugUnreachable(...) AC_RUNTIME_ASSERT(false, "Unreachable code.")
-// if exception was disabled, do nothing.
-#else
 #  define DebugUnreachable(...) std::unreachable()
 #  if defined(__cpp_exceptions) && __cpp_exceptions
 #    include <stdexcept>
@@ -357,73 +360,16 @@ inline bool _is_debugger_present() noexcept {
       AC_DEBUG_BREAK
 #  endif
 #endif
-/// @def TODO mimic from kotlin's `TODO` function, which throws an
-/// exception and is also discoverable
-/// by IDE(which is why this macro exists).
-#define TODO(...) AC_TODO_(__VA_ARGS__)
 
 #if defined(__cpp_exceptions) && __cpp_exceptions
-#  define AC_THROW_OR_DIE(_msg_) throw std::runtime_error(_msg_)
+#  define AC_THROW_OR_DIE_(_msg_) throw std::runtime_error(_msg_)
 #else
-#  define AC_THROW_OR_DIE(_msg_)                                               \
+#  define AC_THROW_OR_DIE_(_msg_)                                              \
     do {                                                                       \
       fprintf(stderr, "Fatal error: %s\n", _msg_);                             \
       AC_DEBUG_BREAK                                                           \
       std::abort();                                                            \
     } while (false)
-#endif
-
-#if defined(_MSC_VER) && !defined(__clang__)
-#  pragma warning(disable : 4244) // conversion from 'int' to 'char' warning
-#endif
-
-// although C++ standard may be updated, the constexpr feature may not be
-// supported by all compilers.
-
-#if __cpp_constexpr >= 202000L
-#  define AC_CONSTEXPR20 constexpr
-#else
-#  define AC_CONSTEXPR20
-#endif
-
-#if __cpp_constexpr >= 202300L
-#  define AC_CONSTEXPR23 constexpr
-#else
-#  define AC_CONSTEXPR23
-#endif
-
-#if __cpp_consteval >= 202211L
-#  define AC_CONSTEVAL consteval
-#else
-#  define AC_CONSTEVAL AC_CONSTEXPR20
-#endif
-
-#if __has_cpp_attribute(nodiscard) >= 201907L
-#  define AC_NODISCARD_REASON(...) [[nodiscard(__VA_ARGS__)]]
-// why this macro? mostly because attribute with `[[]]` costs more typing. ;)
-#  define AC_NODISCARD [[nodiscard]]
-#elif __has_cpp_attribute(nodiscard) >= 201603L
-#  define AC_NODISCARD_REASON(...) [[nodiscard]]
-#  define AC_NODISCARD [[nodiscard]]
-#else
-#  define AC_NODISCARD_REASON(...)
-#  define AC_NODISCARD
-#endif
-
-#ifdef _WIN32
-/// @def AC_NOVTABLE
-/// @note msvc-specific keyword to prevent vtable generation.
-///     Used in(and should only in) interface classes(i.e., pure interface and
-///     never instantiated directly).
-/// @remark no gcc/clang equivalent.
-#  define AC_NOVTABLE __declspec(novtable)
-/// @def AC_EMPTY_BASES
-/// @note msvc-specific keyword to enforce empty base optimization.
-/// @remark no gcc/clang equivalent.
-#  define AC_EMPTY_BASES __declspec(empty_bases)
-#else
-#  define AC_NOVTABLE
-#  define AC_EMPTY_BASES
 #endif
 
 #ifndef AC_HAS_EXPLICIT_THIS_PARAMETER
@@ -441,38 +387,32 @@ namespace accat::auxilia::details {
 /// @see
 /// https://stackoverflow.com/questions/32432450/what-is-standard-defer-finalizer-implementation-in-c
 EXPORT_AUXILIA
-struct _accat_utils_defer_helper_struct_ {};
-template <class Fun_> struct _accat_utils_deferrer_ {
+struct _deferer_helper_struct_ {};
+template <class Fun_> struct _deferrer_ {
   Fun_ f_;
-  inline constexpr _accat_utils_deferrer_(Fun_ f_) noexcept : f_(f_) {}
-  inline constexpr ~_accat_utils_deferrer_() noexcept(noexcept(f_())) { f_(); }
+  inline constexpr _deferrer_(Fun_ f_) noexcept : f_(f_) {}
+  inline constexpr ~_deferrer_() noexcept(noexcept(f_())) { f_(); }
 };
 EXPORT_AUXILIA
 template <class Fun_>
-inline AC_CONSTEXPR20 auto operator*(_accat_utils_defer_helper_struct_,
-                                     Fun_ f_) noexcept
-    -> _accat_utils_deferrer_<Fun_> {
+inline AC_CONSTEXPR20_ auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
+    -> _deferrer_<Fun_> {
   return {f_};
 }
 } // namespace accat::auxilia::details
+
 #define AC_DEFER                                                               \
-  const auto AC_EXPAND_COUNTER(_accat_utils_defer_block_at) =                  \
-      ::accat::auxilia::details::_accat_utils_defer_helper_struct_{} *[&]()
-#ifdef defer
-#  warning "defer was already defined. please check the code."
-#  pragma pop_macro("defer")
+  const auto AC_EXPAND_COUNTER(_accat_auxilia_details_defer_block_at_) =       \
+      ::accat::auxilia::details::_deferer_helper_struct_{} *[&]()
+
+#ifdef AC_DEBUG_ENABLED
+#  define AC_POSTCONDITION(...) AC_DEFER{AC_RUNTIME_ASSERT(__VA_ARGS__)};
+#else
+#  define AC_POSTCONDITION(...) (void)0;
 #endif
-#define defer AC_DEFER
-#define postcondition(...) AC_DEFER{AC_RUNTIME_ASSERT(__VA_ARGS__)};
 
 // NOLINTBEGIN(bugprone-macro-parentheses)
-
-/// @def AC_BITMASK_OPS
-/// @brief define the basic bitmask operations for the given bitmask
-/// type. the bitmask type should be an enum class.
-/// @param _bitmask_ the bitmask type
-/// @note this macro was borrowed from Microsoft's STL implementation.
-#define AC_BITMASK_OPS(_bitmask_)                                              \
+#define AC_BITMASK_OPS_(_bitmask_)                                             \
   [[nodiscard]]                                                                \
   inline constexpr _bitmask_ operator&(                                        \
       _bitmask_ _left_,                                                        \
@@ -536,10 +476,7 @@ inline AC_CONSTEXPR20 auto operator*(_accat_utils_defer_helper_struct_,
     return !static_cast<_intergral_type_>(_left_);                             \
   }
 
-/// @def AC_BITMASK_OPS_NESTED
-/// @brief Useful if the enum class is nested inside a template class(usually
-/// you won't do this).
-#define AC_BITMASK_OPS_NESTED(_bitmask_)                                       \
+#define AC_BITMASK_OPS_NESTED_(_bitmask_)                                      \
   [[nodiscard]] friend inline constexpr _bitmask_ operator&(                   \
       _bitmask_ _left_,                                                        \
       _bitmask_ _right_) noexcept { /* return _left_ & _right_ */              \

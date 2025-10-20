@@ -22,16 +22,16 @@ template <typename Instance,
 struct Property {
   Instance *instance;
   /// DANGER: do not use this constructor
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property() : instance(nullptr) {}
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property(Instance *instance)
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property() : instance(nullptr) {}
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property(Instance *instance)
       : instance(instance) {}
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 operator ReturnType() const
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ operator ReturnType() const
       noexcept(noexcept((instance->*getter)())) {
     [[clang::musttail]] return (instance->*getter)();
   }
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property &
   operator=(const Field &value) noexcept(noexcept((instance->*setter)(value))) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     (instance->*setter)(value);
     return *this;
   }
@@ -41,38 +41,38 @@ struct Property {
             typename ThatReturnType,
             ThatField (ThatParent::*ThatGetter)() const,
             ThatReturnType (ThatParent::*ThatSetter)(const ThatField &)>
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property &
   operator=(const Property<ThatParent,
                            ThatField,
                            ThatReturnType,
                            ThatGetter,
                            ThatSetter>
                 &that) noexcept(noexcept((that.instance->*ThatGetter)())) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     return *this = (that.instance->*ThatGetter)();
   }
 
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &operator=(
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property &operator=(
       const Property &that) noexcept(noexcept((that.instance->*getter)())) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     return *this = (that.instance->*getter)();
   }
 
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 Property &operator=(
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ Property &operator=(
       const ReturnType &value) noexcept(noexcept((instance->*setter)(value))) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     return *this = (instance->*setter)(value);
   }
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 bool
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ bool
   operator==(const Field &value) const
       noexcept(noexcept((instance->*getter)())) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     return (instance->*getter)() == value;
   }
-  AC_FORCEINLINE AC_FLATTEN AC_CONSTEXPR20 auto
+  AC_FORCEINLINE_ AC_FLATTEN_ AC_CONSTEXPR20_ auto
   operator<=>(const Field &value) const
       noexcept(noexcept((instance->*getter)())) {
-    precondition(instance, "Property instance is null")
+    AC_PRECONDITION(instance, "Property instance is null")
     return (instance->*getter)() <=> value;
   }
 };

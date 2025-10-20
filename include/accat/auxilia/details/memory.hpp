@@ -25,7 +25,7 @@ private:
     auto aligned = (current + align - 1) & ~(align - 1);
     auto aligned_offset = aligned - current;
     if (aligned_offset + bytes > remaining_size) {
-      contract_assert(0, "out of memory")
+      AC_RUNTIME_ASSERT(0, "out of memory")
       return nullptr;
     }
     remaining_size -= (aligned_offset + bytes);

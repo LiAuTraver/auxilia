@@ -164,8 +164,8 @@ public:
     return *this;
   }
 
-  AC_CONSTEXPR23 Parser(const string_view program_name,
-                        const string_view program_version)
+  AC_CONSTEXPR23_ Parser(const string_view program_name,
+                         const string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
 public:
@@ -332,7 +332,7 @@ inline auto get(string_view program_name) -> Parser & {
   if (auto p = find(program_name))
     return *p;
 
-  dbg_break;
+  AC_DEBUG_BREAK;
   throw std::runtime_error(format("Parser does not exist: {}", program_name));
 }
 } // namespace accat::auxilia::program_options

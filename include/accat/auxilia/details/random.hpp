@@ -84,7 +84,7 @@ template <> struct _random_integer_generator<uint8_t> {
   }
 
   inline uint8_t operator()(const uint8_t(min), const uint8_t(max)) const {
-    precondition((min) < (max), "min must be less than max");
+    AC_PRECONDITION((min) < (max), "min must be less than max");
     return (((*this)() % ((max) - (min))) + (min));
   }
 };

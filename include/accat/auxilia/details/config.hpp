@@ -68,7 +68,7 @@ inline consteval auto operator""_raw(const char *str, const size_t) noexcept
 }
 
 [[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {
-  AC_THROW_OR_DIE("memory allocation failed");
+  AC_THROW_OR_DIE_("memory allocation failed");
 }
 template <typename T = void>
 [[using gnu: malloc, returns_nonnull]] inline T *alloc(const size_t size)

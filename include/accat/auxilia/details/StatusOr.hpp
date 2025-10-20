@@ -40,25 +40,25 @@ public:
   using rvoff_value_t = std::remove_cv_t<Ty>;
 
 public:
-  AC_NODISCARD
+  AC_NODISCARD_
   constexpr StatusOr() = default;
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(const Status &status) : base_type(status) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(Status &&status) : base_type(std::move(status)) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(const value_type &value) : base_type(kOk), my_value(value) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(value_type &&value) : base_type(kOk), my_value(std::move(value)) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(const Status &status, const value_type &value)
       : base_type(status), my_value(value) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(Status &&status, value_type &&value)
       : base_type(std::move(status)), my_value(std::move(value)) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(const StatusOr &that) : base_type(that), my_value(that.my_value) {}
-  AC_NODISCARD
+  AC_NODISCARD_
   StatusOr(StatusOr &&that) noexcept
       : base_type(std::move(that)), my_value(std::move(that.my_value)) {}
   StatusOr &operator=(const StatusOr &that) {
@@ -93,54 +93,54 @@ public:
 
 public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD
+  AC_NODISCARD_
   inline auto value(this auto &&self) {
-    contract_assert(self.ok() or self.is_return(),
-                    "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(self.ok() or self.is_return(),
+                      "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
 #  else
-  AC_NODISCARD
+  AC_NODISCARD_
   inline value_type value() & {
-    contract_assert(ok() or is_return(),
-                    "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok() or is_return(),
+                      "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline const value_type value() const & {
-    contract_assert(ok() or is_return(),
-                    "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok() or is_return(),
+                      "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline value_type value() && {
-    contract_assert(ok() or is_return(),
-                    "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok() or is_return(),
+                      "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline const value_type &&value() const && {
-    contract_assert(ok() or is_return(),
-                    "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok() or is_return(),
+                      "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD AC_CONSTEXPR20 inline value_type
+  AC_NODISCARD_ AC_CONSTEXPR20_ inline value_type
   value_or(this auto &&self, rvoff_value_t &&default_value) {
     return self.ok() ? self.my_value
                      : static_cast<value_type>(
                            std::forward<rvoff_value_t>(default_value));
   }
 #  else
-  AC_NODISCARD AC_CONSTEXPR20 inline value_type
+  AC_NODISCARD_ AC_CONSTEXPR20_ inline value_type
   value_or(rvoff_value_t &&default_value) const & {
     return ok() ? my_value
                 : static_cast<value_type>(
                       std::forward<rvoff_value_t>(default_value));
   }
-  AC_NODISCARD AC_CONSTEXPR20 inline value_type
+  AC_NODISCARD_ AC_CONSTEXPR20_ inline value_type
   value_or(rvoff_value_t &&default_value) && {
     return ok() ? std::move(my_value)
                 : static_cast<value_type>(
@@ -149,67 +149,67 @@ public:
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr auto &operator*(this auto &&self) AC_NOEXCEPT {
-    precondition(self.ok() or self.is_return(),
-                 "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(self.ok() or self.is_return(),
+                    "Cannot dereference a status that is not OK.");
     return self.my_value;
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr auto &&operator*() && AC_NOEXCEPT {
-    precondition(ok() or is_return(),
-                 "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(ok() or is_return(),
+                    "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
 #  else
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr value_type &operator*() & AC_NOEXCEPT {
-    precondition(ok() or is_return(),
-                 "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(ok() or is_return(),
+                    "Cannot dereference a status that is not OK.");
     return my_value;
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr const value_type &operator*() const &AC_NOEXCEPT {
-    precondition(ok() or is_return(),
-                 "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(ok() or is_return(),
+                    "Cannot dereference a status that is not OK.");
     return my_value;
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr auto operator->(this auto &&self)
       AC_NOEXCEPT->decltype(auto) {
     return std::addressof(self.my_value);
   }
 #  else
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr auto operator->() AC_NOEXCEPT->value_type * {
     return std::addressof(my_value);
   }
-  AC_NODISCARD
+  AC_NODISCARD_
   inline constexpr auto operator->() const AC_NOEXCEPT->const value_type * {
     return std::addressof(my_value);
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD AC_FLATTEN inline constexpr auto as_status(this auto &&self)
+  AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status(this auto &&self)
       AC_NOEXCEPT -> decltype(auto) {
     return (static_cast<base_type>(self));
   }
 #  else
-  AC_NODISCARD AC_FLATTEN inline constexpr auto as_status() & AC_NOEXCEPT {
+  AC_NODISCARD_ AC_FLATTEN inline constexpr auto as_status() & AC_NOEXCEPT {
     return static_cast<base_type &>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr const auto
+  AC_NODISCARD_ AC_FLATTEN inline constexpr const auto
   as_status() const &AC_NOEXCEPT {
     return static_cast<const base_type &>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr auto as_status() && AC_NOEXCEPT {
+  AC_NODISCARD_ AC_FLATTEN inline constexpr auto as_status() && AC_NOEXCEPT {
     return static_cast<base_type &&>(*this);
   }
-  AC_NODISCARD AC_FLATTEN inline constexpr const auto
+  AC_NODISCARD_ AC_FLATTEN inline constexpr const auto
   as_status() const &&AC_NOEXCEPT {
     return static_cast<const base_type &&>(*this);
   }

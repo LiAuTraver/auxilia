@@ -23,7 +23,7 @@ int main() {
   std::cout << typeid(t4).name() << "\n";
   std::cout << t8 << "\n";
 
-  auto helloWorld = "hello, world!"_c;
+  constexpr auto helloWorld = "hello, world!"_c;
   std::cout << helloWorld.data() << "\n";
   std::cout << "Size: " << helloWorld.size() << "\n";
   std::cout << "Front: " << helloWorld.front() << "\n";

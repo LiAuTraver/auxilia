@@ -167,9 +167,9 @@ public:
   /// @note not a shared resource, like a plain `future::get()`,
   /// which cannot be called multiple times
   auto get() {
-    precondition(handle_, "Generator::get() called twice")
+    AC_PRECONDITION(handle_, "Generator::get() called twice")
 
-    defer {
+    AC_DEFER {
       handle_.destroy();
       handle_ = nullptr;
     };
@@ -189,7 +189,7 @@ public:
 
   // next yield value
   auto next() -> std::optional<YieldType> {
-    precondition(handle_, "handle has already been destroyed")
+    AC_PRECONDITION(handle_, "handle has already been destroyed")
     if (!handle_ || handle_.done())
       return std::nullopt;
 
