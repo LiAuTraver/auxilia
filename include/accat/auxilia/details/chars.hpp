@@ -129,8 +129,8 @@ public:
   constexpr auto &reverse() noexcept {
     for (size_type i = 0; i < (my_real_size()) / 2; ++i) {
       auto temp = myArr[i];
-      myArr[i] = myArr[(my_real_size()) - 1 - i];
-      myArr[(my_real_size()) - 1 - i] = temp;
+      myArr[i] = myArr[(my_real_size())-1 - i];
+      myArr[(my_real_size())-1 - i] = temp;
     }
     return *this;
   }
@@ -180,7 +180,13 @@ basic_chars(const CharT (&)[N]) -> basic_chars<CharT, N>;
 template <size_t N> consteval auto as_chars(const char (&arr)[N]) noexcept {
   return basic_chars<char, N>(arr);
 }
-template <size_t N> using Chars = basic_chars<char, N>;
+template <size_t N> using chars = basic_chars<char, N>;
+template <size_t N> using wchars = basic_chars<wchar_t, N>;
+#ifdef __cpp_char8_t
+template <size_t N> using u8chars = basic_chars<char8_t, N>;
+#endif
+template <size_t N> using u16chars = basic_chars<char16_t, N>;
+template <size_t N> using u32chars = basic_chars<char32_t, N>;
 namespace literals {
 // NTTP magic
 template <const details::basic_chars_storage MyChars>

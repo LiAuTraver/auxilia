@@ -87,10 +87,66 @@ inline constexpr auto extent_v<Ty[N], I> =
 template <typename Ty, unsigned int I>
 inline constexpr auto extent_v<Ty[], I> =
     extent_v<Ty, I - 1>; // match higher dimensions of unknown bound arrays
+template <typename Ty, unsigned int I>
+struct extent : integral_constant<size_t, extent_v<Ty, I>> {};
 
 template <const auto &Chars>
 inline constexpr size_t array_size_v =
     extent_v<remove_reference_t<decltype(Chars)>>;
 template <const auto &Chars>
 struct array_size : integral_constant<size_t, array_size_v<Chars>> {};
+
+#ifdef __clang__
+template <class Ty, class Uy> constexpr bool is_same_v = __is_same(Ty, Uy);
+template <class Ty, class Uy>
+struct is_same : bool_constant<__is_same(Ty, Uy)> {};
+#else
+template <class, class> constexpr bool is_same_v = false;
+template <class _Ty> constexpr bool is_same_v<_Ty, _Ty> = true;
+template <class Ty, class Uy>
+struct is_same : bool_constant<is_same_v<Ty, Uy>> {};
+#endif
+
+/// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
+template <class Ty, template <class...> class Template>
+constexpr bool is_specialization_v = false;
+template <template <class...> class Template, class... Types>
+constexpr bool is_specialization_v<Template<Types...>, Template> = true;
+template <class Ty, template <class...> class Template>
+struct is_specialization : bool_constant<is_specialization_v<Ty, Template>> {};
+
+/// @see Microsoft STL's @link std::_Is_any_of_v @endlink.
+template <typename Ty, typename... Candidates>
+inline constexpr bool is_any_of_v = (is_same_v<Ty, Candidates> || ...);
+template <typename Ty, typename... Candidates>
+struct is_any_of : bool_constant<is_any_of_v<Ty, Candidates...>> {};
+
+template <typename Ty>
+inline constexpr auto is_integral_v = is_any_of_v<remove_cv_t<Ty>,
+                                                  bool,
+                                                  char,
+                                                  signed char,
+                                                  unsigned char,
+                                                  wchar_t,
+#ifdef __cpp_char8_t
+                                                  char8_t,
+#endif // defined(__cpp_char8_t)
+                                                  char16_t,
+                                                  char32_t,
+                                                  short,
+                                                  unsigned short,
+                                                  int,
+                                                  unsigned int,
+                                                  long,
+                                                  unsigned long,
+                                                  long long,
+                                                  unsigned long long>;
+
+template <typename Ty> struct is_integral : bool_constant<is_integral_v<Ty>> {};
+
+template <typename Ty>
+inline constexpr auto is_floating_point_v =
+    is_any_of_v<remove_cv_t<Ty>, float, double, long double>;
+template <typename Ty>
+struct is_floating_point : bool_constant<is_floating_point_v<Ty>> {};
 } // namespace accat::auxilia

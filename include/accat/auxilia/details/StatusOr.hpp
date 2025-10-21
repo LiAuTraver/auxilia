@@ -13,6 +13,7 @@
 #  include "./format.hpp"
 #  include "./Status.hpp"
 #  include "./Monostate.hpp"
+#  include "./type_traits.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
@@ -199,17 +200,17 @@ public:
     return (static_cast<base_type>(self));
   }
 #  else
-  AC_NODISCARD_ AC_FLATTEN inline constexpr auto as_status() & AC_NOEXCEPT {
+  AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status() & AC_NOEXCEPT {
     return static_cast<base_type &>(*this);
   }
-  AC_NODISCARD_ AC_FLATTEN inline constexpr const auto
+  AC_NODISCARD_ AC_FLATTEN_ inline constexpr const auto
   as_status() const &AC_NOEXCEPT {
     return static_cast<const base_type &>(*this);
   }
-  AC_NODISCARD_ AC_FLATTEN inline constexpr auto as_status() && AC_NOEXCEPT {
+  AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status() && AC_NOEXCEPT {
     return static_cast<base_type &&>(*this);
   }
-  AC_NODISCARD_ AC_FLATTEN inline constexpr const auto
+  AC_NODISCARD_ AC_FLATTEN_ inline constexpr const auto
   as_status() const &&AC_NOEXCEPT {
     return static_cast<const base_type &&>(*this);
   }

@@ -9,6 +9,7 @@
 #include <string>
 #include <type_traits>
 #include "accat/auxilia/details/chars.hpp"
+#include "accat/auxilia/defines.hpp"
 // test
 constexpr auto t(auto &&arr) {
   return typeid(static_cast<decltype(arr) &&>(arr)).name();
@@ -19,9 +20,8 @@ int main() {
 
   constexpr auto t4 = "world"_c;
 
-  auto t8 = t("hello");
   std::cout << typeid(t4).name() << "\n";
-  std::cout << t8 << "\n";
+  std::cout << t("hello") << "\n";
 
   constexpr auto helloWorld = "hello, world!"_c;
   std::cout << helloWorld.data() << "\n";

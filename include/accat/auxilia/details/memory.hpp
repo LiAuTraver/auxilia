@@ -1,8 +1,34 @@
 #pragma once
 
-#include "./config.hpp"
+#include "./macros.hpp"
 
 namespace accat::auxilia {
+[[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {
+  AC_THROW_OR_DIE_("memory allocation failed");
+}
+template <typename T = void>
+[[using gnu: malloc, returns_nonnull]] inline T *alloc(const size_t size)
+    [[clang::allocating]] {
+  if (auto ptr = malloc(size))
+    return static_cast<T *>(ptr);
+
+  [[unlikely]] return OnMemAllocFailed();
+}
+template <typename T = void>
+[[using gnu: malloc, returns_nonnull]]
+inline T *dynamic_alloc(const size_t size) [[clang::allocating]] {
+  if (auto ptr =
+#if defined(_malloca)
+          _malloca(size)
+#elif defined(alloca)
+          alloca(size)
+#else
+          malloc(size)
+#endif
+  )
+    return static_cast<T *>(ptr);
+  [[unlikely]] return OnMemAllocFailed();
+}
 
 EXPORT_AUXILIA
 class MemoryPool : public std::pmr::memory_resource {

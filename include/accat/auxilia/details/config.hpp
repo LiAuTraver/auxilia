@@ -67,33 +67,6 @@ inline consteval auto operator""_raw(const char *str, const size_t) noexcept
   return raw(str);
 }
 
-[[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {
-  AC_THROW_OR_DIE_("memory allocation failed");
-}
-template <typename T = void>
-[[using gnu: malloc, returns_nonnull]] inline T *alloc(const size_t size)
-    [[clang::allocating]] {
-  if (auto ptr = malloc(size))
-    return static_cast<T *>(ptr);
-
-  [[unlikely]] return OnMemAllocFailed();
-}
-template <typename T = void>
-[[using gnu: malloc, returns_nonnull]]
-inline T *dynamic_alloc(const size_t size) [[clang::allocating]] {
-  if (auto ptr =
-#if defined(_malloca)
-          _malloca(size)
-#elif defined(alloca)
-          alloca(size)
-#else
-          malloc(size)
-#endif
-  )
-    return static_cast<T *>(ptr);
-  [[unlikely]] return OnMemAllocFailed();
-}
-
 /// @brief shorthand of static_cast. sugar is all you need :)
 template <typename To, typename From>
 inline constexpr To as(From &&from) noexcept {
@@ -108,21 +81,6 @@ auto async(auto &&func, auto... args) -> decltype(auto)
                     std::forward<decltype(func)>(func),
                     std::forward<decltype(args)>(args)...);
 }
-
-/// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
-template <class Ty, template <class...> class Template>
-constexpr bool is_specialization_v = false;
-template <template <class...> class Template, class... Types>
-constexpr bool is_specialization_v<Template<Types...>, Template> = true;
-template <class Ty, template <class...> class Template>
-struct is_specialization
-    : std::bool_constant<is_specialization_v<Ty, Template>> {};
-
-/// @see Microsoft STL's @link std::_Is_any_of_v @endlink.
-template <typename Ty, typename... Candidates>
-inline constexpr bool is_any_of_v = (std::is_same_v<Ty, Candidates> || ...);
-template <typename Ty, typename... Candidates>
-struct is_any_of : std::bool_constant<is_any_of_v<Ty, Candidates...>> {};
 
 // idk how people came up with this magic number, here's the reference:
 // https://softwareengineering.stackexchange.com/a/402543
