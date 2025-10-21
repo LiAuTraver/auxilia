@@ -332,7 +332,7 @@ public:
   }
 
 public:
-  inline auto to_string(const FormatPolicy & = FormatPolicy::kDefault) const
+  inline auto to_string(const FormatPolicy = FormatPolicy::kDefault) const
       -> string_type {
     return auxilia::format("Status {}: {}", raw_code(), my_message);
   }

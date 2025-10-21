@@ -204,7 +204,7 @@ public:
     return my_variant.index() == 0;
   }
   auto
-  to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
+  to_string(const FormatPolicy format_policy = FormatPolicy::kDefault) const
       -> string_type {
     return this->visit([format_policy](const auto &value) -> string_type {
       using T = std::decay_t<decltype(value)>;
@@ -241,7 +241,7 @@ private:
 private:
   friend inline constexpr auto
   format_as(const Variant &v,
-            const FormatPolicy &format_policy = FormatPolicy::kDefault)
+            const FormatPolicy format_policy = FormatPolicy::kDefault)
       -> string_type {
     return v.to_string(format_policy);
   }

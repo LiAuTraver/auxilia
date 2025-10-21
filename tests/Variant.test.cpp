@@ -80,8 +80,8 @@ TEST(Variant, ToString) {
 }
 TEST(Variant, MonostateLikeType) {
   struct MyMonostate : Monostate {
-    auto to_string(const FormatPolicy &) const { return "MyMonostate"s; }
-    auto to_string_view(const FormatPolicy &) const { return "MyMonostate"s; }
+    auto to_string(const FormatPolicy) const { return "MyMonostate"s; }
+    auto to_string_view(const FormatPolicy) const { return "MyMonostate"s; }
   };
   Variant<MyMonostate, int, double> v1 = 42;
   EXPECT_EQ(v1.to_string(), "42");

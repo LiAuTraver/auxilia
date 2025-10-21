@@ -1,11 +1,12 @@
 # Auxilia - My tiny C++ header-only toolkit for specialized use
 
-This is a collection of small C++ utilities that I find useful in various projects. **Header-only**.
+This is a collection of small C++ utilities that I find useful in various projects. **Header-only**. I use it in almost every C++ project I work on.
+
 C++20 is required to use this library, but the library will progressively be updated to the latest C++ standard.
 
 ## Installation
 
-If MSVC is used, make sure to turn on standard preprocessor via `/Zc:preprocessor` to enable the `__VA_OPT__` macro and conformant `__VA_ARGS__`.
+If MSVC is used, make sure to turn on standard preprocessor via `/Zc:preprocessor` to enable the `__VA_OPT__` macro and conformant `__VA_ARGS__`; `/Zc:__cplusplus` is required.
 
 `fmt` is strongly recommended, but not required. `spdlog` is also recommended for logging.
 
@@ -31,7 +32,7 @@ ExternalProject_Add(auxilia_download
 add_library(auxilia INTERFACE)
 add_library(auxilia::auxilia ALIAS auxilia)
 target_include_directories(auxilia INTERFACE ${AUXILIA_INCLUDE_DIR})
-target_compile_features(auxilia INTERFACE cxx_std_23)
+target_compile_features(auxilia INTERFACE cxx_std_23) # or cxx_std_20
 
 add_dependencies(auxilia auxilia_download)
 ```
@@ -90,7 +91,7 @@ func()
 - `MemoryPool`: A simple memory pool allocator which allocates fix-sized memory on the stack.
 
 - `Monostate`,`Variant`: `std::variant` wrapper with more functionality. Say goodbye to awfully long `std::holds_alternative`. The types used in `Variant` must satisfy `Variantable<...>` concept: the first type must be `Monostate` or class derived from `Monostate`, and the rest must be `default constructible` and `Storable`.
-  > tested that the `template` keyword is not needed(e.g., `v.template get<Ty>`) with current compilers.
+  > tested that the `template` keyword is not needed(e.g., `v.template get<Ty>`) with all current major three compilers.
 
 ```cpp
 Variant<Monostate, int, std::string> v = 1;
@@ -121,7 +122,7 @@ std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!
 ```cpp
 struct MyStruct : Printable {
   // no need to override
-  auto to_string(const accat::auxilia::FormatPolicy& policy = accat::auxilia::FormatPolicy::kDefault) const -> string_type {
+  auto to_string(const accat::auxilia::FormatPolicy policy = accat::auxilia::FormatPolicy::kDefault) const -> string_type {
     return "a string";
   }
 };
@@ -137,6 +138,12 @@ std::println("MyStruct: {}", s); // prints "MyStruct: a string"
 
 - `read_as_bytes`: read a file as binary, with more efficiency and better error handling. Endianness is supported.
 
+- `chars` (or `wchars, u8chars, u16chars, u32chars`): A simple wrapper for compile-time string literals.
+
+- `bitset`: A simple bitset class with the same interface as `std::bitset`, but with more functionalities with personalization. Note: Performance overhead exists due to my inability in vectorization optimization. This exists only for my own usage.
+
+- `is_specialization_v`, `is_any_of_v`: Type traits to check if a type is a specialization of a template, or if a type is any of the given types.
+
 ### Useful Macros
 
 > Most of the functionalities must be enabled by defining the variable `AC_UTILS_DEBUG_ENABLED` to `1` or set the environment variable `AC_CPP_DEBUG` to `ON` or in `CMakeLists.txt`.
@@ -147,21 +154,21 @@ std::println("MyStruct: {}", s); // prints "MyStruct: a string"
 defer { /* do something */ }; // don't forget semicolon
 ```
 
-- `contract_assert`, `precondition` and `postcondition`: initialy an idea proposed for C++26(now accepted, thus sometime maybe I'll have their name changed), these macros are used to assert preconditions and postconditions in a function. Precondition and Postcondition won't be checked in release mode, but contract_assert will be checked in both debug and release mode. This is useful for debugging and testing purposes. Semicolon is not needed but better add it to `.clang-format` as `StatementAttributeLikeMacros` in order to avoid *iℕℂ*öṙṙĕℂţ **Föṙ**MäṮ*ţĭng*.
-  Furthermore, those assertion triggers a debug break when debugger is attached, so you can easily debug the code when it fails(Rather than an awkward `Microsoft C++ Runtime Library` window popping up and terminates the program), otherwise prints stacktrace and aborts the program. I found it more useful both than `assert` and `boost::contract::check` boilerplate code.
+- `contract_assert`, `precondition` and `postcondition`: initialy an idea proposed for C++26(now accepted, thus sometime maybe I'll have their name changed), these macros are used to assert preconditions and postconditions in a function. Precondition and Postcondition won't be checked in release mode, but contract*assert will be checked in both debug and release mode. This is useful for debugging and testing purposes. Semicolon is not needed but better add it to `.clang-format` as `StatementAttributeLikeMacros` in order to avoid *iℕℂ*öṙṙĕℂţ **Föṙ**MäṮ*ţĭng*.
+  Furthermore, those assertion triggers a debug break when debugger is attached, so you can easily debug the code when it fails(Rather than an awkward \_Microsoft C++ Runtime Library* window popping up and terminates the program), otherwise prints stacktrace and aborts the program. I found it more useful both than `assert` and `boost::contract::check` boilerplate code.
 
 > note: the functionalities of `pre`, `post` and `contract_assert` is slightly different from the original proposal. I just borrowed the name.
 
 ```cpp
 void func(int x) {
-    contract_assert(x > 0, "x must be greater than 0"); // will be checked in both debug and release mode
+    contract_assert(x > 0, "x must be greater than 0"); // will be checked in debug mode
     precondition(x > 0, "x must be greater than 0") // will be checked at once, so ensure put it at the beginning of the function
     postcondition(x < 10) // will be checked in when the function returns
     // do something
 }
 ```
 
-- `dbg`: With `spdlog`, this macro is used to print debug information with zero cost at release mode. `spdlog::debug` persists in release mode so it comes with a cost. ditto, it's a debug utility.
+- `dbg`: With `spdlog`, this macro is used to print debug information with zero cost at release mode. `spdlog::debug` comes with an external dependency, also persists in release mode so it comes with a cost. ditto, it's a debug utility.
 
 ```cpp
 AC_SPDLOG_INITIALIZATION(myapp, info); // log with `info` level and above will be printed
@@ -185,8 +192,8 @@ dbg_block {
 
 ## Notes
 
-A considerable part of the idea comes from stackoverflow, existing libraries, or my own projects. Their inspiration are documented in the code. If you find any bugs or have any suggestions, please open an issue or a pull request.
+A considerable part of the idea comes from stackoverflow, existing libraries, or my own projects. Their inspiration are documented in the code. If you find any bugs or have any suggestions, feel free to open an issue or a pull request.
 
 ## License
 
-Apache License 2.0, see [LICENSE](LICENSE) for details.
+Apache License 2.0

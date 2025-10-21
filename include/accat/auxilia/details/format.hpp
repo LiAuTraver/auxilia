@@ -129,7 +129,7 @@ protected:
   [[nodiscard]]
   friend auto
   format_as(const T &p,
-            const FormatPolicy &format_policy = FormatPolicy::kDefault)
+            const FormatPolicy format_policy = FormatPolicy::kDefault)
       -> Printable::string_type {
     return p.to_string(format_policy);
   }

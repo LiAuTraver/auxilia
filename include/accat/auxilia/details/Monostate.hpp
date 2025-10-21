@@ -28,12 +28,12 @@ public:
   }
 
 public:
-  inline /* not consteval */ constexpr auto
-  to_string(const FormatPolicy &) const -> string_type {
+  inline /* not consteval */ constexpr auto to_string(const FormatPolicy) const
+      -> string_type {
     return "Monostate";
   }
   inline /* not consteval */ constexpr auto
-  to_string_view(const FormatPolicy &) const -> string_view_type {
+  to_string_view(const FormatPolicy) const -> string_view_type {
     return "Monostate";
   }
   friend inline /* not consteval */ constexpr auto
