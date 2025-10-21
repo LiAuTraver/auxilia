@@ -62,11 +62,12 @@ inline consteval const char *raw(const char *str) noexcept {
 
   return str;
 }
+namespace literals {
 inline consteval auto operator""_raw(const char *str, const size_t) noexcept
     -> const char * {
   return raw(str);
 }
-
+} // namespace literals
 /// @brief shorthand of static_cast. sugar is all you need :)
 template <typename To, typename From>
 inline constexpr To as(From &&from) noexcept {

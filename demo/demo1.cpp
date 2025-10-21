@@ -17,23 +17,4 @@ constexpr auto t(auto &&arr) {
 int main() {
   using namespace accat::auxilia;
   using namespace accat::auxilia::literals;
-
-  constexpr auto t4 = "world"_c;
-
-  std::cout << typeid(t4).name() << "\n";
-  std::cout << t("hello") << "\n";
-
-  constexpr auto helloWorld = "hello, world!"_c;
-  std::cout << helloWorld.data() << "\n";
-  std::cout << "Size: " << helloWorld.size() << "\n";
-  std::cout << "Front: " << helloWorld.front() << "\n";
-  std::cout << "Back: " << helloWorld.back() << "\n";
-  std::cout << "Starts with 'hello': "
-            << (helloWorld.starts_with("hello") ? "true" : "false") << "\n";
-  std::cout << "Starts with 'world': "
-            << (helloWorld.starts_with("world") ? "true" : "false") << "\n";
-  std::cout << "Contains 'o': " << (helloWorld.contains('o') ? "true" : "false")
-            << "\n";
-  std::cout << "Count of 'l': " << helloWorld.count('l') << "\n";
-  std::cout << helloWorld.at(0) << "\n";
 }

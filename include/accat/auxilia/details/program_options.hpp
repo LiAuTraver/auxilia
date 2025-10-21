@@ -297,6 +297,7 @@ public:
     return error_msgs_.empty();
   }
   auto help(std::ostream &os = std::cout) const -> void {
+    using namespace auxilia::literals;
     os << format("Usage: {} [options]\n\nOptions:\n", program_name_);
     os << R"(
   -h, --help        Show this help message and exit

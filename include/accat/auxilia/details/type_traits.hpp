@@ -14,14 +14,22 @@ template <typename CharT, size_t N> struct basic_chars_storage {
 // CTAD
 template <typename CharT, size_t N>
 basic_chars_storage(const CharT (&)[N]) -> basic_chars_storage<CharT, N>;
-} // namespace accat::auxilia::details
-
-namespace accat::auxilia {
 // NTTP helper
 template <const details::basic_chars_storage MyChars>
 consteval auto as_basic_chars_storage() noexcept {
   return MyChars;
 }
+} // namespace accat::auxilia::details
+
+namespace accat::auxilia {
+using details::as_basic_chars_storage;
+}
+
+/// You may ask why I re-implemented some of the type traits in std.
+/// Just as proof of some false claims my colleagues made like
+/// "it's compiler intrinsics and cannot be implemented in pure C++".
+/// Well, this proves most of them wrong, isn't it? ;)
+namespace accat::auxilia {
 
 template <typename Ty, Ty Val> struct integral_constant {
   static constexpr Ty value = Val;
@@ -36,6 +44,22 @@ template <typename Ty, Ty Val> struct integral_constant {
 template <bool Val> using bool_constant = integral_constant<bool, Val>;
 using true_type = bool_constant<true>;
 using false_type = bool_constant<false>;
+
+template <bool Condition, typename Ty = void> struct enable_if {};
+template <typename Ty> struct enable_if<true, Ty> {
+  using type = Ty;
+};
+template <bool Condition, typename Ty = void>
+using enable_if_t = typename enable_if<Condition, Ty>::type;
+
+template <bool Condition, typename Ty1, typename Ty2> struct conditional {
+  using type = Ty1;
+};
+template <typename Ty1, typename Ty2> struct conditional<false, Ty1, Ty2> {
+  using type = Ty2;
+};
+template <bool Condition, typename Ty1, typename Ty2>
+using conditional_t = typename conditional<Condition, Ty1, Ty2>::type;
 
 template <typename Ty> struct remove_const { // match non-const types
   using type = Ty;
@@ -149,4 +173,11 @@ inline constexpr auto is_floating_point_v =
     is_any_of_v<remove_cv_t<Ty>, float, double, long double>;
 template <typename Ty>
 struct is_floating_point : bool_constant<is_floating_point_v<Ty>> {};
+
+template <typename Ty>
+inline constexpr auto is_arithmetic_v =
+    is_integral_v<Ty> || is_floating_point_v<Ty>;
+template <typename Ty>
+struct is_arithmetic : bool_constant<is_arithmetic_v<Ty>> {};
+
 } // namespace accat::auxilia
