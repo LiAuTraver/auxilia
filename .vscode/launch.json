@@ -1,0 +1,15 @@
+{
+  "configurations": [
+    {
+      "name": "demo1",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${command:cmake.launchTargetDirectory}",
+      "environment": [],
+      "console": "internalConsole"
+    }
+  ]
+}

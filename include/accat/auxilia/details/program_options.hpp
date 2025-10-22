@@ -3,6 +3,7 @@
 #include "./config.hpp"
 #include "./format.hpp"
 #include "./StatusOr.hpp"
+#include "accat/auxilia/details/macros.hpp"
 
 namespace accat::auxilia::program_options {
 
@@ -22,35 +23,32 @@ class Option {
 public:
   // name, fullname, shortname and description must be compiled-time constant
   constexpr Option(const string_view name,
-                   const string_view fullname,
                    const string_view shortname = "",
                    const string_view desc = "")
-      : name_(name), fullname_(fullname), shortname_(shortname), desc_(desc) {}
+      : name_(name), shortname_(shortname), desc_(desc) {}
 
   Option(const Option &other) = delete;
   auto operator=(const Option &other) -> Option & = delete;
 
   Option(Option &&other) noexcept
-      : name_(other.name_), fullname_(other.fullname_),
-        shortname_(other.shortname_), desc_(other.desc_),
+      : name_(other.name_), shortname_(other.shortname_), desc_(other.desc_),
         values_(std::move(other.values_)), required_(other.required_),
         nargs_(other.nargs_) {}
   auto operator=(Option &&other) noexcept -> Option & {
     if (this == &other)
       return *this;
     name_ = other.name_;
-    fullname_ = other.fullname_;
     shortname_ = other.shortname_;
     desc_ = other.desc_;
     values_ = std::move(other.values_);
     required_ = other.required_;
+    has_default_value_ = other.has_default_value_;
     nargs_ = other.nargs_;
     return *this;
   }
 
 public:
   auto name() const -> const string_view { return name_; }
-  auto fullname() const -> const string_view { return fullname_; }
   auto shortname() const -> const string_view { return shortname_; }
   auto description(this auto &&self) -> string_view { return self.desc_; }
 
@@ -61,15 +59,19 @@ public:
 
   /// @param num_args 0 for a flag, 1 for a single value, '+' for one or more.
   auto &nargs(const char num_args) {
+    AC_PRECONDITION(num_args == 0 || num_args == 1 || // 1 and '1' are same
+                        num_args == '1' || num_args == '+',
+                    "num_args must be 0, 1, or '+'")
     nargs_ = num_args;
     return *this;
   }
 
-  template <typename... Valty>
-  auto &default_value(Valty &&...values)
-    requires(std::is_convertible_v<std::remove_cvref_t<Valty>, string> && ...)
-  {
+  template <typename... Valty> auto &default_value(Valty &&...values) {
+    static_assert(
+        (std::is_convertible_v<std::remove_cvref_t<Valty>, string> && ...),
+        "All default values must be convertible to string");
     (values_.emplace_back(std::forward<Valty>(values)), ...);
+    has_default_value_ = true;
     return *this;
   }
 
@@ -95,7 +97,7 @@ private:
     if (!shortname_.empty()) {
       help_text += format("{}, ", shortname_);
     }
-    help_text += format("{}", fullname_);
+    help_text += format("{}", name_);
     if (nargs_ != 0) {
       help_text += " <value>";
     }
@@ -105,16 +107,15 @@ private:
 
 private:
   friend class Parser;
-  // help
-  string_view name_;
   // --help
-  string_view fullname_;
+  string_view name_;
   // -h
   string_view shortname_;
   // show message
   string_view desc_;
   std::vector<string> values_;
   bool required_ = false;
+  bool has_default_value_ = false;
   // 0: flag, 1 or '1': single value, '+': one or more
   char nargs_ = 0;
 };
@@ -164,8 +165,7 @@ public:
     return *this;
   }
 
-  AC_CONSTEXPR23_ Parser(const string_view program_name,
-                         const string_view program_version)
+  Parser(const string_view program_name, const string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
 public:
@@ -175,11 +175,7 @@ public:
     static Option garbage_opt{"", ""};
 
     // handle `help` and `version` specially
-    if (opt.name() == "help" || opt.name() == "version") {
-      error_msgs_.emplace_back(
-          format("Option name '{}' is reserved. Please use another name. "
-                 "This option will be ignored.",
-                 opt.name()));
+    if (check_reserved(opt)) {
       return garbage_opt;
     }
     // check conflicts
@@ -212,7 +208,8 @@ public:
     return positional_args_;
   }
 
-  auto get_option(const string_view name) const -> const Option * {
+  auto get_option(const string_view name) const [[clang::lifetimebound]]
+  -> const Option * {
     if (auto it = options_.find(name); it != options_.end()) {
       return &it->second;
     }
@@ -222,8 +219,7 @@ public:
 private:
   auto is_conflicting(const Option &opt) const -> const Option * {
     for (const auto &existing_opt : options_ | std::views::values) {
-      if (opt.fullname() == existing_opt.fullname() &&
-          !opt.fullname().empty()) {
+      if (opt.name() == existing_opt.name() && !opt.name().empty()) {
         return &existing_opt;
       }
       if (opt.shortname() == existing_opt.shortname() &&
@@ -233,8 +229,37 @@ private:
     }
     return nullptr;
   }
+  auto is_option(const string_view str) const {
+    return str.starts_with("--") || str.starts_with('-');
+  }
+  auto check_reserved(const Option &opt) -> bool {
+    if (opt.name() == "--help" || opt.name() == "--version") {
+      error_msgs_.emplace_back(
+          format("Option name '{}' is reserved. Please use another name. "
+                 "This option will be ignored.",
+                 opt.name()));
+      return true;
+    }
+    if (opt.shortname() == "-h" || opt.shortname() == "-v") {
+      error_msgs_.emplace_back(
+          format("Option shortname '{}' is reserved. Please use another "
+                 "shortname. This option will be ignored.",
+                 opt.shortname()));
+      return true;
+    }
+    return false;
+  }
 
 public:
+  auto parse(const int argc, char **argv) {
+    AC_PRECONDITION(argv, "argv is null")
+    AC_PRECONDITION(argc > 0, "argc is not positive")
+    std::vector<string_view> args;
+    for (int i = 0; i < argc; ++i) {
+      args.emplace_back(argv[i]);
+    }
+    return parse(args);
+  }
   auto parse(const std::span<const string_view> args) -> bool {
     if (!error_msgs_.empty()) {
       return false;
@@ -243,7 +268,7 @@ public:
     std::unordered_map<string_view, Option *> name_map;
     std::unordered_map<string_view, Option *> short_name_map;
     for (auto &opt : options_ | std::views::values) {
-      name_map[opt.fullname()] = &opt;
+      name_map[opt.name()] = &opt;
       if (!opt.shortname().empty()) {
         short_name_map[opt.shortname()] = &opt;
       }
@@ -257,40 +282,67 @@ public:
         help();
 #ifndef GTEST_API_
         exit(0); // workaround
+#else
+        continue;
 #endif
       } else if (arg == "--version" or arg == "-v") {
         version();
 #ifndef GTEST_API_
         exit(0); // workaround
+#else
+        continue;
 #endif
-      } else if (arg.starts_with("--")) {
+      }
+
+      if (arg.starts_with("--")) {
         opt = name_map.contains(arg) ? name_map[arg] : nullptr;
       } else if (arg.starts_with('-')) {
         opt = short_name_map.contains(arg) ? short_name_map[arg] : nullptr;
       }
+      // else: positional argument
+      if (!opt) {
+        if (!is_option(arg))
+          positional_args_.emplace_back(arg);
+        else
+          error_msgs_.emplace_back(format("Unknown option: {}", arg));
+        continue;
+      }
+      if (!opt->has_default_value_ && !opt->values_.empty()) {
+        error_msgs_.emplace_back(format(
+            "Option {} specified multiple times. Default to override...", arg));
+      }
+      // TODO: has default value and specified multiple times.
 
-      if (opt) {
-        opt->values_.clear();
-        if (opt->nargs_ == 1 || opt->nargs_ == '1' || opt->nargs_ == '+') {
-          if (i + 1 < args.size()) {
-            i++;
-            opt->values_.emplace_back(args[i]);
-          } else {
-            error_msgs_.emplace_back(
-                format("Option {} requires an argument.", arg));
-          }
-        } else { // flag
-          opt->values_.emplace_back("true");
+      opt->values_.clear();
+
+      if (opt->nargs_ == 0) {
+        opt->values_.emplace_back("true");
+        continue;
+      }
+
+      if (opt->nargs_ == 1 or opt->nargs_ == '1') {
+        if (i + 1 < args.size() && !is_option(args[i + 1])) {
+          i++;
+          opt->values_.emplace_back(args[i]);
+        } else {
+          error_msgs_.emplace_back(
+              format("Option {} requires an argument.", arg));
         }
-      } else {
-        positional_args_.emplace_back(arg);
+        continue;
+      }
+
+      AC_RUNTIME_ASSERT(opt->nargs_ == '+', "nargs_ must be '+' at this point")
+
+      while (i + 1 < args.size() && !is_option(args[i + 1])) {
+        i++;
+        opt->values_.emplace_back(args[i]);
       }
     }
 
     for (const auto &opt : options_ | std::views::values) {
       if (opt.required_ && opt.values_.empty()) {
         error_msgs_.emplace_back(
-            format("Required option {} is missing.", opt.fullname()));
+            format("Required option {} is missing.", opt.name()));
       }
     }
 
