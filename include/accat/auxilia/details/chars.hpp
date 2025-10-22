@@ -1,4 +1,5 @@
 #pragma once
+#include <compare>
 #include <iterator>
 #include <string>
 #include <string_view>
@@ -6,8 +7,10 @@
 
 namespace accat::auxilia {
 /// @brief a tiny compile-time character array wrapper
-template <typename CharT, size_t N> class basic_chars {
-  template <typename CharU, size_t M> friend class basic_chars;
+template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>
+class basic_chars {
+  template <typename CharU, size_t M, typename TraitsU>
+  friend class basic_chars;
 
 public:
   class iterator;
@@ -28,8 +31,9 @@ private:
 
 private:
   consteval auto assign_from(const value_type (&arr)[N]) noexcept {
-    for_each_char(
-        [&](value_type &current, size_type index) { current = arr[index]; });
+    for_each_char([&](value_type &current, size_type index) {
+      Traits::assign(current, arr[index]);
+    });
   }
   constexpr void for_each_char(this auto &&self, auto &&func) noexcept {
     for (size_type i = 0; i < self.real_size; ++i) {
@@ -53,10 +57,10 @@ public:
     for (const auto &c : ilist) {
       if (i >= real_size)
         break;
-      myArr[i++] = c;
+      Traits::assign(myArr[i++], c);
     }
     for (; i < real_size; ++i) {
-      myArr[i] = '\0';
+      Traits::assign(myArr[i], '\0');
     }
   }
   constexpr ~basic_chars() noexcept = default;
@@ -76,14 +80,14 @@ public:
   }
   constexpr bool operator==(const basic_chars &other) const noexcept {
     for (size_type i = 0; i < real_size; ++i) {
-      if (myArr[i] != other.myArr[i])
+      if (!Traits::eq(myArr[i], other.myArr[i]))
         return false;
     }
     return true;
   }
   constexpr bool operator==(const value_type (&arr)[N]) const noexcept {
     for (size_type i = 0; i < real_size; ++i) {
-      if (myArr[i] != arr[i])
+      if (!Traits::eq(myArr[i], arr[i]))
         return false;
     }
     return true;
@@ -101,7 +105,7 @@ public:
   constexpr auto count(const value_type c) const noexcept {
     size_type total = 0;
     for_each_char([&](const value_type current, auto &&_) {
-      if (current == c)
+      if (Traits::eq(current, c))
         ++total;
     });
     return total;
@@ -132,7 +136,7 @@ public:
     for_each_char([&](value_type &current, auto &&_) { current = '\0'; });
   }
   template <size_type pos, value_type c> constexpr auto &replace() noexcept {
-    myArr[pos] = c;
+    Traits::assign(myArr[pos], c);
     return *this;
   }
   constexpr auto &front(this auto &&self) noexcept { return self.myArr[0]; }
@@ -150,14 +154,15 @@ public:
     return count(c) > 0;
   }
   template <const value_type c> constexpr auto &fill() noexcept {
-    for_each_char([&](value_type &current, auto &&_) { current = c; });
+    for_each_char(
+        [&](value_type &current, auto &&_) { Traits::assign(current, c); });
     return *this;
   }
   constexpr auto &reverse() noexcept {
     for (size_type i = 0; i < (real_size) / 2; ++i) {
       auto temp = myArr[i];
-      myArr[i] = myArr[(real_size - 1) - i];
-      myArr[(real_size - 1) - i] = temp;
+      Traits::assign(myArr[i], myArr[(real_size - 1) - i]);
+      Traits::assign(myArr[(real_size - 1) - i], temp);
     }
     return *this;
   }
@@ -165,18 +170,18 @@ public:
   constexpr auto
   starts_with(const basic_chars<value_type, M> &prefix) const noexcept {
     for (size_type i = 0; i < prefix.size(); ++i) {
-      if (myArr[i] != prefix.myArr[i])
+      if (!Traits::eq(myArr[i], prefix.myArr[i]))
         return false;
     }
     return true;
   }
   constexpr auto starts_with(const value_type c) const noexcept {
-    return (real_size) > 0 && myArr[0] == c;
+    return (real_size) > 0 && Traits::eq(myArr[0], c);
   }
   template <size_t M>
   constexpr auto starts_with(const value_type (&arr)[M]) const noexcept {
     for (size_type i = 0; i < M - 1; ++i) {
-      if (myArr[i] != arr[i])
+      if (!Traits::eq(myArr[i], arr[i]))
         return false;
     }
     return true;
@@ -244,27 +249,15 @@ public:
     }
 
     constexpr difference_type operator-(const iterator &other) const noexcept {
-      return static_cast<difference_type>(index) -
-             static_cast<difference_type>(other.index);
+      return (index) - (other.index);
     }
 
     constexpr bool operator==(const iterator &other) const noexcept {
       return container == other.container && index == other.index;
     }
-    constexpr bool operator!=(const iterator &other) const noexcept {
-      return !(*this == other);
-    }
-    constexpr bool operator<(const iterator &other) const noexcept {
-      return index < other.index;
-    }
-    constexpr bool operator>(const iterator &other) const noexcept {
-      return index > other.index;
-    }
-    constexpr bool operator<=(const iterator &other) const noexcept {
-      return index <= other.index;
-    }
-    constexpr bool operator>=(const iterator &other) const noexcept {
-      return index >= other.index;
+    constexpr std::strong_ordering
+    operator<=>(const iterator &other) const noexcept {
+      return index <=> other.index;
     }
 
     friend constexpr iterator operator+(difference_type n,
@@ -339,29 +332,15 @@ public:
 
     constexpr difference_type
     operator-(const const_iterator &other) const noexcept {
-      return static_cast<difference_type>(index) -
-             static_cast<difference_type>(other.index);
+      return (index) - (other.index);
     }
-
     constexpr bool operator==(const const_iterator &other) const noexcept {
       return container == other.container && index == other.index;
     }
-    constexpr bool operator!=(const const_iterator &other) const noexcept {
-      return !(*this == other);
+    constexpr std::strong_ordering
+    operator<=>(const const_iterator &other) const noexcept {
+      return index <=> other.index;
     }
-    constexpr bool operator<(const const_iterator &other) const noexcept {
-      return index < other.index;
-    }
-    constexpr bool operator>(const const_iterator &other) const noexcept {
-      return index > other.index;
-    }
-    constexpr bool operator<=(const const_iterator &other) const noexcept {
-      return index <= other.index;
-    }
-    constexpr bool operator>=(const const_iterator &other) const noexcept {
-      return index >= other.index;
-    }
-
     friend constexpr const_iterator
     operator+(difference_type n, const const_iterator &it) noexcept {
       return it + n;
@@ -381,13 +360,17 @@ template <typename CharT, size_t N>
 consteval auto as_chars(const CharT (&arr)[N]) noexcept {
   return basic_chars<CharT, N>(arr);
 }
-template <size_t N> using chars = basic_chars<char, N>;
-template <size_t N> using wchars = basic_chars<wchar_t, N>;
+template <size_t N> using chars = basic_chars<char, N, std::char_traits<char>>;
+template <size_t N>
+using wchars = basic_chars<wchar_t, N, std::char_traits<wchar_t>>;
 #ifdef __cpp_char8_t
-template <size_t N> using u8chars = basic_chars<char8_t, N>;
+template <size_t N>
+using u8chars = basic_chars<char8_t, N, std::char_traits<char8_t>>;
 #endif
-template <size_t N> using u16chars = basic_chars<char16_t, N>;
-template <size_t N> using u32chars = basic_chars<char32_t, N>;
+template <size_t N>
+using u16chars = basic_chars<char16_t, N, std::char_traits<char16_t>>;
+template <size_t N>
+using u32chars = basic_chars<char32_t, N, std::char_traits<char32_t>>;
 namespace literals {
 // NTTP magic
 template <const details::basic_chars_storage MyChars>
