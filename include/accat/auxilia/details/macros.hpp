@@ -188,8 +188,8 @@ template <class Fun_> struct _dbg_block_ {
 EXPORT_AUXILIA
 template <class Fun_>
 AC_STATIC_CALL_OPERATOR_ inline constexpr auto
-operator*(_dbg_block_helper_struct_, Fun_ f_) AC_CONST_CALL_OPERATOR_
-    noexcept(noexcept(f_())) -> _dbg_block_<Fun_> {
+operator*(_dbg_block_helper_struct_, Fun_ f_)
+    AC_CONST_CALL_OPERATOR_ noexcept(noexcept(f_())) -> _dbg_block_<Fun_> {
   return {f_};
 }
 } // namespace accat::auxilia::details

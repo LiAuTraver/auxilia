@@ -1,14 +1,13 @@
 #pragma once
-// clang-format off
+
 /// @file StatusOr.hpp
 /// @brief A class that represents a value or an error status.
 /// For more information of the class, please refer to the documentation of the
 /// @file Status.hpp
 
 #ifndef ACCAT_AUXILIA_STATUSOR_HPP
-#define ACCAT_AUXILIA_STATUSOR_HPP
-#include "./macros.hpp"
-// clang-format on
+#  define ACCAT_AUXILIA_STATUSOR_HPP
+
 #  include "./config.hpp"
 #  include "./format.hpp"
 #  include "./Status.hpp"
@@ -18,9 +17,9 @@
 EXPORT_AUXILIA
 namespace accat::auxilia {
 
-/// @brief A class that represents the status of a function call, or a
-/// value.
-///         it's designed to be as identical as possible to the
+/// @brief A class that represents the status of a function call,
+///          or a value.
+///        it's designed to be as identical as possible to the
 ///         `absl::StatusOr` class.
 /// @tparam Ty the type of the value
 template <typename Ty> class StatusOr : public Status {

@@ -3,7 +3,6 @@
 #include "./config.hpp"
 #include "./format.hpp"
 #include "./StatusOr.hpp"
-#include "accat/auxilia/details/macros.hpp"
 
 namespace accat::auxilia::program_options {
 

@@ -1,7 +1,5 @@
 #include <accat/auxilia/details/program_options.hpp>
-#include <ios>
-#include <iostream>
-#include "accat/auxilia/details/format.hpp"
+
 int main(int argc, char **argv) {
   using namespace accat::auxilia;
   using namespace accat::auxilia::program_options;
@@ -12,7 +10,7 @@ int main(int argc, char **argv) {
 
   auto res = parser->parse(argc, argv);
   if (!res) {
-    println("Error parsing command line arguments: {}",
+    println("Error parsing command line arguments:\n {}",
             fmt::join(parser->error_messages(), "; "));
     return 1;
   }

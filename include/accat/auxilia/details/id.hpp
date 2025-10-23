@@ -8,41 +8,37 @@ inline auto &_current_id() {
   return value;
 }
 
+constexpr size_t id_pool_size = std::numeric_limits<uint16_t>::max() + 1;
 inline auto &_active_ids() {
-  static std::unordered_set<uint32_t> ids;
+  static std::array<std::atomic_bool, id_pool_size> ids{};
   return ids;
 }
 
-inline auto &_id_mutex() {
-  static std::mutex m;
-  return m;
-}
-static inline auto _do_insert(const uint32_t id) {
-  std::lock_guard<std::mutex> lock(_id_mutex());
-  return _active_ids().insert(id);
-}
 } // namespace accat::auxilia::id::details
+
 EXPORT_AUXILIA
 namespace accat::auxilia::id {
 inline auto get() {
   uint32_t id;
-
+  bool expected;
   do {
-    id = details::_current_id().fetch_add(1);
-  } while (!details::_do_insert(id).second &&
-           details::_active_ids().size() !=
-               (std::numeric_limits<uint32_t>::max)());
+    id = details::_current_id().fetch_add(1) % details::id_pool_size;
+    expected = false;
+  } while (!details::_active_ids()[id].compare_exchange_weak(
+      expected, true, std::memory_order::release, std::memory_order::relaxed));
 
   return id;
 }
 
 inline auto is_active(const uint32_t id) {
-  std::lock_guard<std::mutex> lock(details::_id_mutex());
-  return details::_active_ids().contains(id);
+  if (id >= details::id_pool_size)
+    return false;
+  return details::_active_ids()[id].load(std::memory_order::acquire);
 }
 
 inline auto release(const uint32_t id) {
-  std::lock_guard<std::mutex> lock(details::_id_mutex());
-  return details::_active_ids().erase(id);
+  if (id >= details::id_pool_size)
+    return;
+  details::_active_ids()[id].store(false, std::memory_order::release);
 }
 } // namespace accat::auxilia::id
