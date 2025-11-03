@@ -196,7 +196,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_)
 
 #  define AC_DEBUG_BLOCK                                                       \
     ::accat::auxilia::details::_dbg_block_helper_struct_{} *[&]()              \
-        -> void // NOLINT(bugprone-macro-parentheses)
+        ->void // NOLINT(bugprone-macro-parentheses)
 
 #  define AC_DEBUG_ONLY(...) __VA_ARGS__
 
@@ -243,6 +243,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_)
 
 #ifdef _WIN32
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
+extern "C" __declspec(dllimport) int SetConsoleOutputCP(unsigned int);
 #elif defined(__linux__)
 #  include <sys/ptrace.h>
 #endif
@@ -307,7 +308,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  else
 #    define AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)                    \
       AC_AMBIGUOUS_ELSE_BLOCKER                                                \
-      if ((_cond_))                                                            \
+      if (!!(_cond_))                                                          \
         ;                                                                      \
       else {                                                                   \
         AC_PRINT_ERROR_MSG_IMPL_WITH_MSG(_cond_, _msg_)                        \
@@ -342,7 +343,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_RUNTIME_ASSERT(...) (void)0;
 #  define AC_PRECONDITION(...) (void)0;
 #  define AC_DEBUG_LOGGING_SETUP(...) (void)0;
-#  define AC_DEBUG_BLOCK [&]() -> void
+#  define AC_DEBUG_BLOCK [&]()->void
 #  define AC_DEBUG_ONLY(...)
 #  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)

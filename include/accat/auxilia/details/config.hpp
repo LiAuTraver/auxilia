@@ -39,8 +39,6 @@ template <typename> class StatusOr;
 using string = ::std::string;
 using string_view = ::std::string_view;
 using path = ::std::filesystem::path;
-using namespace ::std::string_view_literals;
-using namespace ::std::string_literals;
 inline constexpr auto isspacelike =
     [](const char c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';

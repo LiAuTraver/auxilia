@@ -122,7 +122,7 @@ public:
       // doesn't require rtti
       return typeid(value).name();
     })
-                      : "invalid state"sv;
+                      : string_view_type("invalid state");
   }
   auto index() const noexcept { return my_variant.index(); }
   template <typename... Args>

@@ -27,19 +27,21 @@
 
 #pragma once
 
-#include "./details/config.hpp"
-#include "./details/id.hpp"
-#include "./details/memory.hpp"
-#include "./details/Monostate.hpp"
-#include "./details/Property.hpp"
-#include "./details/random.hpp"
-#include "./details/Status.hpp"
-#include "./details/StatusOr.hpp"
-#include "./details/Variant.hpp"
-#include "./details/bit.hpp"
-#include "./details/format.hpp"
-#include "./details/views.hpp"
-#include "./details/Generator.hpp"
-#include "./details/program_options.hpp"
-#include "./details/bitset.hpp"
-#include "./details/type_traits.hpp"
+#include "./details/config.hpp"          // IWYU pragma: export
+#include "./details/id.hpp"              // IWYU pragma: export
+#include "./details/memory.hpp"          // IWYU pragma: export
+#include "./details/Monostate.hpp"       // IWYU pragma: export
+#include "./details/Property.hpp"        // IWYU pragma: export
+#include "./details/random.hpp"          // IWYU pragma: export
+#include "./details/Status.hpp"          // IWYU pragma: export
+#include "./details/StatusOr.hpp"        // IWYU pragma: export
+#include "./details/Variant.hpp"         // IWYU pragma: export
+#include "./details/bit.hpp"             // IWYU pragma: export
+#include "./details/format.hpp"          // IWYU pragma: export
+#include "./details/views.hpp"           // IWYU pragma: export
+#include "./details/Generator.hpp"       // IWYU pragma: export
+#include "./details/program_options.hpp" // IWYU pragma: export
+#include "./details/bitset.hpp"          // IWYU pragma: export
+#include "./details/type_traits.hpp"     // IWYU pragma: export
+#include "./details/chars.hpp"           // IWYU pragma: export
+#include "./details/automata.hpp"        // IWYU pragma: export

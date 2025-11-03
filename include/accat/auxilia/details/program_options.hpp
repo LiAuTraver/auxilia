@@ -9,8 +9,8 @@ namespace accat::auxilia::program_options {
 EXPORT_AUXILIA class Option;
 /* not necessary to export */ class Parser;
 
-EXPORT_AUXILIA inline Parser *Global(string_view, string_view = "unknown"sv);
-EXPORT_AUXILIA inline Parser Local(string_view, string_view = "unknown"sv);
+EXPORT_AUXILIA inline Parser *Global(string_view, string_view = "unknown");
+EXPORT_AUXILIA inline Parser Local(string_view, string_view = "unknown");
 EXPORT_AUXILIA inline Parser *find(string_view);
 EXPORT_AUXILIA inline Parser &get(string_view);
 

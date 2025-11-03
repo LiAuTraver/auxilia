@@ -254,7 +254,7 @@ public:
     if (policy == FormatPolicy::kDefault or policy == FormatPolicy::kBrief)
       return str;
 
-    return "0b"s.append(str);
+    return auxilia::string("0b").append(str);
   }
 #  endif
   /// @}

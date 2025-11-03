@@ -186,6 +186,14 @@ public:
     }
     return true;
   }
+
+  constexpr auto find(const value_type c) const noexcept {
+    for (size_type i = 0; i < real_size; ++i) {
+      if (Traits::eq(myArr[i], c))
+        return i;
+    }
+    return std::string::npos;
+  }
   class iterator {
   public:
     using iterator_category = std::random_access_iterator_tag;
