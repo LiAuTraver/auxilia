@@ -1,17 +1,20 @@
 #include <gtest/gtest.h>
-#include "accat/auxilia/details/automata.hpp"
+
+#include <accat/auxilia/details/automata.hpp>
+#include <iostream>
+#include <stdexcept>
 
 using namespace accat::auxilia;
 
 TEST(NFA, EmptyRegex) {
-  auto nfa = NFA::FromRegex("");
+  auto nfa = *NFA::FromRegex("");
   EXPECT_FALSE(nfa.test("a"));
   EXPECT_TRUE(nfa.test(""));
   EXPECT_EQ(nfa.to_string(), "<empty>");
 }
 
 TEST(NFA, SingleCharacter) {
-  auto nfa = NFA::FromRegex("a");
+  auto nfa = *NFA::FromRegex("a");
   EXPECT_TRUE(nfa.test("a"));
   EXPECT_FALSE(nfa.test("b"));
   EXPECT_FALSE(nfa.test(""));
@@ -19,7 +22,7 @@ TEST(NFA, SingleCharacter) {
 }
 
 TEST(NFA, Concatenation) {
-  auto nfa = NFA::FromRegex("abc");
+  auto nfa = *NFA::FromRegex("abc");
   EXPECT_TRUE(nfa.test("abc"));
   EXPECT_FALSE(nfa.test("ab"));
   EXPECT_FALSE(nfa.test("abcd"));
@@ -27,7 +30,7 @@ TEST(NFA, Concatenation) {
 }
 
 TEST(NFA, Union) {
-  auto nfa = NFA::FromRegex("a|b");
+  auto nfa = *NFA::FromRegex("a|b");
   EXPECT_TRUE(nfa.test("a"));
   EXPECT_TRUE(nfa.test("b"));
   EXPECT_FALSE(nfa.test("c"));
@@ -36,7 +39,7 @@ TEST(NFA, Union) {
 }
 
 TEST(NFA, KleeneStar) {
-  auto nfa = NFA::FromRegex("a*");
+  auto nfa = *NFA::FromRegex("a*");
   EXPECT_TRUE(nfa.test(""));
   EXPECT_TRUE(nfa.test("a"));
   EXPECT_TRUE(nfa.test("aa"));
@@ -46,7 +49,7 @@ TEST(NFA, KleeneStar) {
 }
 
 TEST(NFA, PlusOperator) {
-  auto nfa = NFA::FromRegex("a+");
+  auto nfa = *NFA::FromRegex("a+");
   EXPECT_FALSE(nfa.test(""));
   EXPECT_TRUE(nfa.test("a"));
   EXPECT_TRUE(nfa.test("aa"));
@@ -55,7 +58,7 @@ TEST(NFA, PlusOperator) {
 }
 
 TEST(NFA, Optional) {
-  auto nfa = NFA::FromRegex("ab?c");
+  auto nfa = *NFA::FromRegex("ab?c");
   EXPECT_TRUE(nfa.test("ac"));
   EXPECT_TRUE(nfa.test("abc"));
   EXPECT_FALSE(nfa.test("abbc"));
@@ -63,7 +66,7 @@ TEST(NFA, Optional) {
 }
 
 TEST(NFA, ComplexPattern) {
-  auto nfa = NFA::FromRegex("b(a|b)*abb");
+  auto nfa = *NFA::FromRegex("b(a|b)*abb");
   EXPECT_TRUE(nfa.test("babb"));
   EXPECT_TRUE(nfa.test("baabb"));
   EXPECT_TRUE(nfa.test("bbabb"));
@@ -77,7 +80,7 @@ TEST(NFA, ComplexPattern) {
 }
 
 TEST(NFA, NestedGroups) {
-  auto nfa = NFA::FromRegex("(a|b)(c|d)");
+  auto nfa = *NFA::FromRegex("(a|b)(c|d)");
   EXPECT_TRUE(nfa.test("ac"));
   EXPECT_TRUE(nfa.test("ad"));
   EXPECT_TRUE(nfa.test("bc"));
@@ -87,7 +90,7 @@ TEST(NFA, NestedGroups) {
 }
 
 TEST(NFA, StarWithGroups) {
-  auto nfa = NFA::FromRegex("(ab)*");
+  auto nfa = *NFA::FromRegex("(ab)*");
   EXPECT_TRUE(nfa.test(""));
   EXPECT_TRUE(nfa.test("ab"));
   EXPECT_TRUE(nfa.test("abab"));
@@ -97,14 +100,14 @@ TEST(NFA, StarWithGroups) {
 }
 
 TEST(NFA, AlphanumericPattern) {
-  auto nfa = NFA::FromRegex("a1b2");
+  auto nfa = *NFA::FromRegex("a1b2");
   EXPECT_TRUE(nfa.test("a1b2"));
   EXPECT_FALSE(nfa.test("a1b"));
   EXPECT_FALSE(nfa.test("ab12"));
 }
 
 TEST(NFA, MultipleOperators) {
-  auto nfa = NFA::FromRegex("a+b*c?");
+  auto nfa = *NFA::FromRegex("a+b*c?");
   EXPECT_TRUE(nfa.test("a"));
   EXPECT_TRUE(nfa.test("ab"));
   EXPECT_TRUE(nfa.test("abc"));
@@ -115,29 +118,45 @@ TEST(NFA, MultipleOperators) {
 }
 
 TEST(NFA, ComplexAlternation) {
-  auto nfa1 = NFA::FromRegex("cat|dog");
+  auto nfa1 = *NFA::FromRegex("cat|dog");
   EXPECT_TRUE(nfa1.test("cat"));
   EXPECT_TRUE(nfa1.test("dog"));
 
   EXPECT_FALSE(nfa1.test("catdog"));
   EXPECT_FALSE(nfa1.test("bird"));
 
-  auto nfa2 = NFA::FromRegex("ca(t|d)og");
+  auto nfa2 = *NFA::FromRegex("ca(t|d)og");
   EXPECT_TRUE(nfa2.test("catog"));
   EXPECT_TRUE(nfa2.test("cadog"));
 }
 
 // basic sanity check
 TEST(NFA, ToStringOutput) {
-  auto nfa = NFA::FromRegex("ab");
+  auto nfa = *NFA::FromRegex("ab");
   auto str = nfa.to_string();
   EXPECT_FALSE(str.empty());
   EXPECT_NE(str.find("State"), std::string::npos);
 }
 
 TEST(NFA, SingleStarPattern) {
-  auto nfa = NFA::FromRegex("x*");
+  auto nfa = *NFA::FromRegex("x*");
   EXPECT_TRUE(nfa.test(""));
   EXPECT_TRUE(nfa.test("x"));
   EXPECT_TRUE(nfa.test("xxxxxxxxxx"));
+}
+
+TEST(NFA, ErrorHandling) {
+  auto result = NFA::FromRegex("(ab");
+  EXPECT_FALSE(result.ok());
+  EXPECT_EQ(result.code(), Status::Code::kInvalidArgument);
+  EXPECT_EQ(result.message(), "Unfinished parentheses in regex: missing ')'");
+
+  result = NFA::FromRegex("a|b)");
+  EXPECT_FALSE(result.ok());
+
+  result = NFA::FromRegex("a||b");
+  EXPECT_FALSE(result.ok());
+  EXPECT_EQ(result.code(), Status::Code::kInvalidArgument);
+  EXPECT_EQ(result.message(),
+            "Invalid regex at position 1: not enough operands for |");
 }

@@ -591,10 +591,10 @@ LexError(auxilia::format_string<Args...> fmt, Args &&...args) {
 }
 #  if !AC_USE_STD_FMT
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-OkStatus(const fmt::text_style &ts,
-         fmt::format_string<Args...> fmt,
-         Args &&...args) {
+AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_
+    Status OkStatus(const fmt::text_style &ts,
+                    fmt::format_string<Args...> fmt,
+                    Args &&...args) {
   return {Status::kOk,
           fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
 }
@@ -773,10 +773,10 @@ LexError(const fmt::text_style &ts,
 
 #  define AC_RETURN_IF_NOT(_status_)                                           \
     AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                            \
-    if (auto _ac_utils_status_return_ = (_status_))                            \
+    if (auto _ac_auxilia_status_return_ = (_status_))                          \
       ;                                                                        \
     else {                                                                     \
-      return _ac_utils_status_return_;                                         \
+      return _ac_auxilia_status_return_;                                       \
     }
 #  define return_if_not(_status_) AC_RETURN_IF_NOT(_status_)
 } // namespace accat::auxilia

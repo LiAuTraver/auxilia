@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <stack>
 
@@ -7,7 +9,7 @@
 using namespace accat::auxilia;
 
 int main() {
-  auto nfa = NFA::FromRegex("b(a|b)*abb");
+  auto nfa = *NFA::FromRegex("a(b|a)*b");
   std::cout << nfa;
 
   // test strings
@@ -18,8 +20,6 @@ int main() {
     std::cout << "\"" << str << "\": " << (nfa.test(str) ? "MATCH" : "NO MATCH")
               << "\n";
   }
-  nfa = NFA::FromRegex("");
-  std::cout << nfa;
-  nfa.test("a");
-  nfa.test("");
+  std::ofstream("nfa.dot") << nfa.to_dot();
+  system("(wsl -- dot -Tpng nfa.dot -o nfa.png) && nfa.png");
 }

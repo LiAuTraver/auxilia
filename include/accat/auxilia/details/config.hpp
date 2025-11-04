@@ -43,8 +43,9 @@ inline constexpr auto isspacelike =
     [](const char c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 };
-inline constexpr auto isnotspacelike =
-    [](const char c) constexpr noexcept -> bool { return not isspacelike(c); };
+inline constexpr auto isnotspacelike = std::not_fn(isspacelike);
+
+/// @brief remove leading and trailing newlines and spaces from a raw string
 inline consteval const char *raw(const char *str) noexcept {
 
   while (str && *str && (*str == '\n'))
@@ -54,7 +55,6 @@ inline consteval const char *raw(const char *str) noexcept {
   while (ptr && *ptr)
     ptr++;
 
-  // remove trailing newline and space
   while (ptr && ptr != str && isspacelike(*ptr))
     *ptr-- = '\0';
 

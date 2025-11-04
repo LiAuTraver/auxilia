@@ -97,7 +97,7 @@ public:
   inline auto value(this auto &&self) {
     AC_RUNTIME_ASSERT(self.ok() or self.is_return(),
                       "Cannot dereference a status that is not OK.");
-    return self.my_value;
+    return std::forward<decltype(self)>(self).my_value;
   }
 #  else
   AC_NODISCARD_
@@ -129,7 +129,7 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD_ AC_CONSTEXPR20_ inline value_type
   value_or(this auto &&self, rvoff_value_t &&default_value) {
-    return self.ok() ? self.my_value
+    return self.ok() ? std::forward<decltype(self)>(self).my_value
                      : static_cast<value_type>(
                            std::forward<rvoff_value_t>(default_value));
   }
@@ -150,16 +150,10 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD_
-  inline constexpr auto &operator*(this auto &&self) AC_NOEXCEPT {
+  inline constexpr decltype(auto) operator*(this auto &&self) AC_NOEXCEPT {
     AC_PRECONDITION(self.ok() or self.is_return(),
                     "Cannot dereference a status that is not OK.");
-    return self.my_value;
-  }
-  AC_NODISCARD_
-  inline constexpr auto &&operator*() && AC_NOEXCEPT {
-    AC_PRECONDITION(ok() or is_return(),
-                    "Cannot dereference a status that is not OK.");
-    return std::move(my_value);
+    return std::forward<decltype(self)>(self).my_value;
   }
 #  else
   AC_NODISCARD_
@@ -178,10 +172,11 @@ public:
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD_
-  inline constexpr auto operator->(this auto &&self)
+  inline constexpr auto operator->(this auto &self)
       AC_NOEXCEPT->decltype(auto) {
-    return std::addressof(self.my_value);
+    return std::addressof(std::forward<decltype(self)>(self).my_value);
   }
+  inline constexpr auto operator->(this auto &&) = delete;
 #  else
   AC_NODISCARD_
   inline constexpr auto operator->() AC_NOEXCEPT->value_type * {
@@ -196,7 +191,7 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status(this auto &&self)
       AC_NOEXCEPT -> decltype(auto) {
-    return (static_cast<base_type>(self));
+    return (static_cast<base_type>(std::forward<decltype(self)>(self)));
   }
 #  else
   AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status() & AC_NOEXCEPT {
@@ -230,9 +225,10 @@ public:
   auto and_then(this auto &&self, F &&f)
       -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
     if (!self.ok()) {
-      return {self.as_status()};
+      return {std::forward<decltype(self)>(self).as_status()};
     }
-    return std::invoke(std::forward<F>(f), self.my_value);
+    return std::invoke(std::forward<F>(f),
+                       std::forward<decltype(self)>(self).my_value);
   }
 #  else
   template <typename F, typename R = std::invoke_result_t<F, Ty>>
@@ -285,9 +281,10 @@ public:
     requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
     if (self.ok()) {
-      return self;
+      return std::forward<decltype(self)>(self);
     }
-    return std::invoke(std::forward<F>(f), self.as_status());
+    return std::invoke(std::forward<F>(f),
+                       std::forward<decltype(self)>(self).as_status());
   }
 #  else
   template <typename F>
@@ -335,9 +332,10 @@ public:
       -> StatusOr<std::invoke_result_t<F, Ty>> {
     AC_DOLL_ASSERT(transform)
     if (!self.ok()) {
-      return {self.as_status()};
+      return {std::forward<decltype(self)>(self).as_status()};
     }
-    return {std::invoke(std::forward<F>(f), self.my_value)};
+    return {std::invoke(std::forward<F>(f),
+                        std::forward<decltype(self)>(self).my_value)};
   }
   /// @copydoc transform
   /// @param f Ty -> void
@@ -347,9 +345,10 @@ public:
              std::is_void_v<std::invoke_result_t<F, Ty>>
   auto transform(this auto &&self, F &&f) -> StatusOr<Monostate> {
     if (!self.ok()) {
-      return {self.as_status()};
+      return {std::forward<decltype(self)>(self).as_status()};
     }
-    std::invoke(std::forward<F>(f), self.my_value);
+    std::invoke(std::forward<F>(f),
+                std::forward<decltype(self)>(self).my_value);
     return {};
   }
 
@@ -454,9 +453,10 @@ public:
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
     if (self.ok()) {
-      return self;
+      return std::forward<decltype(self)>(self);
     }
-    return std::invoke(std::forward<F>(f), self.as_status());
+    return std::invoke(std::forward<F>(f),
+                       std::forward<decltype(self)>(self).as_status());
   }
   /// @copydoc transform_error
   /// @param f Status -> void
@@ -466,9 +466,10 @@ public:
              std::is_void_v<std::invoke_result_t<F, base_type>>
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
     if (!self.ok()) {
-      std::invoke(std::forward<F>(f), self.as_status());
+      std::invoke(std::forward<F>(f),
+                  std::forward<decltype(self)>(self).as_status());
     }
-    return self;
+    return std::forward<decltype(self)>(self);
   }
 #  else
   template <typename F>

@@ -297,7 +297,8 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
                      ::accat::auxilia::details::_is_debugger_present()         \
                          ? "<please consult debugger>"                         \
                          : AC_STACKTRACE);
-#  if defined(GTEST_API_) && defined(__cpp_exceptions) && __cpp_exceptions
+#  if defined(GTEST_API_) && defined(__cpp_exceptions) &&                      \
+      (!defined(AC_IGNORE_GTEST)) && __cpp_exceptions
 #    define AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)                    \
       AC_AMBIGUOUS_ELSE_BLOCKER                                                \
       if ((_cond_))                                                            \

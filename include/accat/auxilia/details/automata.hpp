@@ -1,8 +1,8 @@
 #pragma once
 
 #include <stack>
-#include "accat/auxilia/details/format.hpp"
-#include "macros.hpp"
+
+#include "./StatusOr.hpp"
 
 namespace accat::auxilia {
 class NFA : Printable {
@@ -10,32 +10,49 @@ public:
   using size_type = size_t;
   using symbol_type = char;
 
-  static constexpr inline auto npos = static_cast<size_type>(-1);
+  static constexpr auto npos = static_cast<size_type>(-1);
+  static constexpr string_view operators = "|*.+?()";
+
+  // should be private, workaround for trait is_nothrow_constructible
+  NFA() noexcept = default;
+  NFA(const NFA &) noexcept = delete;
+  NFA &operator=(const NFA &) noexcept = delete;
+  NFA(NFA &&) noexcept = default;
+  NFA &operator=(NFA &&) noexcept = default;
+  ~NFA() noexcept = default;
+
 
 private:
-  struct State;
-  struct Transition;
-  struct Fragment;
-
   static consteval symbol_type widen(const char c) {
     return static_cast<symbol_type>(c);
   }
+  static constexpr bool is_operator(const symbol_type c) {
+    return operators.find(c) != string_view::npos;
+  }
+  struct State;
+  struct Transition;
+  struct Fragment;
 
   struct State {
     enum struct Type : unsigned short {
       kNone = 0, // intermediate state
       kStart = 1,
       kAccept = 2,
-      kEmpty = kStart | kAccept
+      kEmpty = kStart | kAccept // unused in current code
     } type = Type::kNone;
     using enum Type;
     size_type id = npos;
     std::vector<Transition> edges;
+    State() noexcept = default;
+    State(const Type type, const size_type id) noexcept : type(type), id(id) {}
   };
   struct Transition {
     size_type target_id = npos;
     symbol_type symbol = widen('\0');
     bool is_epsilon() const { return symbol == widen('\0'); }
+    Transition() noexcept = default;
+    Transition(const size_type target_id, const symbol_type symbol) noexcept
+        : target_id(target_id), symbol(symbol) {}
   };
 
   // partial NFA, used during construction
@@ -43,50 +60,39 @@ private:
     size_type start = npos;
     size_type end = npos;
   };
-  static_assert(__is_aggregate(Transition) && __is_aggregate(State) &&
-                    __is_aggregate(Fragment),
-                "Shall be aggregate struct");
-
+  // empty input alphabet means all possible input symbols
+  string input_alphabet;
   std::vector<State> states;
   size_type start_id = npos;
+  // in Thompson's construction, only one accept state
   size_type accept_id = npos;
 
+private:
   size_type new_state(State::Type type = State::kNone) {
     size_type id = states.size();
     states.emplace_back(type, id);
     return id;
   }
-  void add_transition(size_type from, size_type to, symbol_type symbol = '\0') {
+  void add_transition(const size_type from,
+                      const size_type to,
+                      const symbol_type symbol = '\0') {
     AC_PRECONDITION(from < states.size() && to < states.size(), "out of range")
     states[from].edges.emplace_back(to, symbol);
   }
 
   void epsilon_closure(std::unordered_set<size_type> &state_set) const {
-    // todo: poor use of vec
-    std::vector<size_type> stack(state_set.begin(), state_set.end());
+    // FIXME: poor use of vec
+    std::vector stack(state_set.begin(), state_set.end());
     while (!stack.empty()) {
       size_type current = stack.back();
       stack.pop_back();
       for (const auto &edge : states[current].edges) {
-        if (edge.is_epsilon() &&
-            state_set.find(edge.target_id) == state_set.end()) {
-          state_set.insert(edge.target_id);
+        if (edge.is_epsilon() && state_set.insert(edge.target_id).second) {
+          // second is true if insertion took place
           stack.push_back(edge.target_id);
         }
       }
     }
-  }
-
-private:
-  NFA() {}
-
-public:
-  NFA(NFA &&other) { this->operator=(std::move(other)); }
-  NFA &operator=(NFA &&other) {
-    states = std::move(other.states);
-    start_id = std::exchange(other.start_id, npos);
-    accept_id = std::exchange(other.accept_id, npos);
-    return *this;
   }
 
 private:
@@ -138,10 +144,121 @@ private:
     states[accept_id].type = State::Type::kAccept;
   }
 
+private:
+  static std::string preprocess_regex(const std::string_view regex) {
+    std::string result;
+    // insert `.` for concatenation between
+    //        char or `)` `*` `+` `?` followed by char or `(`
+    // (here char means non-op char ^^^)
+    result.resize_and_overwrite(
+        regex.size() * 2, [&](char *out, size_t capacity) {
+          constexpr auto is_in = [](const char c, const string_view chars) {
+            return chars.find(c) != string_view::npos;
+          };
+          size_t j = 0;
+          for (size_t i = 0; i < regex.size(); ++i) {
+            char c = regex[i];
+            out[j++] = c;
+
+            if (i + 1 < regex.size()) {
+              char next = regex[i + 1];
+              if (!is_in(c, "|(") && !is_in(next, "|)*+?")) {
+                out[j++] = '.';
+              }
+            }
+          }
+          return j; // final length
+        });
+    return result;
+  }
+
+  // Shunting-Yard Algorithm, ref:
+  // https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
+  // I choose not to use recursive descent here,
+  // for I'm used it too often
+  static StatusOr<std::string> to_postfix(const std::string_view regex) {
+    std::string postfix;
+    std::string op_stack;
+    constexpr auto is_operator = [](const symbol_type c) {
+      return c == '|' || c == '*' || c == '.' || c == '+' || c == '?';
+    };
+    constexpr auto precedence = [](const symbol_type op) {
+      switch (op) {
+      case '*':
+      case '+':
+      case '?':
+        return 3;
+      case '.':
+        return 2; // explicit concat
+      case '|':
+        return 1;
+      default:
+        return 0;
+      }
+    };
+    auto lvl = 0u; // workaround, detect parentheses level
+    for (const auto c : regex) {
+      if (c == '(') {
+        op_stack.push_back(c);
+        ++lvl;
+        continue;
+      }
+      if (c == ')') {
+        while (!op_stack.empty() && op_stack.back() != '(') {
+          postfix += op_stack.back();
+          op_stack.pop_back();
+        }
+        if (op_stack.empty()) {
+          return InvalidArgumentError(
+              "Unfinished parentheses in regex: missing '('");
+        }
+        if (op_stack.back() != '(') {
+          return InvalidArgumentError(
+              "Mismatched parentheses in regex: expected '(', got '{}'",
+              op_stack.back());
+        }
+        op_stack.pop_back(); // pop '('
+        --lvl;
+        continue;
+      }
+      if (is_operator(c)) {
+        while (!op_stack.empty() && op_stack.back() != '(' &&
+               precedence(op_stack.back()) >= precedence(c)) {
+          postfix += op_stack.back();
+          op_stack.pop_back();
+        }
+        op_stack.push_back(c);
+        continue;
+      }
+
+      // normal character
+      postfix += c;
+    }
+    if (lvl != 0) {
+      return InvalidArgumentError(
+          "Unfinished parentheses in regex: missing ')'");
+    }
+
+    // while (!op_stack.empty()) {
+    //   postfix += op_stack.back();
+    //   op_stack.pop_back();
+    // }
+    // ^^^ native way
+    // vvv failed and non-conforming
+    // postfix += std::ranges::reverse(op_stack)._Unwrapped();
+
+    // worked, and fancy :P vvv
+    std::ranges::reverse_copy(op_stack, std::back_inserter(postfix));
+
+    return {postfix};
+  }
+  bool empty() const noexcept {
+    return states.empty() && start_id == npos && accept_id == npos;
+  }
+
 public:
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const -> string {
-    if (start_id == std::numeric_limits<size_type>::max() &&
-        accept_id == std::numeric_limits<size_type>::max())
+    if (empty())
       return "<empty>";
 
 #ifdef _WIN32
@@ -164,37 +281,18 @@ public:
       }
     }
     return result;
-
-    // // depth-first traversal to print reachable states only
-    // string result;
-    // std::unordered_set<size_type> visited;
-
-    // [&](this auto &&self, size_type state_id) {
-    //   if (visited.find(state_id) != visited.end())
-    //     return;
-    //   visited.insert(state_id);
-    //   const auto &s = states[state_id];
-    //   result += format("State {}", s.id);
-    //   if (s.type == State::Type::kStart)
-    //     result += " (start)";
-    //   if (s.type == State::Type::kAccept)
-    //     result += " (accept)";
-    //   result += ":\n";
-    //   for (const auto &e : s.edges) {
-    //     if (e.is_epsilon())
-    //       result += format("  --ε--> {}\n", e.target_id);
-    //     else
-    //       result += format("  --{}--> {}\n", e.symbol, e.target_id);
-    //     self(e.target_id);
-    //   }
-    // }(start_id);
-
-    // return result;
   }
   bool test(std::string_view input) {
-    if (start_id == std::numeric_limits<size_type>::max() &&
-        accept_id == std::numeric_limits<size_type>::max())
-      return input.empty() ? true : false;
+    if (empty())
+      return input.empty();
+
+    if (!input_alphabet.empty() &&
+        std::ranges::any_of(input, std::not_fn([this](const char c) {
+                              return (input_alphabet.contains(c) &&
+                                      !is_operator(c));
+                            }))) {
+      return false;
+    }
 
     std::unordered_set<size_type> current_states = {start_id};
     epsilon_closure(current_states);
@@ -214,111 +312,24 @@ public:
       current_states = std::move(next_states);
     }
 
-    return current_states.find(accept_id) != current_states.end();
+    return current_states.contains(accept_id);
   }
-
-private:
-  static std::string preprocess_regex(std::string_view regex) {
-    std::string result;
-    // insert `.` for concatenation between
-    //        char or `)` `*` `+` `?` followed by char or `(`
-    // (here char means non-op char ^^^)
-    result.resize_and_overwrite(
-        regex.size() * 2, [&](char *out, size_t capacity) {
-          constexpr auto match = [](char c, string_view chars) {
-            return chars.find(c) != string_view::npos;
-          };
-          size_t j = 0;
-          for (size_t i = 0; i < regex.size(); ++i) {
-            char c = regex[i];
-            out[j++] = c;
-
-            if (i + 1 < regex.size()) {
-              char next = regex[i + 1];
-              if (!match(c, "|(") && !match(next, "|)*+?")) {
-                out[j++] = '.';
-              }
-            }
-          }
-          return j; // final length
-        });
-    return result;
-  }
-
-  // Shunting-Yard Algorithm
-  static std::string to_postfix(std::string_view regex) {
-    std::string postfix;
-    std::string op_stack;
-    constexpr auto is_operator = [](symbol_type c) {
-      return c == '|' || c == '*' || c == '.' || c == '+' || c == '?';
-    };
-    constexpr auto precedence = [](symbol_type op) {
-      switch (op) {
-      case '*':
-      case '+':
-      case '?':
-        return 3;
-      case '.':
-        return 2; // explicit concat
-      case '|':
-        return 1;
-      default:
-        return 0;
-      }
-    };
-    for (auto c : regex) {
-      if (c == '(') {
-        op_stack.push_back(c);
-        continue;
-      }
-      if (c == ')') {
-        while (!op_stack.empty() && op_stack.back() != '(') {
-          postfix += op_stack.back();
-          op_stack.pop_back();
-        }
-        if (!op_stack.empty())
-          op_stack.pop_back(); // pop '('
-        continue;
-      }
-      if (is_operator(c)) {
-        while (!op_stack.empty() && op_stack.back() != '(' &&
-               precedence(op_stack.back()) >= precedence(c)) {
-          postfix += op_stack.back();
-          op_stack.pop_back();
-        }
-        op_stack.push_back(c);
-        continue;
-      }
-
-      // normal character
-      postfix += c;
-    }
-
-    // while (!op_stack.empty()) {
-    //   postfix += op_stack.back();
-    //   op_stack.pop_back();
-    // }
-    // ^^^ native way
-    // vvv failed and non-conforming
-    // postfix += std::ranges::reverse(op_stack)._Unwrapped();
-
-    // worked, and fancy :P vvv
-    std::ranges::reverse_copy(op_stack, std::back_inserter(postfix));
-
-    return postfix;
-  }
-
-public:
   // McNaughton-Yamada-Thompson algorithm
-  static NFA FromRegex(std::string_view sv) {
+  static StatusOr<NFA> FromRegex(std::string_view sv) {
     NFA nfa;
     if (sv.empty()) {
-      nfa.states.emplace_back(State::Type::kEmpty, 0);
-      return nfa;
+      return {std::move(nfa)};
     }
+    nfa.input_alphabet =
+        sv | std::views::filter([](const char c) { return !is_operator(c); }) |
+        std::ranges::to<string>();
 
     auto preprocessed = preprocess_regex(sv);
-    auto postfix = to_postfix(preprocessed);
+    auto maybe_postfix = to_postfix(preprocessed);
+    if (!maybe_postfix) {
+      return {maybe_postfix.as_status()};
+    }
+    auto postfix = *std::move(maybe_postfix);
 
     std::stack<Fragment> stack;
     auto top_and_pop_stack = [&stack]() {
@@ -329,38 +340,50 @@ public:
     };
 
     for (char c : postfix) {
-      if (isalnum(c)) {
+      if (!nfa.is_operator(c)) {
         // regular character
         stack.emplace(nfa.from_char(c));
         continue;
       }
       if (c == '|') {
-        AC_PRECONDITION(stack.size() >= 2,
-                        "Invalid regex: not enough operands for |")
+        if (stack.size() < 2) {
+          return InvalidArgumentError(
+              "Invalid regex at position {}: not enough operands for |",
+              postfix.find(c));
+        }
         auto b = top_and_pop_stack();
         auto a = top_and_pop_stack();
         stack.emplace(nfa.union_operation(std::move(a), std::move(b)));
         continue;
       }
       if (c == '.') {
-        AC_PRECONDITION(stack.size() >= 2,
-                        "Invalid regex: not enough operands for concat")
+        if (stack.size() < 2) {
+          return InvalidArgumentError("Invalid regex at position {}: not "
+                                      "enough operands for concatenation",
+                                      postfix.find(c));
+        }
         auto b = top_and_pop_stack();
         auto a = top_and_pop_stack();
         stack.emplace(nfa.concat(std::move(a), std::move(b)));
         continue;
       }
       if (c == '*') {
-        AC_PRECONDITION(!stack.empty(),
-                        "Invalid regex: not enough operands for *")
+        if (stack.empty()) {
+          return InvalidArgumentError(
+              "Invalid regex at position {}: not enough operands for *",
+              postfix.find(c));
+        }
         auto f = top_and_pop_stack();
         stack.emplace(nfa.kleene_star(std::move(f)));
         continue;
       }
       if (c == '+') {
         // a+ = aa*
-        AC_PRECONDITION(!stack.empty(),
-                        "Invalid regex: not enough operands for +")
+        if (stack.empty()) {
+          return InvalidArgumentError(
+              "Invalid regex at position {}: not enough operands for +",
+              postfix.find(c));
+        }
         auto f = top_and_pop_stack();
         auto f_copy = // reuse same states
             Fragment{.start = f.start, .end = f.end};
@@ -370,8 +393,11 @@ public:
       }
       if (c == '?') {
         // a? = (a|ε)
-        AC_PRECONDITION(!stack.empty(),
-                        "Invalid regex: not enough operands for ?")
+        if (stack.empty()) {
+          return InvalidArgumentError(
+              "Invalid regex at position {}: not enough operands for ?",
+              postfix.find(c));
+        }
         auto f = top_and_pop_stack();
         size_type s = nfa.new_state(State::kNone);
         size_type acc = nfa.new_state(State::kNone);
@@ -381,15 +407,70 @@ public:
         stack.emplace(s, acc);
         continue;
       }
-      AC_TODO_()
+      // stack.emplace(nfa.from_char(c)); // fallback
+      DebugUnreachable("Unimplemented operator in regex: '{}'", c);
+      return UnimplementedError("Unhandled character in postfix regex: '{}'",
+                                c);
     }
-
-    AC_RUNTIME_ASSERT(stack.size() == 1,
-                      "Invalid regex: expression not fully reduced")
+    if (stack.size() != 1) {
+      DebugUnreachable(
+          "Internal Error: expression not fully reduced, stack size {}",
+          stack.size());
+      return InternalError("Internal Error: expression not fully reduced");
+    }
 
     nfa.finalize(std::move(stack.top()));
 
-    return nfa;
+    return {std::move(nfa)};
+  }
+  auto to_dot() const -> std::string {
+    using literals::operator""_raw;
+    if (empty())
+      return R"(
+digraph NFA {
+  // empty
+}
+                )"_raw;
+
+    static constexpr auto header = R"(
+digraph NFA {{
+  rankdir=LR;
+  node [shape=circle, fontsize=12];
+  fake_start [shape=none, label=""];
+  fake_start -> {};
+                                                        )"_raw;
+
+    auto dot = format(header, start_id);
+
+    // mark start and accept distinctly
+    for (const auto &s : states) {
+      // doublecircle for accept states, single for others
+      dot +=
+          format(R"({}[label="{}{}", shape={}];)"_raw
+                 " \n",
+                 s.id,
+                 s.id,
+                 (s.type == State::Type::kStart    ? R"(\n(start))"_raw
+                  : s.type == State::Type::kAccept ? R"(\n(accept))"_raw
+                                                   : ""),
+                 (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
+    }
+
+    dot += "\n";
+
+    // transitions
+    for (const auto &s : states) {
+      for (const auto &e : s.edges) {
+        dot += format(R"(  {} -> {} [label="{}"];)"_raw
+                      "\n",
+                      s.id,
+                      e.target_id,
+                      e.is_epsilon() ? "ε" : std::string(1, e.symbol));
+      }
+    }
+
+    dot += "}\n";
+    return dot;
   }
 };
 } // namespace accat::auxilia

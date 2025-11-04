@@ -15,7 +15,7 @@ template <typename CharT, size_t N> struct basic_chars_storage {
 template <typename CharT, size_t N>
 basic_chars_storage(const CharT (&)[N]) -> basic_chars_storage<CharT, N>;
 // NTTP helper
-template <const details::basic_chars_storage MyChars>
+template <const basic_chars_storage MyChars>
 consteval auto as_basic_chars_storage() noexcept {
   return MyChars;
 }
