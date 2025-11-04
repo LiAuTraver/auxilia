@@ -21,11 +21,7 @@ public:
   NFA &operator=(NFA &&) noexcept = default;
   ~NFA() noexcept = default;
 
-
 private:
-  static consteval symbol_type widen(const char c) {
-    return static_cast<symbol_type>(c);
-  }
   static constexpr bool is_operator(const symbol_type c) {
     return operators.find(c) != string_view::npos;
   }
@@ -48,8 +44,8 @@ private:
   };
   struct Transition {
     size_type target_id = npos;
-    symbol_type symbol = widen('\0');
-    bool is_epsilon() const { return symbol == widen('\0'); }
+    symbol_type symbol = '\0';
+    bool is_epsilon() const { return symbol == '\0'; }
     Transition() noexcept = default;
     Transition(const size_type target_id, const symbol_type symbol) noexcept
         : target_id(target_id), symbol(symbol) {}
@@ -445,15 +441,15 @@ digraph NFA {{
     // mark start and accept distinctly
     for (const auto &s : states) {
       // doublecircle for accept states, single for others
-      dot +=
-          format(R"({}[label="{}{}", shape={}];)"_raw
-                 " \n",
-                 s.id,
-                 s.id,
-                 (s.type == State::Type::kStart    ? R"(\n(start))"_raw
-                  : s.type == State::Type::kAccept ? R"(\n(accept))"_raw
-                                                   : ""),
-                 (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
+      dot += format(
+          R"({}[label="{}{}", shape={}];)"
+          " \n",
+          s.id,
+          s.id,
+          ((s.type == State::Type::kStart)
+               ? R"(\n(start))"
+               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
+          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
     }
 
     dot += "\n";
