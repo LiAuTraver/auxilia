@@ -92,13 +92,18 @@ TEST(Options, HelpAndVersion) {
   EXPECT_NE(help_msg.find("Input file"), std::string::npos);
 
   std::vector<std::string_view> help_args = {"--help"};
-  EXPECT_TRUE(parser.parse(help_args));
-  EXPECT_EQ(parser.error(), 0);
+  EXPECT_EXIT(parser.parse(help_args),
+              testing::ExitedWithCode(0),
+              accat::auxilia::raw(R"(
+  -h, --help        Show this help message and exit
+  -v, --version     Show program's version number and exit
+)"));
 
   auto p2 = Local("my_app", "1.0.0");
   std::vector<std::string_view> version_args = {"--version"};
-  EXPECT_TRUE(p2.parse(version_args));
-  EXPECT_EQ(p2.error(), 0);
+  EXPECT_EXIT(p2.parse(version_args),
+              testing::ExitedWithCode(0),
+              accat::auxilia::raw(R"(my_app version 1.0.0)"));
 }
 
 TEST(Options, Reserved) {

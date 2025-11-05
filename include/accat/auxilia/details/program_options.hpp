@@ -279,18 +279,10 @@ public:
 
       if (arg == "--help" or arg == "-h") {
         help();
-#ifndef GTEST_API_
-        exit(0); // workaround
-#else
-        continue;
-#endif
+        exit(0);
       } else if (arg == "--version" or arg == "-v") {
         version();
-#ifndef GTEST_API_
-        exit(0); // workaround
-#else
-        continue;
-#endif
+        exit(0);
       }
 
       if (arg.starts_with("--")) {
@@ -347,7 +339,7 @@ public:
 
     return error_msgs_.empty();
   }
-  auto help(std::ostream &os = std::cout) const -> void {
+  auto help(std::ostream &os = std::cerr) const -> void {
     using namespace auxilia::literals;
     os << format("Usage: {} [options]\n\nOptions:\n", program_name_);
     os << R"(
@@ -359,7 +351,7 @@ public:
       os << opt.help();
     }
   }
-  auto version(std::ostream &os = std::cout) const -> void {
+  auto version(std::ostream &os = std::cerr) const -> void {
     os << format("{} version {}\n", program_name_, program_version_);
   }
 };
@@ -384,7 +376,6 @@ inline auto get(string_view program_name) -> Parser & {
   if (auto p = find(program_name))
     return *p;
 
-  AC_DEBUG_BREAK;
-  throw std::runtime_error(format("Parser does not exist: {}", program_name));
+  AC_THROW_OR_DIE_(format("Parser does not exist: {}", program_name));
 }
 } // namespace accat::auxilia::program_options

@@ -335,8 +335,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_NOEXCEPT         // nothing
 #  define AC_TODO_(...)                                                        \
     AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
-    std::abort(); // shut up the warning 'not all control paths return a
-                  // value'
+    std::abort(); // shut up the warning 'not all control paths return a value'
 #  define DebugUnreachable(...) AC_RUNTIME_ASSERT(false, "Unreachable code.")
 
 #else
