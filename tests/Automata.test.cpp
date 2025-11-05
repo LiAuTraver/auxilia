@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <accat/auxilia/details/automata.hpp>
+#include <accat/auxilia/details/automaton.hpp>
 #include <iostream>
 #include <stdexcept>
 

@@ -354,6 +354,7 @@ public:
       return it + n;
     }
   };
+  constexpr auto to_string() const noexcept { return myArr; }
 };
 
 // deduction guide for C-style arrays

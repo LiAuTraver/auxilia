@@ -23,10 +23,6 @@ namespace accat::auxilia {
 ///         `absl::StatusOr` class.
 /// @tparam Ty the type of the value
 template <typename Ty> class StatusOr : public Status {
-  static_assert(std::is_same_v<std::remove_reference_t<Ty>, Ty> &&
-                    std::is_nothrow_move_assignable_v<Ty> &&
-                    std::is_nothrow_move_constructible_v<Ty>,
-                "StatusOr should not be used with reference types.");
   static_assert(Storable<Ty>,
                 "StatusOr should not be used with non-storable types.");
   static_assert(!is_specialization_v<Ty, StatusOr>,
