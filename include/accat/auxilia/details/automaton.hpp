@@ -22,6 +22,13 @@ public:
   static constexpr bool is_operator(const char c) {
     return operators.find(c) != string::npos;
   }
+  static constexpr auto unformatted_header = raw(R"(
+digraph {} {{
+  rankdir=LR;
+  node [shape=circle, fontsize=12];
+  fake_start [shape=none, label=""];
+  fake_start -> {};
+)");
 
 public:
   // should be private, workaround for trait is_nothrow_constructible
@@ -137,6 +144,21 @@ protected:
     add_transition(f.end, acc, '\0');
     return {s, acc};
   }
+  auto dot_transitions() const -> std::string {
+    using literals::operator""_raw;
+    std::string dot;
+    for (const auto &[id, s] : states) {
+      for (const auto &e : s.edges) {
+        char widen[2] = {e.symbol, '\0'};
+        dot += format(R"(  {} -> {} [label="{}"];)"_raw
+                      "\n",
+                      id,
+                      e.target_id,
+                      e.is_epsilon() ? epsilon : widen);
+      }
+    }
+    return dot;
+  }
 
 public:
   bool test(std::string_view input) {
@@ -173,54 +195,16 @@ public:
       return current_states.contains(accept_id);
     });
   }
-  auto to_dot() const -> std::string {
+  auto to_dot(this const auto &self) -> string {
     using literals::operator""_raw;
-    if (empty())
+    if (self.empty())
       return R"(
-digraph NFA {
+digraph Automaton {
   // empty
 }
                 )"_raw;
 
-    static constexpr auto header = R"(
-digraph NFA {{
-  rankdir=LR;
-  node [shape=circle, fontsize=12];
-  fake_start [shape=none, label=""];
-  fake_start -> {};
-                                                        )"_raw;
-
-    auto dot = format(header, start_id);
-
-    // mark start and accept distinctly
-    for (const auto &[id, s] : states) {
-      // doublecircle for accept states, single for others
-      dot += format(
-          R"({}[label="{}{}", shape={}];)"
-          " \n",
-          id,
-          id,
-          ((s.type == State::Type::kStart)
-               ? R"(\n(start))"
-               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
-          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
-    }
-
-    dot += "\n";
-    // transitions
-    for (const auto &[id, s] : states) {
-      for (const auto &e : s.edges) {
-        char widen[2] = {e.symbol, '\0'};
-        dot += format(R"(  {} -> {} [label="{}"];)"_raw
-                      "\n",
-                      id,
-                      e.target_id,
-                      e.is_epsilon() ? epsilon : widen);
-      }
-    }
-
-    dot += "}\n";
-    return dot;
+    return self.to_dot_impl();
   }
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const -> string {
     if (empty())
@@ -252,6 +236,7 @@ digraph NFA {{
 
 namespace accat::auxilia {
 class NFA : public details::AutomatonBase {
+  using MyBase = details::AutomatonBase;
 
 private:
   static std::string preprocess_regex(const std::string_view regex) {
@@ -363,29 +348,41 @@ private:
 
     return {postfix};
   }
+  auto to_dot_impl() const -> std::string {
+    using literals::operator""_raw;
 
-public:
-  // McNaughton-Yamada-Thompson algorithm
-  static StatusOr<NFA> FromRegex(std::string_view sv) {
-    if (sv.empty()) {
-      return {};
+    auto dot = format(unformatted_header, "NFA", start_id);
+
+    // mark start and accept distinctly
+    for (const auto &[id, s] : states) {
+      // doublecircle for accept states, single for others
+      dot += format(
+          R"({}[label="{}{}", shape={}];)"
+          " \n",
+          id,
+          id,
+          ((s.type == State::Type::kStart)
+               ? R"(\n(start))"
+               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
+          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
     }
-    NFA nfa;
-    nfa.input_alphabet =
+
+    dot += "\n";
+    dot += dot_transitions();
+    dot += "}\n";
+    return dot;
+  }
+
+  void init_input_alphabet(const std::string_view sv) {
+    input_alphabet =
         sv | std::views::filter([](const char c) { return !is_operator(c); }) |
         std::ranges::to<string>();
-    std::ranges::sort(nfa.input_alphabet);
+    std::ranges::sort(input_alphabet);
 
-    auto r = std::ranges::unique(nfa.input_alphabet);
-    nfa.input_alphabet.erase(r.begin(), r.end());
-
-    auto preprocessed = preprocess_regex(sv);
-    auto maybe_postfix = to_postfix(preprocessed);
-    if (!maybe_postfix) {
-      return {maybe_postfix.as_status()};
-    }
-    auto postfix = *std::move(maybe_postfix);
-
+    auto r = std::ranges::unique(input_alphabet);
+    input_alphabet.erase(r.begin(), r.end());
+  }
+  StatusOr<Fragment> build_graph(const string_view postfix) {
     std::stack<Fragment> stack;
     auto top_and_pop_stack = [&stack]() {
       AC_RUNTIME_ASSERT(!stack.empty(), "Stack underflow")
@@ -393,11 +390,10 @@ public:
       stack.pop();
       return val;
     };
-
     for (char c : postfix) {
-      if (!nfa.is_operator(c)) {
+      if (!is_operator(c)) {
         // regular character
-        stack.emplace(nfa.from_char(c));
+        stack.emplace(from_char(c));
         continue;
       }
       if (c == '|') {
@@ -408,7 +404,7 @@ public:
         }
         auto b = top_and_pop_stack();
         auto a = top_and_pop_stack();
-        stack.emplace(nfa.union_operation(std::move(a), std::move(b)));
+        stack.emplace(union_operation(std::move(a), std::move(b)));
         continue;
       }
       if (c == '.') {
@@ -419,7 +415,7 @@ public:
         }
         auto b = top_and_pop_stack();
         auto a = top_and_pop_stack();
-        stack.emplace(nfa.concat(std::move(a), std::move(b)));
+        stack.emplace(concat(std::move(a), std::move(b)));
         continue;
       }
       if (c == '*') {
@@ -429,7 +425,7 @@ public:
               postfix.find(c));
         }
         auto f = top_and_pop_stack();
-        stack.emplace(nfa.kleene_star(std::move(f)));
+        stack.emplace(kleene_star(std::move(f)));
         continue;
       }
       if (c == '+') {
@@ -442,8 +438,8 @@ public:
         auto f = top_and_pop_stack();
         auto f_copy = // reuse same states
             Fragment{.start = f.start, .end = f.end};
-        auto star = nfa.kleene_star(std::move(f_copy));
-        stack.emplace(nfa.concat(std::move(f), std::move(star)));
+        auto star = kleene_star(std::move(f_copy));
+        stack.emplace(concat(std::move(f), std::move(star)));
         continue;
       }
       if (c == '?') {
@@ -454,15 +450,15 @@ public:
               postfix.find(c));
         }
         auto f = top_and_pop_stack();
-        auto s = nfa.new_state(State::Type::kNone);
-        auto acc = nfa.new_state(State::Type::kNone);
-        nfa.add_transition(s, f.start, '\0');
-        nfa.add_transition(s, acc, '\0');
-        nfa.add_transition(f.end, acc, '\0');
+        auto s = new_state(State::Type::kNone);
+        auto acc = new_state(State::Type::kNone);
+        add_transition(s, f.start, '\0');
+        add_transition(s, acc, '\0');
+        add_transition(f.end, acc, '\0');
         stack.emplace(s, acc);
         continue;
       }
-      // stack.emplace(nfa.from_char(c)); // fallback
+      // stack.emplace(from_char(c)); // fallback
       DebugUnreachable("Unimplemented operator in regex: '{}'", c);
       return UnimplementedError("Unhandled character in postfix regex: '{}'",
                                 c);
@@ -473,62 +469,117 @@ public:
           stack.size());
       return InternalError("Internal Error: expression not fully reduced");
     }
-
-    // finalize the graph
-    const auto &[start_id, end_id] = stack.top();
-    nfa.start_id = start_id;
-    nfa.accept_ids.emplace_back(end_id);
-    nfa.states[nfa.start_id].type = State::Type::kStart;
+    return {top_and_pop_stack()};
+  }
+  void finalize(Fragment &&frag) {
+    const auto &[sid, eid] = frag;
+    start_id = sid;
+    accept_ids.emplace_back(eid);
+    states[start_id].type = State::Type::kStart;
     // only one accept state in this algo
-    nfa.states[nfa.accept_ids.back()].type = State::Type::kAccept;
+    states[eid].type = State::Type::kAccept;
+  }
+
+public:
+  // McNaughton-Yamada-Thompson algorithm
+  static StatusOr<NFA> FromRegex(string_view sv) {
+    if (sv.empty()) {
+      return {};
+    }
+    NFA nfa;
+    nfa.init_input_alphabet(sv);
+
+    auto preprocessed = preprocess_regex(sv);
+    auto maybe_postfix = to_postfix(preprocessed);
+    if (!maybe_postfix)
+      return {maybe_postfix.as_status()};
+
+    auto maybe_frag = nfa.build_graph(*maybe_postfix);
+    if (!maybe_frag)
+      return {maybe_frag.as_status()};
+
+    nfa.finalize(std::move(*maybe_frag));
 
     return {std::move(nfa)};
   }
+  friend MyBase;
   friend class DFA;
 };
 class DFA : public details::AutomatonBase {
-
+  using SubSetTy = std::unordered_set<size_t>;
+  using MyBase = details::AutomatonBase;
+  friend MyBase;
 public:
-  static StatusOr<DFA> FromNFA(const NFA &nfa) {
-    DFA dfa;
-    dfa.input_alphabet = nfa.input_alphabet;
+  DFA() noexcept = default;
+  DFA(const DFA &) = delete;
+  DFA &operator=(const DFA &) = delete;
+  DFA(DFA &&) noexcept = default;
+  DFA &operator=(DFA &&) noexcept = default;
 
-    if (nfa.empty()) {
-      return {std::move(dfa)};
+private:
+  std::unordered_map<size_t, SubSetTy> mapping;
+
+  auto to_dot_impl() const -> std::string {
+    // not only output, but also add notation for the NFA states represented
+    using literals::operator""_raw;
+    auto dot = format(unformatted_header, "DFA", start_id);
+    // mark start and accept distinctly
+
+    for (const auto &[id, s] : states) {
+      dot += format(
+          R"({}[label="{}{}", shape={}];)"
+          " \n",
+          id,
+          id,
+          ((s.type == State::Type::kStart)
+               ? R"(\n(start))"
+               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
+          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
     }
 
-    using SubSetTy = std::unordered_set<size_t>;
-    using SubSetHashTy = decltype([](const SubSetTy &s) {
-      auto h = 0ull;
-      for (const auto v : s)
-        h ^= std::hash<size_t>{}(v) + hash_magic_number_64bit + (h << 6) +
-             (h >> 2);
-      return h;
-    });
-    using Key2IdTy = std::unordered_map<SubSetTy, size_t, SubSetHashTy>;
+    // add NFA states info, just numbers
+    for (const auto &[dfa_id, nfa_states] : mapping) {
+      std::string nfa_states_str;
+      for (const auto nfa_state_id : nfa_states) {
+        nfa_states_str += format("{}, ", nfa_state_id);
+      }
+      if (!nfa_states_str.empty()) {
+        nfa_states_str.erase(nfa_states_str.size() - 2); // remove last ", "
+      }
+      dot += format("{} [label=\"{}\n"
+                    "({})\"];  \n",
+                    dfa_id,
+                    dfa_id,
+                    nfa_states_str);
+    }
 
-    // subset -> DFA state id, and id -> subset
-    Key2IdTy key_to_id;
-    std::vector<SubSetTy> id_to_subset;
+    dot += "\n";
+    dot += dot_transitions();
+    dot += "}\n";
+    return dot;
+  }
 
+  void process_start_state(const NFA &nfa, auto &&key_to_id) {
     std::unordered_set start_subset{nfa.start_id};
     nfa.epsilon_closure(start_subset);
 
-    dfa.start_id = 0;
-    dfa.states.emplace(0, State::Type::kStart);
+    start_id = 0;
+    states.emplace(0, State::Type::kStart);
     key_to_id.emplace(start_subset, 0);
 
-    id_to_subset.emplace_back(std::move(start_subset));
+    mapping.emplace(0, std::move(start_subset));
+  }
 
-    // BFS
-    for (size_t cur = 0; cur < id_to_subset.size(); ++cur) {
-
-      for (char a : dfa.input_alphabet) {
+  void process_transitions(const NFA &nfa, auto &&key_to_id) {
+    for (size_t cur = 0; cur < mapping.size(); ++cur) {
+      for (const char a : input_alphabet) {
         std::unordered_set<size_t> move_set;
-        for (auto s : id_to_subset[cur]) {
+        for (const auto s : mapping[cur]) {
           auto it = nfa.states.find(s);
-          if (it == nfa.states.end())
-            continue;
+          AC_RUNTIME_ASSERT(
+              it != nfa.states.end(),
+              "Internal Error: NFA state {} not found during DFA construction",
+              s)
           for (const auto &e : it->second.edges) {
             if (!e.is_epsilon() && e.symbol == a) {
               move_set.insert(e.target_id);
@@ -539,41 +590,69 @@ public:
           continue;
 
         nfa.epsilon_closure(move_set);
-        // Insert the subset key directly. If this is a new subset, create a new
-        // DFA state.
         size_t to_id;
         if (auto [it, inserted] = key_to_id.emplace(move_set, npos); inserted) {
-          to_id = dfa.new_state(State::Type::kNone);
+          to_id = new_state(State::Type::kNone);
           it->second = to_id;
-          id_to_subset.push_back(std::move(move_set));
+          mapping.emplace(to_id, std::move(move_set));
         } else {
           to_id = it->second;
         }
-        dfa.add_transition(cur, to_id, a);
+        add_transition(cur, to_id, a);
       }
     }
+  }
 
-    for (auto dfa_id = 0ull; dfa_id < id_to_subset.size(); ++dfa_id) {
-      const auto &nfa_subset = id_to_subset[dfa_id];
-
-      // check if this subset contains any NFA accept state
-      bool is_accept =
-          std::ranges::any_of(nfa.accept_ids, [&](size_t nfa_accept) {
-            return nfa_subset.contains(nfa_accept);
-          });
-
-      if (!is_accept)
+  void finalize(const NFA &nfa) {
+    for (auto dfa_id = 0ull; dfa_id < mapping.size(); ++dfa_id) {
+      if (std::ranges::none_of(nfa.accept_ids, [&](size_t nfa_accept) {
+            return mapping[dfa_id].contains(nfa_accept);
+          }))
         continue;
 
-      dfa.accept_ids.push_back(dfa_id);
-      dfa.states[dfa_id].type =
-          (dfa_id == dfa.start_id)
-              ? State::Type::kEmpty // both start and accept
-              : State::Type::kAccept;
+      accept_ids.push_back(dfa_id);
+      states[dfa_id].type = (dfa_id == start_id)
+                                ? State::Type::kEmpty // both start and accept
+                                : State::Type::kAccept;
     }
+  }
+public:
+  static StatusOr<DFA> FromNFA(const NFA &nfa) {
+    DFA dfa;
+    dfa.input_alphabet = nfa.input_alphabet;
+
+    if (nfa.empty()) {
+      return {std::move(dfa)};
+    }
+
+    using SubSetHashTy = decltype([](const SubSetTy &s) {
+      auto h = 0ull;
+      for (const auto v : s)
+        h ^= std::hash<size_t>{}(v) + hash_magic_number_64bit + (h << 6) +
+             (h >> 2);
+      return h;
+    });
+    using Key2IdTy = std::unordered_map<SubSetTy, size_t, SubSetHashTy>;
+
+    Key2IdTy key_to_id;
+
+    dfa.process_start_state(nfa, key_to_id);
+    dfa.process_transitions(nfa, std::move(key_to_id));
+    dfa.finalize(nfa);
+
+    AC_DEBUG_ONLY(
+        // check determinism(each edge symbol unique per state)
+        for (const auto &[id, s] : dfa.states) {
+          std::unordered_set<char> seen;
+          for (const auto &[to_id, symbol] : s.edges) {
+            AC_RUNTIME_ASSERT(
+                !seen.contains(symbol),
+                "Non-deterministic DFA found! Should not happen.");
+            seen.insert(symbol);
+          }
+        })
 
     return {std::move(dfa)};
   }
-  friend class NFA;
 };
 } // namespace accat::auxilia

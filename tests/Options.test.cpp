@@ -97,13 +97,14 @@ TEST(Options, HelpAndVersion) {
               accat::auxilia::raw(R"(
   -h, --help        Show this help message and exit
   -v, --version     Show program's version number and exit
-)"));
+)")) << "Program should print help and exit.";
 
   auto p2 = Local("my_app", "1.0.0");
   std::vector<std::string_view> version_args = {"--version"};
   EXPECT_EXIT(p2.parse(version_args),
               testing::ExitedWithCode(0),
-              accat::auxilia::raw(R"(my_app version 1.0.0)"));
+              accat::auxilia::raw(R"(my_app version 1.0.0)"))
+      << "Program should print version and exit.";
 }
 
 TEST(Options, Reserved) {

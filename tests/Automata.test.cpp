@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <accat/auxilia/details/automaton.hpp>
-#include <iostream>
-#include <stdexcept>
 
 using namespace accat::auxilia;
 
@@ -159,4 +157,67 @@ TEST(NFA, ErrorHandling) {
   EXPECT_EQ(result.code(), Status::Code::kInvalidArgument);
   EXPECT_EQ(result.message(),
             "Invalid regex at position 1: not enough operands for |");
+}
+
+constexpr auto getDFAFromRegex(std::string_view regex) {
+  return *NFA::FromRegex(regex).and_then(&DFA::FromNFA);
+}
+
+TEST(DFA, SimplePattern) {
+  auto dfa = getDFAFromRegex("ab");
+  EXPECT_TRUE(dfa.test("ab"));
+  EXPECT_FALSE(dfa.test("a"));
+  EXPECT_FALSE(dfa.test("b"));
+  EXPECT_FALSE(dfa.test("abc"));
+  EXPECT_FALSE(dfa.test(""));
+}
+
+TEST(DFA, OpPattern) {
+  auto dfa = getDFAFromRegex("a*b?");
+  EXPECT_TRUE(dfa.test(""));
+  EXPECT_TRUE(dfa.test("a"));
+  EXPECT_TRUE(dfa.test("aa"));
+  EXPECT_TRUE(dfa.test("b"));
+  EXPECT_TRUE(dfa.test("ab"));
+  EXPECT_TRUE(dfa.test("aab"));
+  EXPECT_FALSE(dfa.test("ba"));
+}
+
+TEST(DFA, ComplexPattern) {
+  auto dfa = getDFAFromRegex("b(a|b)*abb");
+  EXPECT_TRUE(dfa.test("babb"));
+  EXPECT_TRUE(dfa.test("baabb"));
+  EXPECT_TRUE(dfa.test("bbabb"));
+  EXPECT_TRUE(dfa.test("bababb"));
+  EXPECT_FALSE(dfa.test("abb"));
+  EXPECT_FALSE(dfa.test("aabb"));
+  EXPECT_FALSE(dfa.test("ab"));
+  EXPECT_FALSE(dfa.test("a"));
+  EXPECT_FALSE(dfa.test("b"));
+  EXPECT_FALSE(dfa.test(""));
+}
+
+TEST(DFA, ToDotOutput) {
+  auto dfa = getDFAFromRegex("ab");
+  auto dot = dfa.to_dot();
+  EXPECT_FALSE(dot.empty());
+  EXPECT_NE(dot.find("digraph"), std::string::npos);
+  EXPECT_NE(dot.find("->"), std::string::npos);
+}
+
+TEST(DFA, AlphanumericPattern) {
+  auto dfa = getDFAFromRegex("a1b2");
+  EXPECT_TRUE(dfa.test("a1b2"));
+  EXPECT_FALSE(dfa.test("a1b"));
+  EXPECT_FALSE(dfa.test("ab12"));
+}
+
+TEST(DFA, NestedGroups) {
+  auto dfa = getDFAFromRegex("(a|b)(c|d)");
+  EXPECT_TRUE(dfa.test("ac"));
+  EXPECT_TRUE(dfa.test("ad"));
+  EXPECT_TRUE(dfa.test("bc"));
+  EXPECT_TRUE(dfa.test("bd"));
+  EXPECT_FALSE(dfa.test("ab"));
+  EXPECT_FALSE(dfa.test("cd"));
 }
