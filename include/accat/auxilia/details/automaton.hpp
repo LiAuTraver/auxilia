@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cstddef>
 #include <functional>
 #include <ranges>
 #include <stack>
@@ -14,15 +13,17 @@
 
 #include "./chars.hpp"
 namespace accat::auxilia::details {
-class AutomatonBase : Printable {
-public:
+class AutomatonMixin : Printable {
+protected:
+  AutomatonMixin() noexcept = default;
+  AutomatonMixin(const AutomatonMixin &) = delete;
+  AutomatonMixin(AutomatonMixin &&) noexcept = default;
+  AutomatonMixin &operator=(const AutomatonMixin &) = delete;
+  AutomatonMixin &operator=(AutomatonMixin &&) noexcept = default;
+
   static constexpr auto npos = static_cast<size_t>(-1);
   static constexpr auto operators = as_chars("|*.+?()");
   static constexpr auto epsilon = "ε";
-
-  static constexpr bool is_operator(const char c) {
-    return operators.find(c) != string::npos;
-  }
   static constexpr auto unformatted_header = raw(R"(
 digraph {} {{
   rankdir=LR;
@@ -31,23 +32,13 @@ digraph {} {{
   fake_start -> {};
 )");
 
-public:
-  // should be private, workaround for trait is_nothrow_constructible
-  AutomatonBase() noexcept = default;
-  AutomatonBase(const AutomatonBase &) = delete;
-  AutomatonBase &operator=(const AutomatonBase &) = delete;
-  AutomatonBase(AutomatonBase &&) noexcept = default;
-  AutomatonBase &operator=(AutomatonBase &&) noexcept = default;
-  ~AutomatonBase() noexcept = default;
-
-protected:
   // we don't add const here for move-ctor/assignment,
   // but it's logically immutable once it is assigned.
   // also: const member field serves no purpose.
   struct Transition {
     /* const */ size_t target_id = npos;
     /* const */ char symbol = '\0';
-    bool is_epsilon() const noexcept { return symbol == '\0'; }
+    [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
   };
 
   // partial NFA, used during construction
@@ -61,8 +52,8 @@ protected:
     using edges_t = std::unordered_set<
         Transition,
         decltype([](const Transition &t) {
-          auto h1 = std::hash<size_t>{}(t.target_id);
-          auto h2 = std::hash<char>{}(t.symbol);
+          const auto h1 = std::hash<size_t>{}(t.target_id);
+          const auto h2 = std::hash<char>{}(t.symbol);
           return h1 ^ (h2 + hash_magic_number_32bit + (h1 << 6) + (h1 >> 2));
         }),
         decltype([](const Transition &lhs, const Transition &rhs) {
@@ -76,7 +67,7 @@ protected:
     } type = Type::kNone;
     edges_t edges;
     State() noexcept = default;
-    State(const Type type) noexcept : type(type) {}
+    explicit State(const Type type) noexcept : type(type) {}
   };
   string input_alphabet;
   std::unordered_map<size_t, State> states;
@@ -87,7 +78,10 @@ protected:
   // size_t accept_id = npos;
   std::vector<size_t> accept_ids;
 
-protected:
+  static constexpr bool is_operator(const char c) {
+    return operators.find(c) != string::npos;
+  }
+
   size_t new_state(this auto &&self, State::Type type = State::Type::kNone) {
     auto id = self.states.size();
     self.states.emplace(id, type);
@@ -113,13 +107,13 @@ protected:
       }
     }
   }
-  bool empty() const noexcept {
+  [[nodiscard]] bool empty() const noexcept {
     return states.empty() && start_id == npos && accept_ids.empty();
   }
 
   Fragment from_char(const char c) {
-    size_t s = new_state(State::Type::kNone);
-    size_t a = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kNone);
+    const auto a = new_state(State::Type::kNone);
     add_transition(s, a, c);
     return {s, a};
   }
@@ -130,8 +124,8 @@ protected:
   }
 
   Fragment union_operation(Fragment &&a, Fragment &&b) {
-    size_t s = new_state(State::Type::kNone);
-    size_t acc = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kNone);
+    const auto acc = new_state(State::Type::kNone);
 
     add_transition(s, a.start, '\0');
     add_transition(s, b.start, '\0');
@@ -142,8 +136,8 @@ protected:
   }
 
   Fragment kleene_star(Fragment &&f) {
-    auto s = new_state(State::Type::kNone);
-    auto acc = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kNone);
+    const auto acc = new_state(State::Type::kNone);
 
     add_transition(s, f.start, '\0');
     add_transition(s, acc, '\0');
@@ -152,12 +146,12 @@ protected:
     add_transition(f.end, acc, '\0');
     return {s, acc};
   }
-  auto dot_transitions() const -> std::string {
+  [[nodiscard]] auto dot_transitions() const -> std::string {
     using literals::operator""_raw;
     std::string dot;
     for (const auto &[id, s] : states) {
       for (const auto &e : s.edges) {
-        char widen[2] = {e.symbol, '\0'};
+        const char widen[] = {e.symbol, '\0'};
         dot += format(R"(  {} -> {} [label="{}"];)"_raw
                       "\n",
                       id,
@@ -167,8 +161,6 @@ protected:
     }
     return dot;
   }
-
-public:
   bool test(std::string_view input) {
     if (empty())
       return input.empty();
@@ -199,7 +191,7 @@ public:
       current_states = std::move(next_states);
     }
 
-    return std::ranges::any_of(accept_ids, [&](size_t accept_id) {
+    return std::ranges::any_of(accept_ids, [&](const size_t accept_id) {
       return current_states.contains(accept_id);
     });
   }
@@ -213,7 +205,8 @@ digraph Automaton {
 
     return self.to_dot_impl();
   }
-  auto to_string(FormatPolicy = FormatPolicy::kDefault) const -> string {
+  [[nodiscard]] auto to_string(FormatPolicy = FormatPolicy::kDefault) const
+      -> string {
     if (empty())
       return "<empty>";
 
@@ -242,8 +235,15 @@ digraph Automaton {
 } // namespace accat::auxilia::details
 
 namespace accat::auxilia {
-class NFA : public details::AutomatonBase {
-  using MyBase = details::AutomatonBase;
+class NFA : details::AutomatonMixin {
+  using MyBase = details::AutomatonMixin;
+  friend MyBase;
+  friend class DFA;
+
+public:
+  using MyBase::test;
+  using MyBase::to_dot;
+  using MyBase::to_string;
 
 private:
   static std::string preprocess_regex(const std::string_view regex) {
@@ -252,18 +252,18 @@ private:
     //        char or `)` `*` `+` `?` followed by char or `(`
     // (here char means non-op char ^^^)
     result.resize_and_overwrite(
-        regex.size() * 2, [&](char *out, size_t capacity) {
+        regex.size() * 2,
+        [&](char *const out, [[maybe_unused]] const size_t capacity) {
           constexpr auto is_in = [](const char c, const string_view chars) {
             return chars.find(c) != string_view::npos;
           };
           auto j = 0ull;
           for (auto i = 0ull; i < regex.size(); ++i) {
-            char c = regex[i];
+            const char c = regex[i];
             out[j++] = c;
 
             if (i + 1 < regex.size()) {
-              if (char next = regex[i + 1];
-                  !is_in(c, "|(") && !is_in(next, "|)*+?")) {
+              if (!is_in(c, "|(") && !is_in(regex[i + 1], "|)*+?")) {
                 out[j++] = '.';
               }
             }
@@ -393,7 +393,7 @@ private:
     std::stack<Fragment> stack;
     auto top_and_pop_stack = [&stack]() {
       AC_RUNTIME_ASSERT(!stack.empty(), "Stack underflow")
-      auto val = stack.top();
+      const auto val = stack.top();
       stack.pop();
       return val;
     };
@@ -456,12 +456,12 @@ private:
               "Invalid regex at position {}: not enough operands for ?",
               postfix.find(c));
         }
-        auto f = top_and_pop_stack();
+        auto [fStart, fEnd] = top_and_pop_stack();
         auto s = new_state(State::Type::kNone);
         auto acc = new_state(State::Type::kNone);
-        add_transition(s, f.start, '\0');
+        add_transition(s, fStart, '\0');
         add_transition(s, acc, '\0');
-        add_transition(f.end, acc, '\0');
+        add_transition(fEnd, acc, '\0');
         stack.emplace(s, acc);
         continue;
       }
@@ -489,14 +489,14 @@ private:
 
 public:
   // McNaughton-Yamada-Thompson algorithm
-  static StatusOr<NFA> FromRegex(string_view sv) {
+  static StatusOr<NFA> FromRegex(const string_view sv) {
     if (sv.empty()) {
       return {};
     }
     NFA nfa;
     nfa.init_input_alphabet(sv);
 
-    auto preprocessed = preprocess_regex(sv);
+    const auto preprocessed = preprocess_regex(sv);
     auto maybe_postfix = to_postfix(preprocessed);
     if (!maybe_postfix)
       return {maybe_postfix.as_status()};
@@ -509,24 +509,26 @@ public:
 
     return {std::move(nfa)};
   }
-  friend MyBase;
-  friend class DFA;
 };
-class DFA : public details::AutomatonBase {
+class DFA : details::AutomatonMixin {
   using SubSetTy = std::unordered_set<size_t>;
-  using MyBase = details::AutomatonBase;
+  using MyBase = details::AutomatonMixin;
   friend MyBase;
 
+  std::unordered_map<size_t, SubSetTy> mapping;
+
 public:
+  using MyBase::test;
+  using MyBase::to_dot;
+  using MyBase::to_string;
+
   DFA() noexcept = default;
   DFA(const DFA &) = delete;
-  DFA &operator=(const DFA &) = delete;
   DFA(DFA &&) noexcept = default;
+  DFA &operator=(const DFA &) = delete;
   DFA &operator=(DFA &&) noexcept = default;
 
 private:
-  std::unordered_map<size_t, SubSetTy> mapping;
-
   auto to_dot_impl() const -> std::string {
     // not only output, but also add notation for the NFA states represented
     using literals::operator""_raw;
@@ -535,9 +537,8 @@ private:
 
     for (const auto &[id, s] : states) {
       dot += format(
-          R"({}[label="{}{}", shape={}];)"
+          R"({0}[label="{0}{1}", shape={2}];)"
           " \n",
-          id,
           id,
           ((s.type == State::Type::kStart)
                ? R"(\n(start))"
@@ -554,9 +555,8 @@ private:
       if (!nfa_states_str.empty()) {
         nfa_states_str.erase(nfa_states_str.size() - 2); // remove last ", "
       }
-      dot += format("{} [label=\"{}\n"
-                    "({})\"];  \n",
-                    dfa_id,
+      dot += format("{0} [label=\"{0}\n"
+                    "({1})\"];  \n",
                     dfa_id,
                     nfa_states_str);
     }
@@ -613,7 +613,7 @@ private:
 
   void finalize(const NFA &nfa) {
     for (auto dfa_id = 0ull; dfa_id < mapping.size(); ++dfa_id) {
-      if (std::ranges::none_of(nfa.accept_ids, [&](size_t nfa_accept) {
+      if (std::ranges::none_of(nfa.accept_ids, [&](const size_t nfa_accept) {
             return mapping[dfa_id].contains(nfa_accept);
           }))
         continue;
@@ -651,7 +651,7 @@ public:
 
     AC_DEBUG_ONLY(
         // check determinism(each edge symbol unique per state)
-        for (const auto &[id, s] : dfa.states) {
+        for (const auto &s : dfa.states | std::views::values) {
           std::unordered_set<char> seen;
           for (const auto &[to_id, symbol] : s.edges) {
             AC_RUNTIME_ASSERT(
