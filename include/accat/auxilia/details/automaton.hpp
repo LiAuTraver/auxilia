@@ -39,6 +39,18 @@ digraph {} {{
     /* const */ size_t target_id = npos;
     /* const */ char symbol = '\0';
     [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
+    auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
+      const char widen[] = {symbol, '\0'};
+      if (policy == FormatPolicy::kDefault)
+        return format("--{}->{}", is_epsilon() ? epsilon : widen, target_id);
+      else if (policy == FormatPolicy::kBrief)
+        return format("{}: {}", is_epsilon() ? epsilon : widen, target_id);
+      else if (policy == FormatPolicy::kDetailed)
+        return format("Transition{{target_id={}, symbol={}}}",
+                      target_id,
+                      is_epsilon() ? epsilon : widen);
+      AC_UNREACHABLE()
+    }
   };
 
   // partial NFA, used during construction
@@ -48,7 +60,7 @@ digraph {} {{
   };
   static_assert(std::conjunction_v<std::is_aggregate<Transition>,
                                    std::is_aggregate<Fragment>>);
-  struct State {
+  struct State : Printable {
     using edges_t = std::unordered_set<
         Transition,
         decltype([](const Transition &t) {
@@ -65,9 +77,45 @@ digraph {} {{
       kAccept = 2,
       kEmpty = kStart | kAccept
     } type = Type::kNone;
+    auto type_string() const {
+      switch (type) {
+      case Type::kNone:
+        return "None";
+      case Type::kStart:
+        return "Start";
+      case Type::kAccept:
+        return "Accept";
+      case Type::kEmpty:
+        return "Empty";
+      default:
+        AC_UNREACHABLE("Unknown State Type: {}", (type))
+      }
+    }
     edges_t edges;
     State() noexcept = default;
     explicit State(const Type type) noexcept : type(type) {}
+    auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
+      std::string result;
+
+      if (policy == FormatPolicy::kDetailed) {
+        result += format("{{type={}, edges=[", type_string());
+        for (const auto &e : edges)
+          result += format("{} ,", e.to_string(policy));
+        result += "]}";
+        return result;
+      }
+
+      if (type != Type::kNone)
+        result += format("{}\n", type_string());
+
+      if (policy == FormatPolicy::kDefault)
+        for (const auto &e : edges)
+          result += format("{}\n", e.to_string(policy));
+      else if (policy == FormatPolicy::kBrief)
+        result += format("[{} edges]", edges.size());
+
+      return result;
+    }
   };
   string input_alphabet;
   std::unordered_map<size_t, State> states;
@@ -205,30 +253,22 @@ digraph Automaton {
 
     return self.to_dot_impl();
   }
-  [[nodiscard]] auto to_string(FormatPolicy = FormatPolicy::kDefault) const
+  [[nodiscard]] auto
+  to_string(const FormatPolicy policy = FormatPolicy::kDefault) const
       -> string {
     if (empty())
-      return "<empty>";
+      return "Automaton <empty>";
 
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
 #endif
 
-    string result;
-    for (const auto &[id, s] : states) {
-      result += format("State {}", id);
-      if (s.type == State::Type::kStart)
-        result += " (start)";
-      if (s.type == State::Type::kAccept)
-        result += " (accept)";
-      result += ":\n";
-      for (const auto &e : s.edges) {
-        if (e.is_epsilon())
-          result += format("  --{}--> {}\n", epsilon, e.target_id);
-        else
-          result += format("  --{}--> {}\n", e.symbol, e.target_id);
-      }
-    }
+    string result = "Automaton: [\n";
+    for (const auto &[id, s] : states)
+      result += format("State {}: {}\n", id, s.to_string(policy));
+
+    result.replace(result.end() - 1, result.end(), "]");
+    result += "\n";
     return result;
   }
 };
@@ -466,12 +506,12 @@ private:
         continue;
       }
       // stack.emplace(from_char(c)); // fallback
-      DebugUnreachable("Unimplemented operator in regex: '{}'", c);
+      AC_UNREACHABLE("Unimplemented operator in regex: '{}'", c);
       return UnimplementedError("Unhandled character in postfix regex: '{}'",
                                 c);
     }
     if (stack.size() != 1) {
-      DebugUnreachable(
+      AC_UNREACHABLE(
           "Internal Error: expression not fully reduced, stack size {}",
           stack.size());
       return InternalError("Internal Error: expression not fully reduced");
@@ -662,6 +702,40 @@ public:
         })
 
     return {std::move(dfa)};
+  }
+  // Hopcroft–Karp algorithm
+  auto minify() {
+    if (empty())
+      return;
+
+    using StatesTy = decltype(states);
+
+    std::vector<StatesTy> partitions;
+
+    StatesTy acc_states;
+    StatesTy non_acc_states;
+
+    for (const auto [sid, state] : states) {
+      AC_RUNTIME_ASSERT(state.type != State::Type::kEmpty,
+                        "unreachable state not implemented")
+      if (state.type == State::Type::kAccept)
+        acc_states.emplace(sid, state);
+      else
+        non_acc_states.emplace(sid, state);
+    }
+    AC_RUNTIME_ASSERT(!acc_states.empty(),
+                      "DFA must have at least one accept state")
+
+    partitions.emplace_back(std::move(acc_states));
+    partitions.emplace_back(std::move(non_acc_states));
+    bool changed;
+    do {
+      changed = false;
+      decltype(partitions) new_partitions;
+      for (const auto &part : partitions) {
+        // TODO
+      }
+    } while (changed);
   }
 };
 } // namespace accat::auxilia

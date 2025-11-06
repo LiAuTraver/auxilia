@@ -20,8 +20,11 @@ int main() {
     std::cout << std::quoted(str) << ": "
               << (dfa.test(str) ? "MATCH" : "NO MATCH") << "\n";
   }
-  std::cout << dfa;
+  std::cout << dfa << "\n";
+  dfa.minify();
+  std::cout << "After minification:\n";
+  std::cout << dfa << "\n";
 
-  std::ofstream("dfa.dot") << dfa.to_dot();
-  return system("(dot -Tpng dfa.dot -o dfa.png) && dfa.png");
+  // std::ofstream("dfa.dot") << dfa.to_dot();
+  // system("(dot -Tpng dfa.dot -o dfa.png) && dfa.png");
 }

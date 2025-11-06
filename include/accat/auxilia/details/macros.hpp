@@ -35,11 +35,12 @@
 #  endif
 #endif
 
-#if defined(AC_USE_STD_FMT) && !AC_USE_STD_FMT
+#if !AC_USE_STD_FMT
 #  include <fmt/format.h>
 #  include <fmt/ostream.h>
 #  include <fmt/color.h>
 #  include <fmt/std.h>
+#  include <fmt/ranges.h>
 #  include <fmt/xchar.h>
 #else
 #  define AC_USE_STD_FMT 1
@@ -336,7 +337,10 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_TODO_(...)                                                        \
     AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
     std::abort(); // shut up the warning 'not all control paths return a value'
-#  define DebugUnreachable(...) AC_RUNTIME_ASSERT(false, "Unreachable code.")
+#  define AC_UNREACHABLE(...)                                                  \
+                                                                               \
+    AC_RUNTIME_ASSERT(false, "Unreachable code.");                             \
+    std::unreachable(); // 'not all control paths return a value'
 
 #else
 // if debug was turned off, do nothing.
@@ -348,7 +352,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept
-#  define DebugUnreachable(...) std::unreachable()
+#  define AC_UNREACHABLE(...) std::unreachable()
 #  if defined(__cpp_exceptions) && __cpp_exceptions
 #    include <stdexcept>
 #    define AC_TODO_(...)                                                      \
