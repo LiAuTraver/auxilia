@@ -5,6 +5,7 @@
 #include <functional>
 #include <ranges>
 #include <stack>
+#include <type_traits>
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
@@ -40,11 +41,22 @@ public:
   ~AutomatonBase() noexcept = default;
 
 protected:
+  // we don't add const here for move-ctor/assignment,
+  // but it's logically immutable once it is assigned.
+  // also: const member field serves no purpose.
   struct Transition {
-    size_t target_id = npos;
-    char symbol = '\0';
-    bool is_epsilon() const { return symbol == '\0'; }
+    /* const */ size_t target_id = npos;
+    /* const */ char symbol = '\0';
+    bool is_epsilon() const noexcept { return symbol == '\0'; }
   };
+
+  // partial NFA, used during construction
+  struct Fragment {
+    /* const */ size_t start = npos;
+    /* const */ size_t end = npos;
+  };
+  static_assert(std::conjunction_v<std::is_aggregate<Transition>,
+                                   std::is_aggregate<Fragment>>);
   struct State {
     using edges_t = std::unordered_set<
         Transition,
@@ -66,23 +78,19 @@ protected:
     State() noexcept = default;
     State(const Type type) noexcept : type(type) {}
   };
-
-  // partial NFA, used during construction
-  struct Fragment {
-    size_t start = npos;
-    size_t end = npos;
-  };
   string input_alphabet;
   std::unordered_map<size_t, State> states;
+  // conceptually we can have multiple start states,
+  // but they are just elements in the same epsilon closure.
   size_t start_id = npos;
   // in Thompson's construction, only one accept state
   // size_t accept_id = npos;
   std::vector<size_t> accept_ids;
 
 protected:
-  size_t new_state(State::Type type = State::Type::kNone) {
-    size_t id = states.size();
-    states.emplace(id, type);
+  size_t new_state(this auto &&self, State::Type type = State::Type::kNone) {
+    auto id = self.states.size();
+    self.states.emplace(id, type);
     return id;
   }
   void
@@ -196,13 +204,12 @@ public:
     });
   }
   auto to_dot(this const auto &self) -> string {
-    using literals::operator""_raw;
     if (self.empty())
-      return R"(
+      return raw(R"(
 digraph Automaton {
   // empty
 }
-                )"_raw;
+                )");
 
     return self.to_dot_impl();
   }
@@ -249,8 +256,8 @@ private:
           constexpr auto is_in = [](const char c, const string_view chars) {
             return chars.find(c) != string_view::npos;
           };
-          size_t j = 0;
-          for (size_t i = 0; i < regex.size(); ++i) {
+          auto j = 0ull;
+          for (auto i = 0ull; i < regex.size(); ++i) {
             char c = regex[i];
             out[j++] = c;
 
@@ -509,6 +516,7 @@ class DFA : public details::AutomatonBase {
   using SubSetTy = std::unordered_set<size_t>;
   using MyBase = details::AutomatonBase;
   friend MyBase;
+
 public:
   DFA() noexcept = default;
   DFA(const DFA &) = delete;
@@ -616,6 +624,7 @@ private:
                                 : State::Type::kAccept;
     }
   }
+
 public:
   static StatusOr<DFA> FromNFA(const NFA &nfa) {
     DFA dfa;

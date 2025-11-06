@@ -11,7 +11,7 @@ using namespace accat::auxilia;
 
 int main() {
   auto dfa =
-      NFA::FromRegex("a(b|a)*b").and_then(&DFA::FromNFA).rvalue().value();
+      NFA::FromRegex("b(a|b)*bab").and_then(&DFA::FromNFA).rvalue().value();
 
   std::cout << "\nTesting strings:\n";
   auto test_strings = {
