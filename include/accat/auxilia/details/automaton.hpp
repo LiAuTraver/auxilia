@@ -38,17 +38,17 @@ digraph {} {{
   struct Transition {
     /* const */ size_t target_id = npos;
     /* const */ char symbol = '\0';
+    constexpr auto widen() const noexcept { return as_chars(symbol).data(); }
     [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
     auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
-      const char widen[] = {symbol, '\0'};
       if (policy == FormatPolicy::kDefault)
-        return format("--{}->{}", is_epsilon() ? epsilon : widen, target_id);
+        return format("--{}->{}", is_epsilon() ? epsilon : widen(), target_id);
       else if (policy == FormatPolicy::kBrief)
-        return format("{}: {}", is_epsilon() ? epsilon : widen, target_id);
+        return format("{}: {}", is_epsilon() ? epsilon : widen(), target_id);
       else if (policy == FormatPolicy::kDetailed)
         return format("Transition{{target_id={}, symbol={}}}",
                       target_id,
-                      is_epsilon() ? epsilon : widen);
+                      is_epsilon() ? epsilon : widen());
       AC_UNREACHABLE()
     }
   };
@@ -199,12 +199,11 @@ digraph {} {{
     std::string dot;
     for (const auto &[id, s] : states) {
       for (const auto &e : s.edges) {
-        const char widen[] = {e.symbol, '\0'};
         dot += format(R"(  {} -> {} [label="{}"];)"_raw
                       "\n",
                       id,
                       e.target_id,
-                      e.is_epsilon() ? epsilon : widen);
+                      e.is_epsilon() ? epsilon : e.widen());
       }
     }
     return dot;
@@ -217,22 +216,19 @@ digraph {} {{
         std::ranges::any_of(input, std::not_fn([this](const char c) {
                               return (input_alphabet.contains(c) &&
                                       !is_operator(c));
-                            }))) {
+                            })))
       return false;
-    }
 
     std::unordered_set current_states = {start_id};
     epsilon_closure(current_states);
 
     for (const char c : input) {
       std::unordered_set<size_t> next_states;
-      for (size_t state_id : current_states) {
-        for (const auto &edge : states[state_id].edges) {
-          if (!edge.is_epsilon() && edge.symbol == c) {
+      for (size_t state_id : current_states)
+        for (const auto &edge : states[state_id].edges)
+          if (!edge.is_epsilon() && edge.symbol == c)
             next_states.insert(edge.target_id);
-          }
-        }
-      }
+
       if (next_states.empty())
         return false;
       epsilon_closure(next_states);
@@ -302,11 +298,9 @@ private:
             const char c = regex[i];
             out[j++] = c;
 
-            if (i + 1 < regex.size()) {
-              if (!is_in(c, "|(") && !is_in(regex[i + 1], "|)*+?")) {
-                out[j++] = '.';
-              }
-            }
+            if (i + 1 < regex.size() && !is_in(c, "|(") &&
+                !is_in(regex[i + 1], "|)*+?"))
+              out[j++] = '.';
           }
           return j; // final length
         });

@@ -1,12 +1,16 @@
 #pragma once
-#include <compare>
+
+#include <cstddef>
+#include <type_traits>
 #include <iterator>
 #include <string>
 #include <string_view>
+
 #include "./type_traits.hpp"
 
 namespace accat::auxilia {
-/// @brief a tiny compile-time character array wrapper
+/// @brief a tiny compile-time string literal wrapper;
+///          essentially an owned string_view
 template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>
 class basic_chars {
   template <typename CharU, size_t M, typename TraitsU>
@@ -31,7 +35,8 @@ private:
 
 private:
   consteval auto assign_from(const value_type (&arr)[N]) noexcept {
-    for_each_char([&](value_type &current, size_type index) {
+    static_assert(std::is_trivially_destructible_v<basic_chars>);
+    for_each_char([&](value_type &current, const size_type index) {
       Traits::assign(current, arr[index]);
     });
   }
@@ -43,6 +48,11 @@ private:
 
 public:
   consteval basic_chars() noexcept = default;
+  constexpr basic_chars(const value_type ch) noexcept {
+    static_assert(N == 2);
+    Traits::assign(myArr[0], ch);
+    Traits::assign(myArr[1], '\0');
+  }
   consteval basic_chars(const value_type (&arr)[N]) noexcept {
     assign_from(arr);
   }
@@ -354,7 +364,13 @@ public:
       return it + n;
     }
   };
-  constexpr auto to_string() const noexcept { return myArr; }
+  constexpr std::basic_string<value_type> to_string() const noexcept {
+    return myArr;
+  }
+  constexpr std::basic_string_view<value_type> to_string_view() const noexcept
+      [[clang::lifetimebound]] {
+    return myArr;
+  }
 };
 
 // deduction guide for C-style arrays
@@ -365,6 +381,9 @@ basic_chars(const CharT (&)[N]) -> basic_chars<CharT, N>;
 template <typename CharT, typename... Args>
 basic_chars(CharT, Args...) -> basic_chars<CharT, sizeof...(Args) + 2>;
 
+template <typename CharT> constexpr auto as_chars(const CharT ch) noexcept {
+  return basic_chars(ch);
+}
 template <typename CharT, size_t N>
 consteval auto as_chars(const CharT (&arr)[N]) noexcept {
   return basic_chars<CharT, N>(arr);

@@ -8,7 +8,7 @@ TEST(NFA, EmptyRegex) {
   auto nfa = *NFA::FromRegex("");
   EXPECT_FALSE(nfa.test("a"));
   EXPECT_TRUE(nfa.test(""));
-  EXPECT_EQ(nfa.to_string(), "<empty>");
+  EXPECT_EQ(nfa.to_string(), "Automaton <empty>");
 }
 
 TEST(NFA, SingleCharacter) {
