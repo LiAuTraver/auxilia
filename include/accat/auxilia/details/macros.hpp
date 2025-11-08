@@ -161,6 +161,10 @@ struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
 #  define AC_STACKTRACE ("<no further information>")
 #endif
 
+#define AC_UNREACHABLE_IMPL                                                    \
+  [[assume(false)]];                                                           \
+  [[unlikely]] std::unreachable(); // 'not all control paths return a value'
+
 #ifdef AC_DEBUG_ENABLED
 #  if __has_include(<spdlog/spdlog.h>)
 #    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
@@ -338,9 +342,8 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
     AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
     std::abort(); // shut up the warning 'not all control paths return a value'
 #  define AC_UNREACHABLE(...)                                                  \
-                                                                               \
     AC_RUNTIME_ASSERT(false, "Unreachable code.");                             \
-    std::unreachable(); // 'not all control paths return a value'
+    AC_UNREACHABLE_IMPL
 
 #else
 // if debug was turned off, do nothing.
@@ -352,7 +355,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept
-#  define AC_UNREACHABLE(...) std::unreachable()
+#  define AC_UNREACHABLE(...) AC_UNREACHABLE_IMPL
 #  if defined(__cpp_exceptions) && __cpp_exceptions
 #    include <stdexcept>
 #    define AC_TODO_(...)                                                      \

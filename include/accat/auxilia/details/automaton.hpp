@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <ranges>
 #include <stack>
@@ -28,8 +29,8 @@ protected:
 digraph {} {{
   rankdir=LR;
   node [shape=circle, fontsize=12];
-  fake_start [shape=none, label=""];
-  fake_start -> {};
+  node [shape=point]; start;
+  start -> {};
 )");
 
   // we don't add const here for move-ctor/assignment,
@@ -38,17 +39,18 @@ digraph {} {{
   struct Transition {
     /* const */ size_t target_id = npos;
     /* const */ char symbol = '\0';
-    constexpr auto widen() const noexcept { return as_chars(symbol).data(); }
+    constexpr auto literal() const noexcept {
+      return is_epsilon() ? epsilon : widen(symbol);
+    }
     [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
     auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
       if (policy == FormatPolicy::kDefault)
-        return format("--{}->{}", is_epsilon() ? epsilon : widen(), target_id);
+        return format("--{}->{}", literal(), target_id);
       else if (policy == FormatPolicy::kBrief)
-        return format("{}: {}", is_epsilon() ? epsilon : widen(), target_id);
+        return format("{}: {}", literal(), target_id);
       else if (policy == FormatPolicy::kDetailed)
-        return format("Transition{{target_id={}, symbol={}}}",
-                      target_id,
-                      is_epsilon() ? epsilon : widen());
+        return format(
+            "Transition{{target_id={}, symbol={}}}", target_id, literal());
       AC_UNREACHABLE()
     }
   };
@@ -59,7 +61,9 @@ digraph {} {{
     /* const */ size_t end = npos;
   };
   static_assert(std::conjunction_v<std::is_aggregate<Transition>,
-                                   std::is_aggregate<Fragment>>);
+                                   std::is_aggregate<Fragment>,
+                                   std::is_trivially_copyable<Transition>,
+                                   std::is_trivially_copyable<Fragment>>);
   struct State : Printable {
     using edges_t = std::unordered_set<
         Transition,
@@ -71,28 +75,34 @@ digraph {} {{
         decltype([](const Transition &lhs, const Transition &rhs) {
           return lhs.target_id == rhs.target_id && lhs.symbol == rhs.symbol;
         })>;
-    enum struct Type : unsigned short {
-      kNone = 0, // intermediate state
-      kStart = 1,
-      kAccept = 2,
-      kEmpty = kStart | kAccept
-    } type = Type::kNone;
+
+    enum struct [[clang::flag_enum]] Type : unsigned short {
+      kIntermediate = 0b00, // state neither start nor accept
+      kStart = 0b01,
+      kAccept = 0b10,
+      kStartAndAccept = kStart | kAccept // 0b11
+    } type = Type::kIntermediate;
     auto type_string() const {
       switch (type) {
-      case Type::kNone:
-        return "None";
+      case Type::kIntermediate:
+        return "";
       case Type::kStart:
         return "Start";
       case Type::kAccept:
         return "Accept";
-      case Type::kEmpty:
-        return "Empty";
+      case Type::kStartAndAccept:
+        return "Start & Accept";
       default:
         AC_UNREACHABLE("Unknown State Type: {}", (type))
       }
     }
     edges_t edges;
     State() noexcept = default;
+    State(const State &) = delete;
+    State(State &&) = default;
+    State &operator=(const State &) = delete;
+    State &operator=(State &&) = default;
+
     explicit State(const Type type) noexcept : type(type) {}
     auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
       std::string result;
@@ -105,7 +115,7 @@ digraph {} {{
         return result;
       }
 
-      if (type != Type::kNone)
+      if (type == Type::kIntermediate)
         result += format("{}\n", type_string());
 
       if (policy == FormatPolicy::kDefault)
@@ -124,13 +134,32 @@ digraph {} {{
   size_t start_id = npos;
   // in Thompson's construction, only one accept state
   // size_t accept_id = npos;
-  std::vector<size_t> accept_ids;
+  std::unordered_set<size_t> accept_ids;
+
+  using StatesTy = std::unordered_map<size_t, State>;
 
   static constexpr bool is_operator(const char c) {
     return operators.find(c) != string::npos;
   }
+  static auto _dot_states(const StatesTy &states) {
+    string dot;
+    // mark start and accept distinctly
+    for (const auto &[id, s] : states) {
+      const auto isAccept = (s.type == State::Type::kAccept or
+                             s.type == State::Type::kStartAndAccept);
 
-  size_t new_state(this auto &&self, State::Type type = State::Type::kNone) {
+      // doublecircle for accept states, single for others
+      dot += format(R"~~~({0}[label="{0}\n{1}", shape={2}circle];)~~~"
+                    " \n",
+                    id,
+                    s.type_string(),
+                    isAccept ? "double" : "");
+    }
+    return dot;
+  }
+
+  size_t new_state(this auto &&self,
+                   State::Type type = State::Type::kIntermediate) {
     auto id = self.states.size();
     self.states.emplace(id, type);
     return id;
@@ -160,8 +189,8 @@ digraph {} {{
   }
 
   Fragment from_char(const char c) {
-    const auto s = new_state(State::Type::kNone);
-    const auto a = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kIntermediate);
+    const auto a = new_state(State::Type::kIntermediate);
     add_transition(s, a, c);
     return {s, a};
   }
@@ -172,8 +201,8 @@ digraph {} {{
   }
 
   Fragment union_operation(Fragment &&a, Fragment &&b) {
-    const auto s = new_state(State::Type::kNone);
-    const auto acc = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kIntermediate);
+    const auto acc = new_state(State::Type::kIntermediate);
 
     add_transition(s, a.start, '\0');
     add_transition(s, b.start, '\0');
@@ -184,8 +213,8 @@ digraph {} {{
   }
 
   Fragment kleene_star(Fragment &&f) {
-    const auto s = new_state(State::Type::kNone);
-    const auto acc = new_state(State::Type::kNone);
+    const auto s = new_state(State::Type::kIntermediate);
+    const auto acc = new_state(State::Type::kIntermediate);
 
     add_transition(s, f.start, '\0');
     add_transition(s, acc, '\0');
@@ -194,16 +223,16 @@ digraph {} {{
     add_transition(f.end, acc, '\0');
     return {s, acc};
   }
-  [[nodiscard]] auto dot_transitions() const -> std::string {
+  [[nodiscard]] auto _dot_transitions() const -> std::string {
     using literals::operator""_raw;
     std::string dot;
     for (const auto &[id, s] : states) {
       for (const auto &e : s.edges) {
-        dot += format(R"(  {} -> {} [label="{}"];)"_raw
+        dot += format(R"(  {} -> {} [label="{}"];)"
                       "\n",
                       id,
                       e.target_id,
-                      e.is_epsilon() ? epsilon : e.widen());
+                      e.literal());
       }
     }
     return dot;
@@ -239,7 +268,8 @@ digraph {} {{
       return current_states.contains(accept_id);
     });
   }
-  auto to_dot(this const auto &self) -> string {
+  auto to_dot(this const auto &self,
+              const FormatPolicy policy = FormatPolicy::kDefault) -> string {
     if (self.empty())
       return raw(R"(
 digraph Automaton {
@@ -247,7 +277,7 @@ digraph Automaton {
 }
                 )");
 
-    return self.to_dot_impl();
+    return self._to_dot_impl(policy);
   }
   [[nodiscard]] auto
   to_string(const FormatPolicy policy = FormatPolicy::kDefault) const
@@ -389,27 +419,13 @@ private:
 
     return {postfix};
   }
-  auto to_dot_impl() const -> std::string {
-    using literals::operator""_raw;
-
+  auto _to_dot_impl(const FormatPolicy) const -> std::string {
     auto dot = format(unformatted_header, "NFA", start_id);
 
-    // mark start and accept distinctly
-    for (const auto &[id, s] : states) {
-      // doublecircle for accept states, single for others
-      dot += format(
-          R"({}[label="{}{}", shape={}];)"
-          " \n",
-          id,
-          id,
-          ((s.type == State::Type::kStart)
-               ? R"(\n(start))"
-               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
-          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
-    }
+    dot += _dot_states(states);
 
     dot += "\n";
-    dot += dot_transitions();
+    dot += _dot_transitions();
     dot += "}\n";
     return dot;
   }
@@ -491,8 +507,8 @@ private:
               postfix.find(c));
         }
         auto [fStart, fEnd] = top_and_pop_stack();
-        auto s = new_state(State::Type::kNone);
-        auto acc = new_state(State::Type::kNone);
+        auto s = new_state(State::Type::kIntermediate);
+        auto acc = new_state(State::Type::kIntermediate);
         add_transition(s, fStart, '\0');
         add_transition(s, acc, '\0');
         add_transition(fEnd, acc, '\0');
@@ -515,41 +531,58 @@ private:
   void finalize(Fragment &&frag) {
     const auto &[sid, eid] = frag;
     start_id = sid;
-    accept_ids.emplace_back(eid);
+    accept_ids.emplace(eid);
     states[start_id].type = State::Type::kStart;
     // only one accept state in this algo
     states[eid].type = State::Type::kAccept;
+  }
+  auto construxt_from_regex(const string_view sv) {
+    init_input_alphabet(sv);
+
+    const auto preprocessed = preprocess_regex(sv);
+    auto maybe_postfix = to_postfix(preprocessed);
+    if (!maybe_postfix)
+      return maybe_postfix.as_status();
+
+    auto maybe_frag = build_graph(*maybe_postfix);
+    if (!maybe_frag)
+      return maybe_frag.as_status();
+
+    finalize(std::move(*maybe_frag));
+
+    return OkStatus();
   }
 
 public:
   // McNaughton-Yamada-Thompson algorithm
   static StatusOr<NFA> FromRegex(const string_view sv) {
-    if (sv.empty()) {
+    if (sv.empty())
       return {};
-    }
+
     NFA nfa;
-    nfa.init_input_alphabet(sv);
 
-    const auto preprocessed = preprocess_regex(sv);
-    auto maybe_postfix = to_postfix(preprocessed);
-    if (!maybe_postfix)
-      return {maybe_postfix.as_status()};
+    const auto s = nfa.construxt_from_regex(sv);
 
-    auto maybe_frag = nfa.build_graph(*maybe_postfix);
-    if (!maybe_frag)
-      return {maybe_frag.as_status()};
-
-    nfa.finalize(std::move(*maybe_frag));
-
-    return {std::move(nfa)};
+    if (!s)
+      return s;
+    else
+      return {std::move(nfa)};
   }
 };
 class DFA : details::AutomatonMixin {
-  using SubSetTy = std::unordered_set<size_t>;
+  using IndexSetTy = std::unordered_set<size_t>;
   using MyBase = details::AutomatonMixin;
   friend MyBase;
 
-  std::unordered_map<size_t, SubSetTy> mapping;
+  std::unordered_map<size_t, IndexSetTy> mapping;
+
+  using IndexSetHasher = decltype([](const IndexSetTy &s) {
+    auto h = 0ull;
+    for (const auto v : s)
+      h ^= std::hash<size_t>{}(v) + hash_magic_number_64bit + (h << 6) +
+           (h >> 2);
+    return h;
+  });
 
 public:
   using MyBase::test;
@@ -563,24 +596,8 @@ public:
   DFA &operator=(DFA &&) noexcept = default;
 
 private:
-  auto to_dot_impl() const -> std::string {
-    // not only output, but also add notation for the NFA states represented
-    using literals::operator""_raw;
-    auto dot = format(unformatted_header, "DFA", start_id);
-    // mark start and accept distinctly
-
-    for (const auto &[id, s] : states) {
-      dot += format(
-          R"({0}[label="{0}{1}", shape={2}];)"
-          " \n",
-          id,
-          ((s.type == State::Type::kStart)
-               ? R"(\n(start))"
-               : ((s.type == State::Type::kAccept) ? R"(\n(accept))" : "")),
-          (s.type == State::Type::kAccept) ? "doublecircle" : "circle");
-    }
-
-    // add NFA states info, just numbers
+  auto _dot_transition_details() const {
+    string dot;
     for (const auto &[dfa_id, nfa_states] : mapping) {
       std::string nfa_states_str;
       for (const auto nfa_state_id : nfa_states) {
@@ -594,9 +611,18 @@ private:
                     dfa_id,
                     nfa_states_str);
     }
+    return dot;
+  }
+  auto _to_dot_impl(const FormatPolicy policy) const -> std::string {
+    auto dot = format(unformatted_header, "DFA", start_id);
+    dot += _dot_states(states);
+
+    // not only output, but also add notation for the NFA states represented
+    if (policy == FormatPolicy::kDetailed)
+      dot += _dot_transition_details();
 
     dot += "\n";
-    dot += dot_transitions();
+    dot += _dot_transitions();
     dot += "}\n";
     return dot;
   }
@@ -612,7 +638,7 @@ private:
     mapping.emplace(0, std::move(start_subset));
   }
 
-  void process_transitions(const NFA &nfa, auto &&key_to_id) {
+  void process_transitions(const NFA &nfa, auto &key_to_id) {
     for (size_t cur = 0; cur < mapping.size(); ++cur) {
       for (const char a : input_alphabet) {
         std::unordered_set<size_t> move_set;
@@ -634,7 +660,7 @@ private:
         nfa.epsilon_closure(move_set);
         size_t to_id;
         if (auto [it, inserted] = key_to_id.emplace(move_set, npos); inserted) {
-          to_id = new_state(State::Type::kNone);
+          to_id = new_state(State::Type::kIntermediate);
           it->second = to_id;
           mapping.emplace(to_id, std::move(move_set));
         } else {
@@ -652,40 +678,26 @@ private:
           }))
         continue;
 
-      accept_ids.push_back(dfa_id);
-      states[dfa_id].type = (dfa_id == start_id)
-                                ? State::Type::kEmpty // both start and accept
-                                : State::Type::kAccept;
+      accept_ids.emplace(dfa_id);
+      states[dfa_id].type =
+          (dfa_id == start_id)
+              ? State::Type::kStartAndAccept // both start and accept
+              : State::Type::kAccept;
     }
   }
 
-public:
-  static StatusOr<DFA> FromNFA(const NFA &nfa) {
-    DFA dfa;
-    dfa.input_alphabet = nfa.input_alphabet;
-
-    if (nfa.empty()) {
-      return {std::move(dfa)};
-    }
-
-    using SubSetHashTy = decltype([](const SubSetTy &s) {
-      auto h = 0ull;
-      for (const auto v : s)
-        h ^= std::hash<size_t>{}(v) + hash_magic_number_64bit + (h << 6) +
-             (h >> 2);
-      return h;
-    });
-    using Key2IdTy = std::unordered_map<SubSetTy, size_t, SubSetHashTy>;
+  void construct_from_nfa(const NFA &nfa) {
+    using Key2IdTy = std::unordered_map<IndexSetTy, size_t, IndexSetHasher>;
 
     Key2IdTy key_to_id;
 
-    dfa.process_start_state(nfa, key_to_id);
-    dfa.process_transitions(nfa, std::move(key_to_id));
-    dfa.finalize(nfa);
+    process_start_state(nfa, key_to_id);
+    process_transitions(nfa, key_to_id);
+    finalize(nfa);
 
     AC_DEBUG_ONLY(
         // check determinism(each edge symbol unique per state)
-        for (const auto &s : dfa.states | std::views::values) {
+        for (const auto &s : states | std::views::values) {
           std::unordered_set<char> seen;
           for (const auto &[to_id, symbol] : s.edges) {
             AC_RUNTIME_ASSERT(
@@ -694,42 +706,183 @@ public:
             seen.insert(symbol);
           }
         })
+  }
+
+public:
+  static StatusOr<DFA> FromNFA(const NFA &nfa) {
+    DFA dfa;
+    dfa.input_alphabet = nfa.input_alphabet;
+
+    if (nfa.empty())
+      return {std::move(dfa)};
+
+    dfa.construct_from_nfa(nfa);
 
     return {std::move(dfa)};
   }
-  // Hopcroft–Karp algorithm
-  auto minify() {
-    if (empty())
-      return;
 
-    using StatesTy = decltype(states);
+private:
+  using PartitionTy = std::unordered_set<size_t>;
+  using PartitionsTy = std::vector<PartitionTy>;
 
-    std::vector<StatesTy> partitions;
+  static auto initial_partition(const StatesTy &states) {
+    PartitionsTy partitions;
+    PartitionTy accept_states, non_accept_states;
 
-    StatesTy acc_states;
-    StatesTy non_acc_states;
-
-    for (const auto [sid, state] : states) {
-      AC_RUNTIME_ASSERT(state.type != State::Type::kEmpty,
-                        "unreachable state not implemented")
+    for (const auto &[sid, state] : states) {
       if (state.type == State::Type::kAccept)
-        acc_states.emplace(sid, state);
+        accept_states.emplace(sid);
       else
-        non_acc_states.emplace(sid, state);
+        non_accept_states.emplace(sid);
     }
-    AC_RUNTIME_ASSERT(!acc_states.empty(),
-                      "DFA must have at least one accept state")
+    AC_RUNTIME_ASSERT(!accept_states.empty(), "");
+    partitions.emplace_back(std::move(accept_states));
 
-    partitions.emplace_back(std::move(acc_states));
-    partitions.emplace_back(std::move(non_acc_states));
+    if (!non_accept_states.empty())
+      partitions.emplace_back(std::move(non_accept_states));
+
+    return partitions;
+  }
+
+  auto rebuild_from_partitions(const PartitionsTy &partitions) {
+    // mapping: old state -> partition it belongs to
+    std::unordered_map<size_t, size_t> oldstate_to_partition;
+    for (auto i = 0ull; i < partitions.size(); ++i) {
+      for (const auto sid : partitions[i]) {
+        oldstate_to_partition[sid] = i;
+      }
+    }
+
+    StatesTy new_states;
+    std::unordered_set<size_t> new_accept_ids;
+    auto new_start_id = npos;
+
+    for (size_t pid = 0; pid < partitions.size(); ++pid) {
+      const auto &part = partitions[pid];
+      // randomly choose one
+      const auto chosen_id = *part.begin();
+      const auto &chosen_state = states[chosen_id];
+
+      const auto isKeyContained = [&part](auto &&keyval) constexpr {
+        return part.contains(keyval);
+      };
+
+      State newState; // id is pid in new states
+
+      AC_DEBUG_ONLY(auto oneshot = false;)
+      if (isKeyContained(start_id)) {
+        AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(oneshot == false,
+                                        "should only have one start state")
+                          oneshot = true);
+        new_start_id = pid;
+        newState.type = chosen_state.type;
+      }
+
+      if (std::ranges::any_of(accept_ids, isKeyContained)) {
+        new_accept_ids.emplace(pid);
+        if (pid == new_start_id) {
+          newState.type = State::Type::kStartAndAccept;
+        } else {
+          newState.type = State::Type::kAccept;
+        }
+      } else if (pid == new_start_id) {
+        newState.type = State::Type::kStart;
+      }
+
+      std::unordered_map<char, size_t> symbol_to_target;
+      for (const auto edge : chosen_state.edges) {
+        // target partition id is the new target state id.
+        const auto target_partition_id = oldstate_to_partition[edge.target_id];
+        newState.edges.emplace(target_partition_id, edge.symbol);
+      }
+
+      new_states.emplace(pid, std::move(newState));
+    }
+
+    states = std::move(new_states);
+    start_id = new_start_id;
+    accept_ids = std::move(new_accept_ids);
+  }
+  auto split(const PartitionsTy &partitions, const PartitionTy &part) {
+    std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
+
+    for (const auto sid : part) {
+      IndexSetTy dest_set;
+      dest_set.reserve(input_alphabet.size());
+
+      for (const auto symbol : input_alphabet) {
+        // from state sid, a `symbol` move
+        auto target_id = npos;
+
+        // state: states.find(sid)->second;
+        for (const auto edge : states.find(sid)->second.edges) {
+          if (edge.symbol == symbol) {
+            target_id = edge.target_id;
+            break;
+          }
+        }
+
+        if (target_id == npos)
+          continue; // didn't have the transition `symbol`
+
+        auto target_partition_idx = npos;
+
+        for (auto pid = 0ull; pid < partitions.size(); ++pid) {
+          if (partitions[pid].contains(target_id)) {
+            target_partition_idx = pid;
+            break;
+          }
+        }
+
+        AC_RUNTIME_ASSERT(target_partition_idx != npos, "should not happen")
+
+        dest_set.insert(target_partition_idx);
+      }
+
+      // Add this state to the group with this signature
+      groups[dest_set].insert(sid);
+    }
+    return groups;
+  }
+  auto _do_minify() {
+
+    auto partitions = initial_partition(this->states);
+
     bool changed;
     do {
       changed = false;
       decltype(partitions) new_partitions;
+
       for (const auto &part : partitions) {
-        // TODO
+        if (part.size() == 1) {
+          // can't split an atom set
+          new_partitions.emplace_back(part);
+          continue;
+        }
+
+        // mapping: states -> partition
+        auto groups = split(partitions, part);
+
+        // a part was splited, so it's changed
+        if (groups.size() > 1)
+          changed = true;
+
+        // this part -> several parts or unchanged
+        new_partitions.append_range(std::move(groups) | std::views::values);
       }
+
+      partitions = std::move(new_partitions);
     } while (changed);
+
+    rebuild_from_partitions(partitions);
+  }
+
+public:
+  // Hopcroft algorithm (not Hopcroft–Karp algorithm)
+  DFA &minify() {
+    if (!empty())
+      _do_minify();
+    return *this;
   }
 };
 } // namespace accat::auxilia

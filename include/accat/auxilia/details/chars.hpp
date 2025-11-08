@@ -160,6 +160,7 @@ public:
   constexpr operator std::basic_string<value_type>() const noexcept {
     return std::basic_string<value_type>(myArr, real_size);
   }
+  constexpr operator const value_type *() const noexcept { return myArr; }
   constexpr auto contains(const value_type c) const noexcept {
     return count(c) > 0;
   }
@@ -388,6 +389,11 @@ template <typename CharT, size_t N>
 consteval auto as_chars(const CharT (&arr)[N]) noexcept {
   return basic_chars<CharT, N>(arr);
 }
+
+template <typename CharT> constexpr auto widen(const CharT ch) noexcept {
+  return as_chars(ch);
+}
+
 template <size_t N> using chars = basic_chars<char, N, std::char_traits<char>>;
 template <size_t N>
 using wchars = basic_chars<wchar_t, N, std::char_traits<wchar_t>>;

@@ -772,7 +772,7 @@ LexError(const fmt::text_style &ts,
 #  endif
 
 #  define AC_RETURN_IF_NOT(_status_)                                           \
-    AC_UTILS_AMBIGUOUS_ELSE_BLOCKER                                            \
+    AC_AMBIGUOUS_ELSE_BLOCKER                                                  \
     if (auto _ac_auxilia_status_return_ = (_status_))                          \
       ;                                                                        \
     else {                                                                     \

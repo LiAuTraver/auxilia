@@ -25,6 +25,7 @@ int main() {
   std::cout << "After minification:\n";
   std::cout << dfa << "\n";
 
-  // std::ofstream("dfa.dot") << dfa.to_dot();
-  // system("(dot -Tpng dfa.dot -o dfa.png) && dfa.png");
+  std::ofstream("dfa.dot") << dfa.to_dot();
+  system("dot -Tpng dfa.dot -o dfa.png");
+  system("dfa.png");
 }
