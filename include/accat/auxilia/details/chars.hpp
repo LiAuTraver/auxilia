@@ -9,10 +9,22 @@
 #include "./type_traits.hpp"
 
 namespace accat::auxilia {
+template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>
+class basic_chars;
+template <size_t N> using chars = basic_chars<char, N, std::char_traits<char>>;
+template <size_t N>
+using wchars = basic_chars<wchar_t, N, std::char_traits<wchar_t>>;
+#ifdef __cpp_char8_t
+template <size_t N>
+using u8chars = basic_chars<char8_t, N, std::char_traits<char8_t>>;
+#endif
+template <size_t N>
+using u16chars = basic_chars<char16_t, N, std::char_traits<char16_t>>;
+template <size_t N>
+using u32chars = basic_chars<char32_t, N, std::char_traits<char32_t>>;
 /// @brief a tiny compile-time string literal wrapper;
 ///          essentially an owned string_view
-template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>
-class basic_chars {
+template <typename CharT, size_t N, typename Traits> class basic_chars {
   template <typename CharU, size_t M, typename TraitsU>
   friend class basic_chars;
 
@@ -394,17 +406,6 @@ template <typename CharT> constexpr auto widen(const CharT ch) noexcept {
   return as_chars(ch);
 }
 
-template <size_t N> using chars = basic_chars<char, N, std::char_traits<char>>;
-template <size_t N>
-using wchars = basic_chars<wchar_t, N, std::char_traits<wchar_t>>;
-#ifdef __cpp_char8_t
-template <size_t N>
-using u8chars = basic_chars<char8_t, N, std::char_traits<char8_t>>;
-#endif
-template <size_t N>
-using u16chars = basic_chars<char16_t, N, std::char_traits<char16_t>>;
-template <size_t N>
-using u32chars = basic_chars<char32_t, N, std::char_traits<char32_t>>;
 namespace literals {
 // NTTP magic
 template <const details::basic_chars_storage MyChars>
