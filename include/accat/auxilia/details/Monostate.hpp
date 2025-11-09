@@ -1,5 +1,7 @@
 #pragma once
 
+#include <compare>
+
 #include "./config.hpp"
 #include "./format.hpp"
 

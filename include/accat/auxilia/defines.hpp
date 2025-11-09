@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "./details/macros.hpp"
+#include "./details/macros.hpp" // IWYU pragma: export
 
 #ifdef defer
 #  warning "defer was already defined. please check the code."
@@ -151,3 +151,5 @@
 /// @brief Useful if the enum class is nested inside a template class(usually
 /// you won't do this).
 #define AC_BITMASK_OPS_NESTED(_bitmask_) AC_BITMASK_OPS_NESTED_(_bitmask_)
+
+#define return_if_not(_status_) AC_RETURN_IF_NOT(_status_)

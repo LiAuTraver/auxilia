@@ -9,6 +9,8 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
+#include <string>
+#include <string_view>
 
 #include "./StatusOr.hpp"
 
@@ -127,7 +129,7 @@ digraph {} {{
       return result;
     }
   };
-  string input_alphabet;
+  std::string input_alphabet;
   std::unordered_map<size_t, State> states;
   // conceptually we can have multiple start states,
   // but they are just elements in the same epsilon closure.
@@ -139,10 +141,27 @@ digraph {} {{
   using StatesTy = std::unordered_map<size_t, State>;
 
   static constexpr bool is_operator(const char c) {
-    return operators.find(c) != string::npos;
+    return operators.find(c) != npos;
+  }
+  static constexpr bool is_regex_operator(const char c) {
+    return c != '(' && c != ')' && is_operator(c);
+  }
+  static constexpr size_t precedence(const char op) {
+    switch (op) {
+    case '*':
+    case '+':
+    case '?':
+      return 3;
+    case '.':
+      return 2; // explicit concat
+    case '|':
+      return 1;
+    default:
+      return 0;
+    }
   }
   static auto _dot_states(const StatesTy &states) {
-    string dot;
+    std::string dot;
     // mark start and accept distinctly
     for (const auto &[id, s] : states) {
       const auto isAccept = (s.type == State::Type::kAccept or
@@ -169,20 +188,28 @@ digraph {} {{
     AC_PRECONDITION(from < states.size() && to < states.size(), "out of range")
     states[from].edges.emplace(to, symbol);
   }
+  void closure(std::unordered_set<size_t> &state_set, const char ch) const {
 
-  void epsilon_closure(std::unordered_set<size_t> &state_set) const {
     // FIXME: poor use of vec
     std::vector stack(state_set.begin(), state_set.end());
     while (!stack.empty()) {
       size_t current = stack.back();
       stack.pop_back();
       for (const auto &edge : states.at(current).edges) {
-        if (edge.is_epsilon() && state_set.insert(edge.target_id).second) {
+        if (edge.symbol == ch && state_set.insert(edge.target_id).second) {
           // second is true if insertion took place
-          stack.push_back(edge.target_id);
+          stack.emplace_back(edge.target_id);
         }
       }
     }
+  }
+  void epsilon_closure(std::unordered_set<size_t> &state_set) const {
+    closure(state_set, '\0');
+  }
+  auto epsilon_closure(const size_t state_id) const {
+    std::unordered_set state_set = {state_id};
+    epsilon_closure(state_set);
+    return state_set;
   }
   [[nodiscard]] bool empty() const noexcept {
     return states.empty() && start_id == npos && accept_ids.empty();
@@ -248,12 +275,11 @@ digraph {} {{
                             })))
       return false;
 
-    std::unordered_set current_states = {start_id};
-    epsilon_closure(current_states);
+    auto current_states = epsilon_closure(start_id);
 
     for (const char c : input) {
-      std::unordered_set<size_t> next_states;
-      for (size_t state_id : current_states)
+      decltype(current_states) next_states;
+      for (const auto state_id : current_states)
         for (const auto &edge : states[state_id].edges)
           if (!edge.is_epsilon() && edge.symbol == c)
             next_states.insert(edge.target_id);
@@ -269,7 +295,8 @@ digraph {} {{
     });
   }
   auto to_dot(this const auto &self,
-              const FormatPolicy policy = FormatPolicy::kDefault) -> string {
+              const FormatPolicy policy = FormatPolicy::kDefault)
+      -> std::string {
     if (self.empty())
       return raw(R"(
 digraph Automaton {
@@ -281,7 +308,7 @@ digraph Automaton {
   }
   [[nodiscard]] auto
   to_string(const FormatPolicy policy = FormatPolicy::kDefault) const
-      -> string {
+      -> std::string {
     if (empty())
       return "Automaton <empty>";
 
@@ -289,7 +316,7 @@ digraph Automaton {
     SetConsoleOutputCP(65001);
 #endif
 
-    string result = "Automaton: [\n";
+    std::string result = "Automaton: [\n";
     for (const auto &[id, s] : states)
       result += format("State {}: {}\n", id, s.to_string(policy));
 
@@ -320,8 +347,9 @@ private:
     result.resize_and_overwrite(
         regex.size() * 2,
         [&](char *const out, [[maybe_unused]] const size_t capacity) {
-          constexpr auto is_in = [](const char c, const string_view chars) {
-            return chars.find(c) != string_view::npos;
+          constexpr auto is_in = [](const char c,
+                                    const std::string_view chars) {
+            return chars.find(c) != npos;
           };
           auto j = 0ull;
           for (auto i = 0ull; i < regex.size(); ++i) {
@@ -342,25 +370,6 @@ private:
   // I choose not to use recursive descent here,
   // for I'm used it too often
   static StatusOr<std::string> to_postfix(const std::string_view regex) {
-    // constexpr is for syntax highlighting, not useful here.
-    constexpr auto is_regex_operator = [](const char c) {
-      return c == '|' || c == '*' || c == '.' || c == '+' || c == '?';
-    };
-    // ditto
-    constexpr auto precedence = [](const char op) {
-      switch (op) {
-      case '*':
-      case '+':
-      case '?':
-        return 3;
-      case '.':
-        return 2; // explicit concat
-      case '|':
-        return 1;
-      default:
-        return 0;
-      }
-    };
     std::string postfix;
     std::string op_stack;
     auto lvl = 0u; // workaround, detect parentheses level
@@ -433,13 +442,13 @@ private:
   void init_input_alphabet(const std::string_view sv) {
     input_alphabet =
         sv | std::views::filter([](const char c) { return !is_operator(c); }) |
-        std::ranges::to<string>();
+        std::ranges::to<std::string>();
     std::ranges::sort(input_alphabet);
 
     auto r = std::ranges::unique(input_alphabet);
     input_alphabet.erase(r.begin(), r.end());
   }
-  StatusOr<Fragment> build_graph(const string_view postfix) {
+  StatusOr<Fragment> build_graph(const std::string_view postfix) {
     std::stack<Fragment> stack;
     auto top_and_pop_stack = [&stack]() {
       AC_RUNTIME_ASSERT(!stack.empty(), "Stack underflow")
@@ -536,7 +545,7 @@ private:
     // only one accept state in this algo
     states[eid].type = State::Type::kAccept;
   }
-  auto construxt_from_regex(const string_view sv) {
+  auto construxt_from_regex(const std::string_view sv) {
     init_input_alphabet(sv);
 
     const auto preprocessed = preprocess_regex(sv);
@@ -555,18 +564,17 @@ private:
 
 public:
   // McNaughton-Yamada-Thompson algorithm
-  static StatusOr<NFA> FromRegex(const string_view sv) {
+  static StatusOr<NFA> FromRegex(const std::string_view sv) {
     if (sv.empty())
       return {};
 
     NFA nfa;
 
-    const auto s = nfa.construxt_from_regex(sv);
+    auto s = nfa.construxt_from_regex(sv);
 
     if (!s)
       return s;
-    else
-      return {std::move(nfa)};
+    return {std::move(nfa)};
   }
 };
 class DFA : details::AutomatonMixin {
@@ -597,7 +605,7 @@ public:
 
 private:
   auto _dot_transition_details() const {
-    string dot;
+    std::string dot;
     for (const auto &[dfa_id, nfa_states] : mapping) {
       std::string nfa_states_str;
       for (const auto nfa_state_id : nfa_states) {
@@ -628,8 +636,7 @@ private:
   }
 
   void process_start_state(const NFA &nfa, auto &&key_to_id) {
-    std::unordered_set start_subset{nfa.start_id};
-    nfa.epsilon_closure(start_subset);
+    auto start_subset = nfa.epsilon_closure(nfa.start_id);
 
     start_id = 0;
     states.emplace(0, State::Type::kStart);
@@ -649,9 +656,8 @@ private:
               "Internal Error: NFA state {} not found during DFA construction",
               s)
           for (const auto &e : it->second.edges) {
-            if (!e.is_epsilon() && e.symbol == a) {
+            if (/* !e.is_epsilon() && */ e.symbol == a)
               move_set.insert(e.target_id);
-            }
           }
         }
         if (move_set.empty())

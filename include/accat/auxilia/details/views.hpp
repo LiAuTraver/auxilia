@@ -1,5 +1,12 @@
 #pragma once
 
+#include <ranges>
+#include <concepts>
+#include <type_traits>
+#include <algorithm>
+#include <string>
+#include <string_view>
+
 #include "./config.hpp"
 
 namespace accat::auxilia::ranges::views::detail {
@@ -23,7 +30,7 @@ namespace accat::auxilia::ranges::views {
 inline constexpr detail::_swap_endian_fn swap_endian;
 /// @brief trims the leading and trailing whitespace-like characters
 /// from given range(char-like elements)
-inline constexpr auto trim(const string_view str) -> string_view {
+inline constexpr auto trim(const std::string_view str) -> std::string_view {
   auto beg = std::ranges::find_if_not(str, isspacelike);
   auto end = std::ranges::find_last_if_not(str, isspacelike).end();
   return {std::move(beg), std::move(end)};

@@ -1,5 +1,12 @@
 #pragma once
 
+#include <coroutine>
+#include <utility>
+#include <optional>
+#include <exception>
+#include <type_traits>
+#include <memory>
+
 #include "./config.hpp"
 
 namespace accat::auxilia {

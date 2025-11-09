@@ -1,5 +1,10 @@
 #pragma once
 
+#include <type_traits>
+#include <ostream>
+#include <string>
+#include <string_view>
+
 #include "./config.hpp"
 EXPORT_AUXILIA
 namespace accat::auxilia {

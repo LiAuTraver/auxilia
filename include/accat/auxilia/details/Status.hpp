@@ -8,6 +8,11 @@
 #ifndef ACCAT_AUXILIA_STATUS_HPP
 #define ACCAT_AUXILIA_STATUS_HPP
 
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "./macros.hpp"
 
 // NOTE:
@@ -50,7 +55,7 @@
 //
 // Example:
 //
-// absl::Status myFunction(absl::string_view fname, ...) {
+// absl::Status myFunction(absl::std::string_view fname, ...) {
 //   ...
 //   // encounter error
 //   if (error condition) {
@@ -257,7 +262,7 @@ public:
   AC_NODISCARD_
   constexpr Status() = default;
   AC_NODISCARD_ AC_CONSTEXPR20_ Status(const Code code,
-                                       const string_view message = {})
+                                       const std::string_view message = {})
       : my_code(code), my_message(message) {}
   AC_NODISCARD_
   Status(Status &&that) noexcept
@@ -321,7 +326,7 @@ public:
   auto raw_code() const AC_NOEXCEPT {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
-  AC_NODISCARD_ string_view message() const [[clang::lifetimebound]] {
+  AC_NODISCARD_ std::string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
   inline void ignore_error() const AC_NOEXCEPT {
@@ -351,103 +356,103 @@ protected:
 };
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-OkStatus(string_view message = "") AC_NOEXCEPT {
+OkStatus(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kOk, message};
 }
 
-// New overloads for other status codes using string_view messages:
+// New overloads for other status codes using std::string_view messages:
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-Cancelled(string_view message = "") AC_NOEXCEPT {
+Cancelled(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kCancelled, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-UnknownError(string_view message = "") AC_NOEXCEPT {
+UnknownError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnknown, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-InvalidArgumentError(string_view message = "") AC_NOEXCEPT {
+InvalidArgumentError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kInvalidArgument, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-DeadlineExceededError(string_view message = "") AC_NOEXCEPT {
+DeadlineExceededError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-NotFoundError(string_view message = "") AC_NOEXCEPT {
+NotFoundError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kNotFound, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-AlreadyExistsError(string_view message = "") AC_NOEXCEPT {
+AlreadyExistsError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kAlreadyExists, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-PermissionDeniedError(string_view message = "") AC_NOEXCEPT {
+PermissionDeniedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kPermissionDenied, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-ResourceExhaustedError(string_view message = "") AC_NOEXCEPT {
+ResourceExhaustedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kResourceExhausted, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-FailedPreconditionError(string_view message = "") AC_NOEXCEPT {
+FailedPreconditionError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kFailedPrecondition, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-AbortedError(string_view message = "") AC_NOEXCEPT {
+AbortedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kAborted, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-OutOfRangeError(string_view message = "") AC_NOEXCEPT {
+OutOfRangeError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kOutOfRange, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-UnimplementedError(string_view message = "") AC_NOEXCEPT {
+UnimplementedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnimplemented, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-InternalError(string_view message = "") AC_NOEXCEPT {
+InternalError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kInternal, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-UnavailableError(string_view message = "") AC_NOEXCEPT {
+UnavailableError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnavailable, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-DataLossError(string_view message = "") AC_NOEXCEPT {
+DataLossError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kDataLoss, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-UnauthenticatedError(string_view message = "") AC_NOEXCEPT {
+UnauthenticatedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-ReturnMe(string_view message = "") AC_NOEXCEPT {
+ReturnMe(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kReturning, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-ParseError(string_view message = "") AC_NOEXCEPT {
+ParseError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kParseError, message};
 }
 
 AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static AC_CONSTEXPR20_ Status
-LexError(string_view message = "") AC_NOEXCEPT {
+LexError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kLexError, message};
 }
 
@@ -778,6 +783,5 @@ LexError(const fmt::text_style &ts,
     else {                                                                     \
       return _ac_auxilia_status_return_;                                       \
     }
-#  define return_if_not(_status_) AC_RETURN_IF_NOT(_status_)
 } // namespace accat::auxilia
 #endif // ACCAT_AUXILIA_STATUS_HPP

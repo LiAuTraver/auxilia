@@ -14,16 +14,15 @@ template <typename CharT, size_t N> struct basic_chars_storage {
 // CTAD
 template <typename CharT, size_t N>
 basic_chars_storage(const CharT (&)[N]) -> basic_chars_storage<CharT, N>;
-// NTTP helper
-template <const basic_chars_storage MyChars>
-consteval auto as_basic_chars_storage() noexcept {
-  return MyChars;
-}
 } // namespace accat::auxilia::details
 
 namespace accat::auxilia {
-using details::as_basic_chars_storage;
+// NTTP helper
+template <const details::basic_chars_storage MyChars>
+consteval auto as_basic_chars_storage() noexcept {
+  return MyChars;
 }
+} // namespace accat::auxilia
 
 /// You may ask why I re-implemented some of the type traits in std.
 /// Just as proof of some false claims my colleagues made like

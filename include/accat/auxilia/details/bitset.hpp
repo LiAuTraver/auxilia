@@ -1,6 +1,8 @@
 #pragma once
+#include <algorithm>
 #include <cstddef>
 #include <ostream>
+
 #include "./config.hpp"
 #include "./format.hpp"
 #include "./type_traits.hpp"
@@ -68,7 +70,7 @@ private:
       AC_THROW_OR_DIE_("bitset constructor: position out of range");
       return;
     }
-    len = std::min(len, str.size() - pos);
+    len = std::ranges::min(len, str.size() - pos);
 
     // I know nothing of vectorization at all, so here is a naive implementation
     // for constructing from string. The speed is not optimized.
@@ -254,7 +256,7 @@ public:
     if (policy == FormatPolicy::kDefault or policy == FormatPolicy::kBrief)
       return str;
 
-    return auxilia::string("0b").append(str);
+    return std::string("0b").append(str);
   }
 #  endif
   /// @}

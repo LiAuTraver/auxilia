@@ -1,6 +1,7 @@
 #pragma once
 
 #include <type_traits>
+#include <variant>
 #include "./config.hpp"
 #include "./Monostate.hpp"
 #include "./format.hpp"

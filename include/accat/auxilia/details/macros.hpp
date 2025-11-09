@@ -35,6 +35,22 @@
 #  endif
 #endif
 
+/// @note I use Source Code Annotation sometimes; but libstdc++
+/// doesn't support; so we manually define it here.
+#if __has_include(<sal.h>)
+#  include <sal.h>
+#else
+#  define _In_
+#  define _Inout_
+#  define _In_opt_
+#  define _Out_
+#  define _Outptr_
+#  define _Outptr_result_maybenull_
+#  define _Outptr_opt_
+#endif
+
+#include <source_location>
+
 #if !AC_USE_STD_FMT
 #  include <fmt/format.h>
 #  include <fmt/ostream.h>
@@ -50,8 +66,6 @@
 #    include <print>
 #  endif
 #endif
-
-#include "./includes-inl.hpp"
 
 // although C++ standard may be updated, the constexpr feature may not be
 // supported by all compilers.
@@ -371,6 +385,8 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 
 #if defined(__cpp_exceptions) && __cpp_exceptions
 #  define AC_THROW_OR_DIE_(_msg_) throw std::runtime_error(_msg_)
+#  undef AC_NOEXCEPT
+#  define AC_NOEXCEPT // nothing
 #else
 #  define AC_THROW_OR_DIE_(_msg_)                                              \
     do {                                                                       \

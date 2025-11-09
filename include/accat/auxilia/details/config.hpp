@@ -1,4 +1,9 @@
 #pragma once
+
+#include <future>
+#include <type_traits>
+#include <concepts>
+
 #include "./macros.hpp"
 
 EXPORT_AUXILIA
@@ -37,9 +42,7 @@ concept Storable =
 template <typename...> class Variant;
 class Status;
 template <typename> class StatusOr;
-using string = ::std::string;
-using string_view = ::std::string_view;
-using path = ::std::filesystem::path;
+
 inline constexpr auto isspacelike =
     [](const char c) constexpr noexcept -> bool {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';

@@ -21,7 +21,6 @@ target_include_directories(auxilia INTERFACE
 )
 
 if(DEFINED ENV{AC_CPP_DEBUG} AND "$ENV{AC_CPP_DEBUG}" STREQUAL "ON")
-  target_compile_definitions(auxilia INTERFACE AC_CPP_DEBUG)
   find_package(spdlog REQUIRED)
   target_link_libraries(auxilia INTERFACE spdlog::spdlog)
 endif()

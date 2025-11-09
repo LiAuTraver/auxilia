@@ -1,5 +1,13 @@
 #pragma once
 
+#include <string>
+#include <string_view>
+#include <span>
+#include <utility>
+#include <type_traits>
+#include <ranges>
+#include <iostream>
+
 #include "./config.hpp"
 #include "./format.hpp"
 #include "./StatusOr.hpp"
@@ -9,10 +17,12 @@ namespace accat::auxilia::program_options {
 EXPORT_AUXILIA class Option;
 /* not necessary to export */ class Parser;
 
-EXPORT_AUXILIA inline Parser *Global(string_view, string_view = "unknown");
-EXPORT_AUXILIA inline Parser Local(string_view, string_view = "unknown");
-EXPORT_AUXILIA inline Parser *find(string_view);
-EXPORT_AUXILIA inline Parser &get(string_view);
+EXPORT_AUXILIA inline Parser *Global(std::string_view,
+                                     std::string_view = "unknown");
+EXPORT_AUXILIA inline Parser Local(std::string_view,
+                                   std::string_view = "unknown");
+EXPORT_AUXILIA inline Parser *find(std::string_view);
+EXPORT_AUXILIA inline Parser &get(std::string_view);
 
 namespace details {
 inline auto _get_global_parsers() -> std::vector<Parser> &;
@@ -21,9 +31,9 @@ inline auto _get_global_parsers() -> std::vector<Parser> &;
 class Option {
 public:
   // name, fullname, shortname and description must be compiled-time constant
-  constexpr Option(const string_view name,
-                   const string_view shortname = "",
-                   const string_view desc = "")
+  constexpr Option(const std::string_view name,
+                   const std::string_view shortname = "",
+                   const std::string_view desc = "")
       : name_(name), shortname_(shortname), desc_(desc) {}
 
   Option(const Option &other) = delete;
@@ -47,9 +57,9 @@ public:
   }
 
 public:
-  auto name() const -> const string_view { return name_; }
-  auto shortname() const -> const string_view { return shortname_; }
-  auto description(this auto &&self) -> string_view { return self.desc_; }
+  auto name() const -> const std::string_view { return name_; }
+  auto shortname() const -> const std::string_view { return shortname_; }
+  auto description(this auto &&self) -> std::string_view { return self.desc_; }
 
   auto &required(const bool is_required = true) {
     required_ = is_required;
@@ -67,17 +77,17 @@ public:
 
   template <typename... Valty> auto &default_value(Valty &&...values) {
     static_assert(
-        (std::is_convertible_v<std::remove_cvref_t<Valty>, string> && ...),
-        "All default values must be convertible to string");
+        (std::is_convertible_v<std::remove_cvref_t<Valty>, std::string> && ...),
+        "All default values must be convertible to std::string");
     (values_.emplace_back(std::forward<Valty>(values)), ...);
     has_default_value_ = true;
     return *this;
   }
 
-  auto values() const -> std::span<const string> { return values_; }
+  auto values() const -> std::span<const std::string> { return values_; }
 
   /// @pre single value
-  auto value() const -> StatusOr<string_view> {
+  auto value() const -> StatusOr<std::string_view> {
     if (values_.empty()) {
       return NotFoundError(format("Option {} has no value.", name_));
     }
@@ -85,14 +95,14 @@ public:
       return InvalidArgumentError(
           format("Option {} does not have a single value.", name_));
     }
-    return StatusOr<string_view>{values_[0]};
+    return StatusOr<std::string_view>{values_[0]};
     // ^^^^^^^^^^^^^^^^^^^^^^^^^ workaround for MSCV C4927: illegal conversion;
     // more than one user-defined conversion has been implicitly applied
   }
 
 private:
-  string help() const {
-    string help_text = "  ";
+  std::string help() const {
+    std::string help_text = "  ";
     if (!shortname_.empty()) {
       help_text += format("{}, ", shortname_);
     }
@@ -107,12 +117,12 @@ private:
 private:
   friend class Parser;
   // --help
-  string_view name_;
+  std::string_view name_;
   // -h
-  string_view shortname_;
+  std::string_view shortname_;
   // show message
-  string_view desc_;
-  std::vector<string> values_;
+  std::string_view desc_;
+  std::vector<std::string> values_;
   bool required_ = false;
   bool has_default_value_ = false;
   // 0: flag, 1 or '1': single value, '+': one or more
@@ -120,11 +130,11 @@ private:
 };
 
 class Parser {
-  string_view program_name_;
-  string_view program_version_;
-  std::unordered_map<string_view, Option> options_;
-  std::vector<string> error_msgs_;
-  std::vector<string_view> positional_args_;
+  std::string_view program_name_;
+  std::string_view program_version_;
+  std::unordered_map<std::string_view, Option> options_;
+  std::vector<std::string> error_msgs_;
+  std::vector<std::string_view> positional_args_;
 
   Parser() = default;
   Parser(const Parser &other) = delete;
@@ -133,14 +143,14 @@ class Parser {
   /// @brief Create a local parser,
   ///        whose lifetime is limited to the current scope.
   /// @returns the parser object.
-  friend inline auto Local(const string_view program_name,
-                           const string_view version) -> Parser {
+  friend inline auto Local(const std::string_view program_name,
+                           const std::string_view version) -> Parser {
     return Parser(program_name, version);
   }
   /// @brief Create a global parser, whose lifetime is the entire program.
   /// @returns nullptr if the parser with the same name already exists.
-  friend inline auto Global(string_view program_name, string_view version)
-      -> Parser * {
+  friend inline auto Global(std::string_view program_name,
+                            std::string_view version) -> Parser * {
     if (find(program_name))
       return nullptr;
     auto &parsers = details::_get_global_parsers();
@@ -164,7 +174,8 @@ public:
     return *this;
   }
 
-  Parser(const string_view program_name, const string_view program_version)
+  Parser(const std::string_view program_name,
+         const std::string_view program_version)
       : program_name_(program_name), program_version_(program_version) {}
 
 public:
@@ -196,18 +207,20 @@ public:
   }
 
   template <typename... Properties>
-  auto &add_option(string_view name, Properties &&...props) {
+  auto &add_option(std::string_view name, Properties &&...props) {
     return add_option(Option{name, std::forward<Properties>(props)...});
   }
 
-  auto program_name() const -> const string_view { return program_name_; }
+  auto program_name() const -> const std::string_view { return program_name_; }
   auto error() const -> size_t { return error_msgs_.size(); }
-  auto error_messages() const -> std::span<const string> { return error_msgs_; }
-  auto positional_arguments() const -> std::span<const string_view> {
+  auto error_messages() const -> std::span<const std::string> {
+    return error_msgs_;
+  }
+  auto positional_arguments() const -> std::span<const std::string_view> {
     return positional_args_;
   }
 
-  auto get_option(const string_view name) const [[clang::lifetimebound]]
+  auto get_option(const std::string_view name) const [[clang::lifetimebound]]
   -> const Option * {
     if (auto it = options_.find(name); it != options_.end()) {
       return &it->second;
@@ -228,7 +241,7 @@ private:
     }
     return nullptr;
   }
-  auto is_option(const string_view str) const {
+  auto is_option(const std::string_view str) const {
     return str.starts_with("--") || str.starts_with('-');
   }
   auto check_reserved(const Option &opt) -> bool {
@@ -253,19 +266,19 @@ public:
   auto parse(const int argc, char **argv) {
     AC_PRECONDITION(argv, "argv is null")
     AC_PRECONDITION(argc > 0, "argc is not positive")
-    std::vector<string_view> args;
+    std::vector<std::string_view> args;
     for (int i = 0; i < argc; ++i) {
       args.emplace_back(argv[i]);
     }
     return parse(args);
   }
-  auto parse(const std::span<const string_view> args) -> bool {
+  auto parse(const std::span<const std::string_view> args) -> bool {
     if (!error_msgs_.empty()) {
       return false;
     }
 
-    std::unordered_map<string_view, Option *> name_map;
-    std::unordered_map<string_view, Option *> short_name_map;
+    std::unordered_map<std::string_view, Option *> name_map;
+    std::unordered_map<std::string_view, Option *> short_name_map;
     for (auto &opt : options_ | std::views::values) {
       name_map[opt.name()] = &opt;
       if (!opt.shortname().empty()) {
@@ -274,7 +287,7 @@ public:
     }
 
     for (size_t i = 0; i < args.size(); ++i) {
-      string_view arg = args[i];
+      std::string_view arg = args[i];
       Option *opt = nullptr;
 
       if (arg == "--help" or arg == "-h") {
@@ -363,7 +376,7 @@ inline auto _get_global_parsers() -> std::vector<Parser> & {
 } // namespace details
 
 /// @returns nullptr if the parser does not exist.
-inline auto find(const string_view program_name) -> Parser * {
+inline auto find(const std::string_view program_name) -> Parser * {
   auto &parsers = details::_get_global_parsers();
   for (auto &parser : parsers) {
     if (parser.program_name() == program_name)
@@ -372,7 +385,7 @@ inline auto find(const string_view program_name) -> Parser * {
   return nullptr;
 }
 /// @pre The parser must exist, otherwise throws.
-inline auto get(string_view program_name) -> Parser & {
+inline auto get(std::string_view program_name) -> Parser & {
   if (auto p = find(program_name))
     return *p;
 

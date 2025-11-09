@@ -45,7 +45,7 @@ TEST(Variant, PatternMatching) {
       InvalidArgumentError("Invalid argument");
   auto str =
       v1.visit(match([](const Status &s) { return s.message(); },
-                     [](const std::string &s) -> string_view { return s; },
+                     [](const std::string &s) -> std::string_view { return s; },
                      [](const auto &) { return "Don't care"sv; }));
   EXPECT_EQ(str, "Invalid argument");
 }
