@@ -565,10 +565,9 @@ public:
                              typeid(Ty).name(),
                              raw_code(),
                              my_message);
-
-    else if constexpr (std::is_base_of_v<Printable, Ty>)
+    if constexpr (std::is_base_of_v<Printable, Ty>)
       return my_value.to_string(policy);
-    else if constexpr ((auxilia::formattable<Ty, string_type::value_type>))
+    else if constexpr (requires { auxilia::format("{}", my_value); })
       return auxilia::format("{}", my_value);
     else
       return auxilia::format("StatusOr<{}>: <unformattable>",

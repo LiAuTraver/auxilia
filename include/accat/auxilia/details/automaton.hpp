@@ -41,18 +41,18 @@ digraph {} {{
   struct Transition {
     /* const */ size_t target_id = npos;
     /* const */ char symbol = '\0';
-    constexpr auto literal() const noexcept {
-      return is_epsilon() ? epsilon : widen(symbol);
-    }
     [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
     auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
       if (policy == FormatPolicy::kDefault)
-        return format("--{}->{}", literal(), target_id);
-      else if (policy == FormatPolicy::kBrief)
-        return format("{}: {}", literal(), target_id);
-      else if (policy == FormatPolicy::kDetailed)
         return format(
-            "Transition{{target_id={}, symbol={}}}", target_id, literal());
+            "--{}->{}", is_epsilon() ? epsilon : widen(symbol), target_id);
+      else if (policy == FormatPolicy::kBrief)
+        return format(
+            "{}: {}", is_epsilon() ? epsilon : widen(symbol), target_id);
+      else if (policy == FormatPolicy::kDetailed)
+        return format("Transition{{target_id={}, symbol={}}}",
+                      target_id,
+                      is_epsilon() ? epsilon : widen(symbol));
       AC_UNREACHABLE()
     }
   };
@@ -259,7 +259,7 @@ digraph {} {{
                       "\n",
                       id,
                       e.target_id,
-                      e.literal());
+                      e.is_epsilon() ? epsilon : widen(e.symbol));
       }
     }
     return dot;
