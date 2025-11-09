@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <accat/auxilia/defines.hpp>
+
+AC_SPDLOG_INITIALIZATION(auxilia, info)
+
 #include <accat/auxilia/details/automaton.hpp>
 
 using namespace accat::auxilia;
@@ -159,12 +163,8 @@ TEST(NFA, ErrorHandling) {
             "Invalid regex at position 1: not enough operands for |");
 }
 
-constexpr auto getDFAFromRegex(std::string_view regex) {
-  return *NFA::FromRegex(regex).and_then(&DFA::FromNFA);
-}
-
 TEST(DFA, SimplePattern) {
-  auto dfa = getDFAFromRegex("ab");
+  auto dfa = *DFA::FromRegex("ab");
   EXPECT_TRUE(dfa.test("ab"));
   EXPECT_FALSE(dfa.test("a"));
   EXPECT_FALSE(dfa.test("b"));
@@ -173,7 +173,7 @@ TEST(DFA, SimplePattern) {
 }
 
 TEST(DFA, OpPattern) {
-  auto dfa = getDFAFromRegex("a*b?");
+  auto dfa = *DFA::FromRegex("a*b?");
   EXPECT_TRUE(dfa.test(""));
   EXPECT_TRUE(dfa.test("a"));
   EXPECT_TRUE(dfa.test("aa"));
@@ -184,7 +184,7 @@ TEST(DFA, OpPattern) {
 }
 
 TEST(DFA, ComplexPattern) {
-  auto dfa = getDFAFromRegex("b(a|b)*abb");
+  auto dfa = *DFA::FromRegex("b(a|b)*abb");
   EXPECT_TRUE(dfa.test("babb"));
   EXPECT_TRUE(dfa.test("baabb"));
   EXPECT_TRUE(dfa.test("bbabb"));
@@ -198,7 +198,7 @@ TEST(DFA, ComplexPattern) {
 }
 
 TEST(DFA, ToDotOutput) {
-  auto dfa = getDFAFromRegex("ab");
+  auto dfa = *DFA::FromRegex("ab");
   auto dot = dfa.to_dot();
   EXPECT_FALSE(dot.empty());
   EXPECT_NE(dot.find("digraph"), std::string::npos);
@@ -206,18 +206,44 @@ TEST(DFA, ToDotOutput) {
 }
 
 TEST(DFA, AlphanumericPattern) {
-  auto dfa = getDFAFromRegex("a1b2");
+  auto dfa = *DFA::FromRegex("a1b2");
   EXPECT_TRUE(dfa.test("a1b2"));
   EXPECT_FALSE(dfa.test("a1b"));
   EXPECT_FALSE(dfa.test("ab12"));
 }
 
 TEST(DFA, NestedGroups) {
-  auto dfa = getDFAFromRegex("(a|b)(c|d)");
+  auto dfa = *DFA::FromRegex("(a|b)(c|d)");
   EXPECT_TRUE(dfa.test("ac"));
   EXPECT_TRUE(dfa.test("ad"));
   EXPECT_TRUE(dfa.test("bc"));
   EXPECT_TRUE(dfa.test("bd"));
   EXPECT_FALSE(dfa.test("ab"));
   EXPECT_FALSE(dfa.test("cd"));
+}
+#include <fstream>
+TEST(DFA, Minification) {
+  auto dfa = *DFA::FromRegex("a*b*a");
+  EXPECT_TRUE(dfa.test("aa"));
+  EXPECT_TRUE(dfa.test("aba"));
+  EXPECT_FALSE(dfa.test("aaabaaa"));
+  EXPECT_FALSE(dfa.test("b"));
+  EXPECT_FALSE(dfa.test("ab"));
+
+  auto before_minify_dot = dfa.to_dot();
+  dfa.minify();
+  auto after_minify_dot = dfa.to_dot();
+
+  EXPECT_LE(after_minify_dot.size(), before_minify_dot.size());
+  EXPECT_TRUE(dfa.test("aa"));
+  EXPECT_TRUE(dfa.test("aba"));
+  EXPECT_FALSE(dfa.test("aaabaaa"));
+  EXPECT_FALSE(dfa.test("b"));
+  EXPECT_FALSE(dfa.test("ab"));
+
+  dfa = *DFA::FromRegex("b(a|b)*abb");
+  auto before_minify_dot2 = dfa.to_dot();
+  dfa.minify();
+  auto after_minify_dot2 = dfa.to_dot();
+  EXPECT_LT(after_minify_dot2.size(), before_minify_dot2.size());
 }

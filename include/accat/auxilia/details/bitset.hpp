@@ -7,16 +7,20 @@
 #include "./format.hpp"
 #include "./type_traits.hpp"
 
-// I'm too lazy to sustitude those `constexpr` to provide compatibility for
+#if defined(_MSC_VER) && !defined(__clang__)
+// cl.exe encountered internal compiler error when compiling this file
+// skip the definition on MSVC for now
+#else
+// I'm too lazy to substitute those `constexpr` to provide compatibility for
 // older standards. So I just guard the whole file for C++23 and later.
-#if __cplusplus >= 202302L
+#  if __cplusplus >= 202302L
 EXPORT_AUXILIA
 namespace accat::auxilia {
-#  ifdef AC_STD_COMPLIANT_BITSET
-#    define AC_BITSET_ZERO(...) AC_PRECONDITION(__VA_ARGS__)
-#  else
-#    define AC_BITSET_ZERO(...) static_assert(__VA_ARGS__)
-#  endif
+#    ifdef AC_STD_COMPLIANT_BITSET
+#      define AC_BITSET_ZERO(...) AC_PRECONDITION(__VA_ARGS__)
+#    else
+#      define AC_BITSET_ZERO(...) static_assert(__VA_ARGS__)
+#    endif
 /**
  *  A bitset is a fixed-size sequence of bits.
  *  For compatibility reasons, it the same interface as `std::bitset`
@@ -113,7 +117,7 @@ private:
   AC_FLATTEN_ constexpr auto bit_offset(const size_t pos) const noexcept {
     return pos % bits_per_word;
   }
-  constexpr auto string(const char zero, const char one) const {
+  constexpr auto do_to_string(const char zero, const char one) const {
     std::string str;
     str.resize_and_overwrite(N, [this, zero, one](char *buf, size_t len) {
       for (size_t i = 0; i < len; ++i) {
@@ -242,23 +246,23 @@ public:
     }
     return static_cast<unsigned long long>(myArr[0]);
   }
-#  ifdef AC_STD_COMPLIANT_BITSET
+#    ifdef AC_STD_COMPLIANT_BITSET
   AC_NODISCARD_ constexpr auto to_string(const char zero = '0',
                                          const char one = '1') const {
     return string(zero, one);
   }
-#  else
+#    else
   AC_NODISCARD_ constexpr auto
   to_string(const FormatPolicy policy = FormatPolicy::kDefault,
             const char zero = '0',
             const char one = '1') const {
-    auto str = string(zero, one);
+    auto str = do_to_string(zero, one);
     if (policy == FormatPolicy::kDefault or policy == FormatPolicy::kBrief)
       return str;
 
     return std::string("0b").append(str);
   }
-#  endif
+#    endif
   /// @}
 public:
   /// @{
@@ -496,4 +500,5 @@ template <size_t N> struct hash<::accat::auxilia::bitset<N>> {
   }
 };
 } // namespace std
+#  endif
 #endif

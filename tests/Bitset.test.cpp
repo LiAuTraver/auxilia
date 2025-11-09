@@ -2,9 +2,15 @@
 #include <bitset>
 #include <iostream>
 
-#include "accat/auxilia/details/config.hpp"
-#include "accat/auxilia/details/bitset.hpp"
-
+#include <accat/auxilia/details/bitset.hpp>
+#if defined(_MSC_VER) && !defined(__clang__)
+// skip the tests on MSVC for now
+inline static const auto msg = []() {
+  std::cerr << "Note: Bitset tests are skipped on MSVC due to compiler "
+               "internal error.\n";
+  return nullptr;
+}();
+#else
 using namespace accat::auxilia;
 
 TEST(Bitset, BasicOperations) {
@@ -122,3 +128,4 @@ TEST(Bitset, CompareOperators) {
   EXPECT_TRUE(a != c);
   EXPECT_FALSE(a == c);
 }
+#endif

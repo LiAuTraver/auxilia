@@ -15,6 +15,7 @@
 #include "./StatusOr.hpp"
 
 #include "./chars.hpp"
+#include "accat/auxilia/details/StatusOr.hpp"
 namespace accat::auxilia::details {
 class AutomatonMixin : Printable {
 protected:
@@ -726,6 +727,10 @@ public:
 
     return {std::move(dfa)};
   }
+  static StatusOr<DFA> FromRegex(const std::string_view sv) {
+    return NFA::FromRegex(sv).and_then(
+        [](auto &&nfa) { return DFA::FromNFA(nfa); });
+  }
 
 private:
   using PartitionTy = std::unordered_set<size_t>;
@@ -851,6 +856,7 @@ private:
     return groups;
   }
   auto _do_minify() {
+    AC_DEBUG_ONLY(const auto old_state_count = this->states.size();)
 
     auto partitions = initial_partition(this->states);
 
@@ -881,6 +887,13 @@ private:
     } while (changed);
 
     rebuild_from_partitions(partitions);
+
+    AC_DEBUG_ONLY(
+        const auto new_state_count = this->states.size();
+        AC_DEBUG_LOGGING(info,
+                         "DFA Minification: reduced states from {} to {}",
+                         old_state_count,
+                         new_state_count);)
   }
 
 public:

@@ -44,6 +44,7 @@ public:
 private:
   value_type myArr[N] = {};
   static constexpr auto real_size = N - 1;
+  static constexpr auto npos = static_cast<size_type>(-1);
 
 private:
   consteval auto assign_from(const value_type (&arr)[N]) noexcept {
@@ -172,7 +173,10 @@ public:
   constexpr operator std::basic_string<value_type>() const noexcept {
     return std::basic_string<value_type>(myArr, real_size);
   }
-  constexpr operator const value_type *() const noexcept { return myArr; }
+  constexpr operator const value_type *() const noexcept
+      [[clang::lifetimebound]] {
+    return myArr;
+  }
   constexpr auto contains(const value_type c) const noexcept {
     return count(c) > 0;
   }
@@ -215,7 +219,7 @@ public:
       if (Traits::eq(myArr[i], c))
         return i;
     }
-    return std::string::npos;
+    return npos;
   }
   class iterator {
   public:
