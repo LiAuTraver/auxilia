@@ -148,11 +148,10 @@
 
 /// @note by current time the library was written, GNU on Windows seems failed
 /// to perform linking for `stacktrace` and `spdlog`.
-#if !AC_USE_STD_FMT && defined(_WIN32)
-#  include <stacktrace>
-#  if !AC_USE_STD_FMT
-#    define AC_STACKTRACE (::std::format("\n{}", ::std::stacktrace::current()))
-#  else
+#include <stacktrace>
+#if !AC_USE_STD_FMT
+#  define AC_FORMAT_IMPL(...) (::std::format("" __VA_ARGS__))
+#else
 template <>
 struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
   template <typename FormatContext>
@@ -169,12 +168,10 @@ struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
     return ::fmt::format_to(ctx, "{}", result);
   }
 };
-#    define AC_STACKTRACE ::fmt::format("\n{}", ::std::stacktrace::current())
-#  endif
-#else
-#  define AC_STACKTRACE ("<no further information>")
+#  define AC_FORMAT_IMPL(...) (::fmt::format(__VA_ARGS__))
 #endif
-
+#define AC_FORMAT(...) AC_FORMAT_IMPL(__VA_ARGS__)
+#define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
 #define AC_UNREACHABLE_IMPL                                                    \
   [[assume(false)]];                                                           \
   [[unlikely]] std::unreachable(); // 'not all control paths return a value'
@@ -183,13 +180,17 @@ struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
 #  if __has_include(<spdlog/spdlog.h>)
 #    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
       ::spdlog::_level_(_msg_ __VA_OPT__(, ) __VA_ARGS__);
+#  elif __has_include(<fmt/core.h>)
+#    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
+      fmt::print(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__);              \
+      fmt::print("\n");
 #  elif __has_include(<print>)
 #    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
       std::print(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__);              \
       std::print("\n");
 #  elif __has_include(<format>)
 #    define AC_DEBUG_LOGGING(_level_, _msg_, ...)                              \
-      std::cout << std::format(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__) \
+      std::clog << std::format(#_level_ ": " _msg_ __VA_OPT__(, ) __VA_ARGS__) \
                 << std::endl;
 #  else
 #    define AC_DEBUG_LOGGING(_level_, _msg_, ...)
@@ -336,20 +337,16 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
       }
 #  endif
 
-#  if AC_USE_STD_FMT
-#    define AC_RUNTIME_REQUIRE_IMPL(_cond_, ...)                               \
-      AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                        \
-          _cond_ __VA_OPT__(, ::std::format(__VA_ARGS__)))
-#  else
-#    define AC_RUNTIME_REQUIRE_IMPL(_cond_, ...)                               \
-      AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(                                        \
-          _cond_ __VA_OPT__(, ::fmt::format(__VA_ARGS__)))
-#  endif
+#  define AC_RUNTIME_REQUIRE_1(_cond_, ...)                                    \
+    AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, AC_FORMAT(__VA_ARGS__))
 
-#  define AC_RUNTIME_ASSERT(_cond_, ...)                                       \
-    AC_RUNTIME_REQUIRE_IMPL(_cond_ __VA_OPT__(, ) __VA_ARGS__);
+// unused
+#  define AC_RUNTIME_REQUIRE_0(_cond_) AC_RUNTIME_REQUIRE_1(_cond_, #_cond_)
 
-#  define AC_PRECONDITION(...) AC_RUNTIME_REQUIRE_IMPL(__VA_ARGS__)
+#  define AC_RUNTIME_ASSERT(...) AC_VFUNC(AC_RUNTIME_REQUIRE, __VA_ARGS__)
+
+#  define AC_PRECONDITION(...) AC_VFUNC(AC_RUNTIME_REQUIRE, __VA_ARGS__)
+
 #  define AC_NOEXCEPT_IF(...) // nothing
 #  define AC_NOEXCEPT         // nothing
 #  define AC_TODO_(...)                                                        \
@@ -373,9 +370,12 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  if defined(__cpp_exceptions) && __cpp_exceptions
 #    include <stdexcept>
 #    define AC_TODO_(...)                                                      \
-      throw ::std::logic_error(::std::format("TODO: " #__VA_ARGS__));
-#  elif __has_include(<spdlog / spdlog.h>)
-#    define AC_TODO_(...) AC_DEBUG_LOGGING(critical, "TODO: " #__VA_ARGS__);
+      throw ::std::logic_error(                                                \
+          ::std::format("TODO" __VA_OPT__(": ") #__VA_ARGS__));
+#  elif __has_include(<spdlog/spdlog.h>)
+#    define AC_TODO_(...)                                                      \
+      AC_DEBUG_LOGGING(critical, "TODO" __VA_OPT__(": ") #__VA_ARGS__);        \
+      AC_DEBUG_BREAK
 #  else
 #    define AC_TODO_(...)                                                      \
       fprintf(stderr, "TODO: " #__VA_ARGS__ "\n");                             \

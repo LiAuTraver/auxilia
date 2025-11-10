@@ -23,14 +23,14 @@
 /// foo(42, 43);      // Calls foo_2(42, 43)
 /// @endcode
 //////////////////////////////////////////////////////////////////////////
-#ifndef AC_DETAILS_VARIADIC_H
-#define AC_DETAILS_VARIADIC_H
+#ifndef ACCAT_AUXILIA_DETAILS_VARIADIC_INL_H
+#define ACCAT_AUXILIA_DETAILS_VARIADIC_INL_H
 
 // clang-format off
 /// @def AC_VFUNC_ARG_COUNT_IMPL
 /// @brief macros to count the number of arguments up to 63
-#define AC_VFUNC_ARG_COUNT_IMPL(                                         \
-  _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,                                      \
+#define AC_VFUNC_ARG_COUNT_IMPL(           _0,                                 \
+   _1,  _2,  _3,  _4,  _5,  _6,  _7,  _8,  _9,                                 \
   _10, _11, _12, _13, _14, _15, _16, _17, _18,                                 \
   _19, _20, _21, _22, _23, _24, _25, _26, _27,                                 \
   _28, _29, _30, _31, _32, _33, _34, _35, _36,                                 \
@@ -42,15 +42,15 @@
 
 /// @def AC_VFUNC_ARG_COUNT
 /// @brief macro to count the number of arguments
-#define AC_VFUNC_ARG_COUNT(...)                                          \
-  AC_VFUNC_ARG_COUNT_IMPL(_, __VA_OPT__(,)                             \
+#define AC_VFUNC_ARG_COUNT(...)                                                \
+  AC_VFUNC_ARG_COUNT_IMPL(_, __VA_OPT__(,)                                     \
   63, 62, 61, 60, 59, 58, 57, 56, 55, 54,                                      \
   53, 52, 51, 50, 49, 48, 47, 46, 45, 44,                                      \
   43, 42, 41, 40, 39, 38, 37, 36, 35, 34,                                      \
   33, 32, 31, 30, 29, 28, 27, 26, 25, 24,                                      \
   23, 22, 21, 20, 19, 18, 17, 16, 15, 14,                                      \
-  13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,                                   \
-  0                                                                            \
+  13, 12, 11, 10,  9,  8,  7,  6,  5,  4,                                      \
+   3,  2,  1,  0                                                               \
 )
 // clang-format on
 /// @def AC_VFUNC_CONCAT_IMPL
@@ -63,8 +63,7 @@
 /// @def AC_VFUNC(func, ...)
 /// @brief Main macro to select the appropriate function
 #define AC_VFUNC(func, ...)                                                    \
-  AC_VFUNC_CONCAT(func, AC_VFUNC_ARG_COUNT(__VA_ARGS__))                       \
-  (__VA_ARGS__) // NOLINT(bugprone-reserved-identifier)
+  AC_VFUNC_CONCAT(func, AC_VFUNC_ARG_COUNT(__VA_ARGS__))(__VA_ARGS__)
 
 /// @def AC_COUNTER
 /// @brief Helper macro to expand __COUNTER__
@@ -85,4 +84,4 @@
 /// @copydoc AC_EXPAND_COUNTER_
 #define AC_EXPAND_COUNTER(name) AC_EXPAND_COUNTER_(name, AC_COUNTER)
 
-#endif // AC_DETAILS_VARIADIC_H
+#endif // ACCAT_AUXILIA_DETAILS_VARIADIC_INL_H

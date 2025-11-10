@@ -14,6 +14,7 @@
 
 #include "./chars.hpp"
 #include "./StatusOr.hpp"
+#include "macros.hpp"
 
 namespace accat::auxilia::details {
 class AutomatonMixin : Printable {
@@ -196,7 +197,7 @@ digraph {} {{
       size_t current = stack.back();
       stack.pop_back();
       for (const auto &edge : states.at(current).edges) {
-        if (edge.symbol == ch && state_set.insert(edge.target_id).second) {
+        if (edge.symbol == ch && state_set.emplace(edge.target_id).second) {
           // second is true if insertion took place
           stack.emplace_back(edge.target_id);
         }
@@ -282,7 +283,7 @@ digraph {} {{
       for (const auto state_id : current_states)
         for (const auto &edge : states[state_id].edges)
           if (!edge.is_epsilon() && edge.symbol == c)
-            next_states.insert(edge.target_id);
+            next_states.emplace(edge.target_id);
 
       if (next_states.empty())
         return false;
@@ -450,8 +451,8 @@ private:
   }
   StatusOr<Fragment> build_graph(const std::string_view postfix) {
     std::stack<Fragment> stack;
-    auto top_and_pop_stack = [&stack]() {
-      AC_RUNTIME_ASSERT(!stack.empty(), "Stack underflow")
+    const auto top_and_pop_stack = [&stack]() {
+      AC_PRECONDITION(!stack.empty(), "Stack underflow")
       const auto val = stack.top();
       stack.pop();
       return val;
@@ -709,7 +710,7 @@ private:
             AC_RUNTIME_ASSERT(
                 !seen.contains(symbol),
                 "Non-deterministic DFA found! Should not happen.");
-            seen.insert(symbol);
+            seen.emplace(symbol);
           }
         })
   }
@@ -814,44 +815,54 @@ private:
     accept_ids = std::move(new_accept_ids);
   }
   auto split(const PartitionsTy &partitions, const PartitionTy &part) {
+    // This function splits a given partition (`part`) into smaller groups
+    // based on the transitions of states in the partition. States with
+    // identical transition behavior (signature) will remain in the same group.
+
+    // Map to group states by their transition signatures.
     std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
 
     for (const auto sid : part) {
-      IndexSetTy dest_set;
+      IndexSetTy
+          dest_set; // signature of the state sid based on its transitions
       dest_set.reserve(input_alphabet.size());
 
+      // For each symbol in the input alphabet, determine the target partition.
       for (const auto symbol : input_alphabet) {
-        // from state sid, a `symbol` move
-        auto target_id = npos;
+        auto target_id = npos; // Default: no transition for this symbol.
 
-        // state: states.find(sid)->second;
+        // Find the transition for the current symbol.
         for (const auto edge : states.find(sid)->second.edges) {
           if (edge.symbol == symbol) {
-            target_id = edge.target_id;
+            target_id = edge.target_id; // Found the target state.
             break;
           }
         }
 
+        // If no transition exists for this symbol, skip to the next symbol.
         if (target_id == npos)
-          continue; // didn't have the transition `symbol`
+          continue;
 
+        // Determine the partition index of the target state.
         auto target_partition_idx = npos;
+        AC_POSTCONDITION(target_partition_idx != npos, "should not happen")
 
         for (auto pid = 0ull; pid < partitions.size(); ++pid) {
           if (partitions[pid].contains(target_id)) {
-            target_partition_idx = pid;
+            target_partition_idx = pid; // Found the partition index.
             break;
           }
         }
 
-        AC_RUNTIME_ASSERT(target_partition_idx != npos, "should not happen")
-
-        dest_set.insert(target_partition_idx);
+        // Add the partition index to the signature of the current state.
+        dest_set.emplace(target_partition_idx);
       }
 
-      // Add this state to the group with this signature
-      groups[dest_set].insert(sid);
+      // Add the current state to the group corresponding to its signature.
+      groups[dest_set].emplace(sid);
     }
+
+    // Return the groups of states formed by splitting the partition.
     return groups;
   }
   auto _do_minify() {
