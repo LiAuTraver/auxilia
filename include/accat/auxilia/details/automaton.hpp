@@ -12,10 +12,9 @@
 #include <string>
 #include <string_view>
 
+#include "./chars.hpp"
 #include "./StatusOr.hpp"
 
-#include "./chars.hpp"
-#include "accat/auxilia/details/StatusOr.hpp"
 namespace accat::auxilia::details {
 class AutomatonMixin : Printable {
 protected:
