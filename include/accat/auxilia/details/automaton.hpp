@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <ranges>
 #include <stack>
 #include <type_traits>
@@ -814,55 +815,55 @@ private:
     start_id = new_start_id;
     accept_ids = std::move(new_accept_ids);
   }
-  auto split(const PartitionsTy &partitions, const PartitionTy &part) {
-    // This function splits a given partition (`part`) into smaller groups
-    // based on the transitions of states in the partition. States with
-    // identical transition behavior (signature) will remain in the same group.
+  IndexSetTy get_transition_signature(const PartitionsTy &partitions,
+                                      const State &s) const {
+    // signature of the state sid based on its transitions
+    IndexSetTy dest_set;
+    dest_set.reserve(s.edges.size());
 
-    // Map to group states by their transition signatures.
-    std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
+    for (const auto symbol : input_alphabet) {
 
-    for (const auto sid : part) {
-      IndexSetTy
-          dest_set; // signature of the state sid based on its transitions
-      dest_set.reserve(input_alphabet.size());
+      // find the transition for the current symbol
+      const auto edge_it =
+          std::ranges::find(s.edges, symbol, &Transition::symbol);
 
-      // For each symbol in the input alphabet, determine the target partition.
-      for (const auto symbol : input_alphabet) {
-        auto target_id = npos; // Default: no transition for this symbol.
+      if (edge_it == s.edges.end())
+        // no transition exists for this symbol, skip to the next symbol
+        continue;
 
-        // Find the transition for the current symbol.
-        for (const auto edge : states.find(sid)->second.edges) {
-          if (edge.symbol == symbol) {
-            target_id = edge.target_id; // Found the target state.
-            break;
-          }
-        }
+      // we found a transition from states[sid] to states[target_id]
+      const auto destination_id = edge_it->target_id;
 
-        // If no transition exists for this symbol, skip to the next symbol.
-        if (target_id == npos)
-          continue;
+      // this variable denotes which partition states[target_id] belongs to.
+      const auto dest_pid =
+          std::ranges::find_if(partitions, [destination_id](const auto &p) {
+            return p.contains(destination_id);
+          });
 
-        // Determine the partition index of the target state.
-        auto target_partition_idx = npos;
-        AC_POSTCONDITION(target_partition_idx != npos, "should not happen")
+      AC_RUNTIME_ASSERT(dest_pid != partitions.end(), "should not happen")
 
-        for (auto pid = 0ull; pid < partitions.size(); ++pid) {
-          if (partitions[pid].contains(target_id)) {
-            target_partition_idx = pid; // Found the partition index.
-            break;
-          }
-        }
-
-        // Add the partition index to the signature of the current state.
-        dest_set.emplace(target_partition_idx);
-      }
-
-      // Add the current state to the group corresponding to its signature.
-      groups[dest_set].emplace(sid);
+      // add the partition index to the signature of the current state.
+      dest_set.emplace(std::ranges::distance(partitions.begin(), dest_pid));
     }
 
-    // Return the groups of states formed by splitting the partition.
+    return dest_set;
+  }
+
+  // splits a given partition (`part`) into smaller groups
+  //        based on the transitions of states in the partition.
+  // states with identical transition behavior
+  //      (signature) will remain in the same group.
+  auto split(const PartitionsTy &partitions, const PartitionTy &part) const {
+    // map to group states by their transition signatures
+    std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
+
+    // add the current state to the group corresponding to its signature.
+    std::ranges::for_each(part, [&](auto &&sid) {
+      const auto &s = states.at(sid);
+      auto sig = get_transition_signature(partitions, s);
+      groups[std::move(sig)].emplace(sid);
+    });
+
     return groups;
   }
   auto _do_minify() {
