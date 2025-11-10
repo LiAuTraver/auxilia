@@ -557,7 +557,7 @@ private:
     if (!maybe_frag)
       return maybe_frag.as_status();
 
-    finalize(std::move(*maybe_frag));
+    finalize(*std::move(maybe_frag));
 
     return OkStatus();
   }
@@ -650,14 +650,14 @@ private:
       for (const char a : input_alphabet) {
         std::unordered_set<size_t> move_set;
         for (const auto s : mapping[cur]) {
-          auto it = nfa.states.find(s);
+          const auto it = nfa.states.find(s);
           AC_RUNTIME_ASSERT(
               it != nfa.states.end(),
               "Internal Error: NFA state {} not found during DFA construction",
               s)
-          for (const auto &e : it->second.edges) {
+          for (const auto e : it->second.edges) {
             if (/* !e.is_epsilon() && */ e.symbol == a)
-              move_set.insert(e.target_id);
+              move_set.emplace(e.target_id);
           }
         }
         if (move_set.empty())
