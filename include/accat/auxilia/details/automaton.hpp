@@ -15,6 +15,7 @@
 
 #include "./chars.hpp"
 #include "./StatusOr.hpp"
+#include "accat/auxilia/details/type_traits.hpp"
 #include "macros.hpp"
 
 namespace accat::auxilia::details {
@@ -734,6 +735,7 @@ public:
   }
 
 private:
+#pragma region Common
   using PartitionTy = std::unordered_set<size_t>;
   using PartitionsTy = std::vector<PartitionTy>;
 
@@ -815,6 +817,95 @@ private:
     start_id = new_start_id;
     accept_ids = std::move(new_accept_ids);
   }
+#pragma endregion Common
+#pragma region Hopcroft
+  /// Hopcroft algorithm (not Hopcroft-Karp algorithm)
+  /// @ref https://en.wikipedia.org/wiki/DFA_minimization
+  void hopcroft(PartitionsTy &partitions) const {
+    // init W to { F, Q / F }.
+    // NOTE:
+    // initialize only to { F } according to some references is WRONG here(?)
+    std::vector<size_t> worklist;
+    worklist.emplace_back(0);
+    worklist.emplace_back(1);
+
+    while (!worklist.empty()) {
+      const size_t A_idx = worklist.back();
+      worklist.pop_back();
+      const auto A = partitions[A_idx]; // copy, we need the snapshot of A
+
+      for (const auto c : input_alphabet) {
+        PartitionTy S;
+
+        // S = { q \in Q | \delta(q, c) \in A }
+        for (const auto &[sid, q] : states) {
+          const auto &edges = q.edges;
+          const auto it = std::ranges::find(edges, c, &Transition::symbol);
+          if (it == edges.end())
+            continue;
+          if (A.contains(it->target_id))
+            S.emplace(sid);
+        }
+        if (S.empty())
+          continue;
+
+        // modify partitions safely via interating through index.
+        // precondition see below
+        for (auto Y_idx = 0ull; Y_idx < partitions.size(); ++Y_idx) {
+          const auto &Y = partitions[Y_idx];
+
+          // Y1 = Y \cap S, Y2 = Y \setminus S ( cap: ∩ set minus/diff: \ )
+          PartitionTy Y1;
+          PartitionTy Y2;
+          Y1.reserve(std::ranges::min(Y.size(), S.size()));
+          Y2.reserve(Y.size());
+
+          for (const auto state_idx : Y) {
+            if (S.contains(state_idx))
+              Y1.emplace(state_idx);
+            else
+              Y2.emplace(state_idx);
+          }
+
+          if (Y1.empty() || Y2.empty())
+            continue; // no split, precondition not satisfied
+
+          // partitions[i] := Y1(replaces Y)
+          partitions[Y_idx] = std::move(Y1);
+          const size_t new_index = partitions.size();
+          //  partition append Y2
+          partitions.emplace_back(std::move(Y2));
+
+          // If Y (index i) is in worklist, replace that occurrence with both i
+          // and new_index. Otherwise, add the smaller of the two to worklist.
+          if (const auto it_w = std::ranges::find(worklist, Y_idx);
+              it_w != worklist.end()) {
+            // replace the first occurrence of i with i (already) and add
+            // new_index (this emulates removing Y from W and adding Y1 and Y2).
+            // (If Y occurs multiple times in worklist, we only need to ensure
+            // both parts are present; keeping duplicates is harmless but
+            // uncommon in practice.) remove that occurrence and push both
+            // indices to keep behavior explicit:
+            AC_DEBUG_BLOCK {
+              const auto it_last =
+                  std::ranges::find_last(worklist, Y_idx).begin();
+              AC_RUNTIME_ASSERT(it_last == it_w, "id shall be unique")
+              *it_w = Y_idx; // no-op, just keeps intent clear
+            };
+            worklist.emplace_back(new_index);
+          } else {
+            // add the smaller of the two sets
+            if (partitions[Y_idx].size() < partitions[new_index].size())
+              worklist.emplace_back(Y_idx);
+            else
+              worklist.emplace_back(new_index);
+          }
+        }
+      }
+    }
+  }
+#pragma endregion Hopcroft
+#pragma region Moore
   IndexSetTy get_transition_signature(const PartitionsTy &partitions,
                                       const State &s) const {
     // signature of the state sid based on its transitions
@@ -866,15 +957,11 @@ private:
 
     return groups;
   }
-  auto _do_minify() {
-    AC_DEBUG_ONLY(const auto old_state_count = this->states.size();)
-
-    auto partitions = initial_partition(this->states);
-
+  void moore(PartitionsTy &partitions) const {
     bool changed;
     do {
       changed = false;
-      decltype(partitions) new_partitions;
+      PartitionsTy new_partitions;
 
       for (const auto &part : partitions) {
         if (part.size() == 1) {
@@ -896,6 +983,20 @@ private:
 
       partitions = std::move(new_partitions);
     } while (changed);
+  }
+#pragma endregion Moore
+  template <const auto &Char> struct unknown_algorithm;
+  template <const auto &Option> auto _do_minify() {
+    AC_DEBUG_ONLY(const auto old_state_count = this->states.size();)
+
+    auto partitions = initial_partition(this->states);
+
+    if constexpr (as_chars(Option) == "Hopcroft")
+      hopcroft(partitions);
+    else if constexpr (as_chars(Option) == "Moore")
+      moore(partitions);
+    else
+      unknown_algorithm<Option>{};
 
     rebuild_from_partitions(partitions);
 
@@ -908,10 +1009,10 @@ private:
   }
 
 public:
-  // Hopcroft algorithm (not Hopcroft–Karp algorithm)
+  template <const details::basic_chars_storage Option = "Hopcroft">
   DFA &minify() {
     if (!empty())
-      _do_minify();
+      _do_minify<Option.arr>();
     return *this;
   }
 };

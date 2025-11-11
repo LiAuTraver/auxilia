@@ -10,8 +10,7 @@
 using namespace accat::auxilia;
 
 int main() {
-  auto dfa =
-      NFA::FromRegex("b(a|b)*bab").and_then(&DFA::FromNFA).rvalue().value();
+  auto dfa = NFA::FromRegex("a|ba").and_then(&DFA::FromNFA).rvalue().value();
 
   std::cout << "\nTesting strings:\n";
   auto test_strings = {
