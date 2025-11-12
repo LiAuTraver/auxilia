@@ -134,8 +134,7 @@
 /// @note only call it once in the whole exec; never call it twice.
 #define AC_SPDLOG_INITIALIZATION(_exec_, _log_level_)                          \
   [[maybe_unused]]                                                             \
-  inline static const auto AC_SPDLOG_INITIALIZATION =                          \
-      [](void) -> ::std::nullptr_t {                                           \
+  static const auto AC_SPDLOG_INITIALIZATION = [](void) -> ::std::nullptr_t {  \
     AC_DEBUG_LOGGING(info, "\033[36mspdlog framework initialized.\033[0m")     \
     AC_DEBUG_LOGGING_SETUP(_exec_, _log_level_, "Debug mode enabled")          \
     return nullptr;                                                            \

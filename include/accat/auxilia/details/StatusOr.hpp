@@ -166,23 +166,18 @@ public:
   }
 #  endif
 
-#  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  AC_NODISCARD_
-  inline constexpr auto operator->(this auto &self)
-      AC_NOEXCEPT->decltype(auto) {
-    return std::addressof(std::forward<decltype(self)>(self).my_value);
-  }
-  inline constexpr auto operator->(this auto &&) = delete;
-#  else
   AC_NODISCARD_
   inline constexpr auto operator->() AC_NOEXCEPT->value_type * {
+    AC_PRECONDITION(ok() or is_return(),
+                    "Cannot dereference a status that is not OK.");
     return std::addressof(my_value);
   }
   AC_NODISCARD_
   inline constexpr auto operator->() const AC_NOEXCEPT->const value_type * {
+    AC_PRECONDITION(ok() or is_return(),
+                    "Cannot dereference a status that is not OK.");
     return std::addressof(my_value);
   }
-#  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD_ AC_FLATTEN_ inline constexpr auto as_status(this auto &&self)
