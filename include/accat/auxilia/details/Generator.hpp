@@ -3,6 +3,7 @@
 #include <coroutine>
 #include <cstddef>
 #include <iterator>
+#include <ranges>
 #include <utility>
 #include <optional>
 #include <exception>
@@ -18,10 +19,22 @@ namespace accat::auxilia {
 /// @tparam ReturnType the type of the value to be returned, usually
 /// its 'void' for no return value(infinite sequence generator)
 /// @tparam AllocatorType the allocator type to be used for the generator
+/// @note I used this in some cases where std::geneartor isn't available yet.
+/// Currently there's no plan for me to implement standard-complient features
+/// like recursive generators, type-erasure, polymorphic
+/// resources(std::pmr::meow), and reference types(not sure of this though).
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class [[using clang: coro_return_type, coro_lifetimebound]] Generator {
+class [[using clang: coro_return_type, coro_lifetimebound]] Generator
+    : public std::ranges::view_interface<
+          Generator<YieldType, ReturnType, AllocatorType>> {
+  static_assert(
+      std::conjunction_v<
+          std::is_same<std::remove_reference_t<YieldType>, YieldType>,
+          std::is_same<std::remove_reference_t<ReturnType>, ReturnType>>,
+      "This custom generator cannot gurantee if the coro returned is a "
+      "reference type; use std::generator instead if possible.");
   static_assert(std::is_default_constructible_v<YieldType>,
                 "YieldType must be default constructible");
   static_assert(std::is_nothrow_move_constructible_v<YieldType>,
@@ -91,7 +104,8 @@ private:
 
 private:
   template <typename R>
-  struct promise_type_impl<R, false> : promise_type_base<promise_type> {
+  struct AC_EMPTY_BASES_
+      promise_type_impl<R, false> : promise_type_base<promise_type> {
     static_assert(std::is_nothrow_move_constructible_v<R>,
                   "ReturnType must be nothrow move constructible");
     friend struct iterator;
@@ -102,7 +116,8 @@ private:
     void return_value(const R &value) noexcept { final_return_value = value; }
   };
   template <typename R>
-  struct promise_type_impl<R, true> : promise_type_base<promise_type> {
+  struct AC_EMPTY_BASES_
+      promise_type_impl<R, true> : promise_type_base<promise_type> {
     friend struct iterator;
     const YieldType *current_value = nullptr;
     void return_void() noexcept {}
@@ -113,8 +128,10 @@ public:
     using iterator_category = std::input_iterator_tag;
     using value_type = YieldType;
     using difference_type = std::ptrdiff_t;
-    using pointer = const YieldType *;
-    using reference = const YieldType &;
+    using pointer = YieldType *;
+    using const_pointer = const YieldType *;
+    using reference = YieldType &;
+    using const_reference = const YieldType &;
 
     iterator() = default;
     iterator(std::coroutine_handle<promise_type> handle) : handle_(handle) {
@@ -143,8 +160,16 @@ public:
 
     void operator++(int) { ++*this; }
 
-    reference operator*() const { return *handle_.promise().current_value; }
-    pointer operator->() const { return handle_.promise().current_value; }
+    reference operator*() AC_NOEXCEPT {
+      return *handle_.promise().current_value;
+    }
+    pointer operator->() AC_NOEXCEPT { return handle_.promise().current_value; }
+    const_reference operator*() const AC_NOEXCEPT {
+      return *handle_.promise().current_value;
+    }
+    const_pointer operator->() const AC_NOEXCEPT {
+      return handle_.promise().current_value;
+    }
 
     bool operator==(const iterator &other) const noexcept {
       return handle_ == other.handle_;
@@ -152,11 +177,14 @@ public:
     auto operator<=>(const iterator &other) const noexcept {
       return *this <=> other;
     }
+    friend bool operator==(const iterator &it,
+                           const std::default_sentinel_t) noexcept {
+      return it.handle_ == nullptr; // or it.handle_.done()?
+    }
 
   private:
     std::coroutine_handle<promise_type> handle_ = nullptr;
   };
-  Generator() = default;
   explicit Generator(std::coroutine_handle<promise_type> handle)
       : handle_(handle) {}
   Generator(Generator &&other) noexcept
@@ -173,7 +201,8 @@ public:
   }
 
   iterator begin() { return {handle_}; }
-  static iterator end() noexcept { return {}; }
+  iterator begin() const { return {handle_}; }
+  std::default_sentinel_t end() const noexcept { return std::default_sentinel; }
   /// @note not a shared resource, like a plain `future::get()`,
   /// which cannot be called multiple times
   auto get() {

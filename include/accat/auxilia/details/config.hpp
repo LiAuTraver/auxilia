@@ -7,7 +7,8 @@
 #include <type_traits>
 #include <concepts>
 
-#include "./macros.hpp" // IWYU pragma: export
+#include "./variadic-inl.h" // IWYU pragma: export
+#include "./macros.hpp"     // IWYU pragma: export
 
 EXPORT_AUXILIA
 namespace accat::auxilia {

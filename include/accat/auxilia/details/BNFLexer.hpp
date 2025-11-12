@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <compare>
@@ -14,6 +15,7 @@
 #include <system_error>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "./config.hpp"
 #include "./format.hpp"
@@ -35,8 +37,9 @@ struct Token : auxilia::Printable {
     // Literals.
     kIdentifier, kString, kNumber,
 
-    kLeftArrow,
-    kBitwiseOr,
+    kLeftArrow, // ->
+    kBitwiseOr, // |
+
     // Keywords.
     // kAnd, kClass, kElse, kFalse, kFun, kFor, kIf, kNil, 
     // kOr, kPrint, kReturn, kSuper, kThis, kTrue, kVar, kWhile,
@@ -176,6 +179,7 @@ public:
     return lexeme_;
   }
   constexpr auto type() const noexcept { return type_; }
+  constexpr auto type_str() const noexcept { return token_type_str(type_); }
   constexpr auto is_type(const Type type) const noexcept {
     return type_ == type;
   }
@@ -186,10 +190,10 @@ public:
     if (format_policy == auxilia::FormatPolicy::kBrief)
       str = _do_format(format_policy);
     else
-      str = fmt::format("type: {}, {}, line: {}",
-                        token_type_str(type_),
-                        _do_format(format_policy),
-                        line_);
+      str = format("type: {}, {}, line: {}",
+                   type_str(),
+                   _do_format(format_policy),
+                   line_);
 
     return str;
   }
@@ -288,28 +292,28 @@ private:
   auto _do_format(const auxilia::FormatPolicy format_policy) const
       -> string_type {
     auto str = string_type{};
-    auto format_number = [this]() -> long double {
+    const auto format_number = [this]() -> long double {
       return number_is_integer_ ? static_cast<long double>(num_ll_) : num_ld_;
     };
     using namespace std::string_literals;
     if (format_policy == auxilia::FormatPolicy::kBrief) {
       if (type_ == Type::kNumber)
-        str = fmt::format("{}", format_number());
+        str = format("{}", format_number());
       else if (type_ == Type::kLexError)
         str = lexeme_;
       else if (type_ == Type::kMonostate)
         str = "monostate"s;
       else
-        str = token_type_str(type_);
+        str = type_str();
     } else {
       if (type_ == Type::kNumber)
-        str = fmt::format("number: '{}'", format_number());
+        str = format("number: '{}'", format_number());
       else if (type_ == Type::kLexError)
-        str = fmt::format("error: '{}'", lexeme_);
+        str = format("error: '{}'", lexeme_);
       else if (type_ == Type::kMonostate)
         str = "monostate"s;
       else
-        str = fmt::format("lexeme: '{}'", token_type_str(type_));
+        str = format("lexeme: '{}'", type_str());
     }
     return str;
   }
@@ -337,9 +341,8 @@ public:
   ~Lexer() = default;
 
 public:
-  /// @brief lex the contents of the file
-  /// @return OkStatus() if successful, NotFoundError() otherwise
-  auto lex() -> generator_t;
+  auto lexAsync() -> generator_t;
+  auto lexAll() -> std::vector<token_t>;
   /// @brief get the number of errors
   /// @return the number of errors
   auto error() const noexcept -> uint_least32_t { return error_count; }
@@ -452,11 +455,7 @@ inline auto Lexer::to_number(string_view_type value, bool isFloating, int Base)
 using enum Lexer::token_type_t;
 using std::literals::operator""s;
 using std::literals::operator""sv;
-inline static constexpr auto tolerable_chars = "_`$"sv;
-// inline static constexpr auto conditional_tolerable_chars = "@$#"sv;
-inline static constexpr auto whitespace_chars = " \t\r"sv;
-inline static constexpr auto newline_chars = "\n\v\f"sv;
-// inline static const auto keywords =
+// inline const auto keywords =
 //     std::unordered_map<std::string_view, Token::Type>{
 //         {"and"sv, {kAnd}},
 //         {"class"sv, {kClass}},
@@ -475,8 +474,23 @@ inline static constexpr auto newline_chars = "\n\v\f"sv;
 //         {"var"sv, {kVar}},
 //         {"while"sv, {kWhile}},
 //     };
+// inline constexpr auto conditional_tolerable_chars = "@$#"sv;
+inline constexpr auto tolerable_chars = "_`$"sv;
+inline constexpr auto whitespace_chars = " \t\r"sv;
+inline constexpr auto newline_chars = "\n\v\f"sv;
 
-inline auto Lexer::lex() -> generator_t {
+inline auto Lexer::lexAll() -> std::vector<token_t> {
+  std::vector<token_t> result;
+  while (not is_at_end()) {
+    head = cursor;
+    if (auto token = next_token(); token.type() != kMonostate) {
+      result.emplace_back(std::move(token));
+    }
+  }
+  result.emplace_back(add_token(kEndOfFile));
+  return result;
+}
+inline auto Lexer::lexAsync() -> generator_t {
   while (not is_at_end()) {
     head = cursor;
     if (auto token = next_token(); token.type() != kMonostate) {
@@ -496,9 +510,9 @@ inline Lexer::token_t Lexer::add_identifier_or_keyword() {
 }
 inline Lexer::token_t Lexer::add_number() {
   if (auto value = lex_number()) {
-    return add_token(*value);
+    return add_token(*std::move(value));
   }
-  return add_error_token("Invalid number: "s +
+  return add_error_token("Invalid number: " +
                          contents.substr(head, cursor - head));
 }
 inline Lexer::token_t Lexer::add_string() {

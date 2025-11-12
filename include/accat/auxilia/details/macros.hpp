@@ -1,5 +1,5 @@
 #pragma once
-#include "./variadic-inl.h" // IWYU pragma: export
+#include "./variadic-inl.h"
 
 #if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
 #  if defined(_MSC_VER) && !defined(__clang__)
