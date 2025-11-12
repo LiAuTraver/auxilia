@@ -1,7 +1,14 @@
 #pragma once
 #include <algorithm>
+#include <climits>
 #include <cstddef>
+#include <cstring>
+#include <functional>
+#include <istream>
 #include <ostream>
+#include <string>
+#include <string_view>
+#include <type_traits>
 
 #include "./config.hpp"
 #include "./format.hpp"

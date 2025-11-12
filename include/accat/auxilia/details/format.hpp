@@ -1,9 +1,11 @@
 #pragma once
 
-#include <type_traits>
+#include <cstdint>
+#include <cstdio>
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include "./config.hpp"
 EXPORT_AUXILIA
@@ -158,7 +160,6 @@ protected:
 };
 } // namespace accat::auxilia
 
-// ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
 template <typename Derived>
   requires is_base_of_v<::accat::auxilia::Printable,

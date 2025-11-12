@@ -1,6 +1,8 @@
 #pragma once
 
+#include <compare>
 #include <cstddef>
+#include <initializer_list>
 #include <type_traits>
 #include <iterator>
 #include <string>

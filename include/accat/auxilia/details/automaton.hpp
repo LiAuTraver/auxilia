@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <format>
 #include <functional>
 #include <iterator>
 #include <ranges>
@@ -9,14 +10,17 @@
 #include <type_traits>
 #include <unordered_set>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <string>
 #include <string_view>
 
+#include "./config.hpp"
+#include "./type_traits.hpp"
 #include "./chars.hpp"
+#include "./format.hpp"
+#include "./Status.hpp"
 #include "./StatusOr.hpp"
-#include "accat/auxilia/details/type_traits.hpp"
-#include "macros.hpp"
 
 namespace accat::auxilia::details {
 class AutomatonMixin : Printable {
@@ -331,6 +335,7 @@ digraph Automaton {
 } // namespace accat::auxilia::details
 
 namespace accat::auxilia {
+EXPORT_AUXILIA
 class NFA : details::AutomatonMixin {
   using MyBase = details::AutomatonMixin;
   friend MyBase;
@@ -580,6 +585,7 @@ public:
     return {std::move(nfa)};
   }
 };
+EXPORT_AUXILIA
 class DFA : details::AutomatonMixin {
   using IndexSetTy = std::unordered_set<size_t>;
   using MyBase = details::AutomatonMixin;

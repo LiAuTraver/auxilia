@@ -8,6 +8,9 @@
 #ifndef ACCAT_AUXILIA_STATUSOR_HPP
 #  define ACCAT_AUXILIA_STATUSOR_HPP
 
+#  include <type_traits>
+#  include <utility>
+
 #  include "./config.hpp"
 #  include "./format.hpp"
 #  include "./Status.hpp"

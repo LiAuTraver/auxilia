@@ -1,16 +1,22 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdlib>
+#include <format>
 #include <string>
 #include <string_view>
 #include <span>
+#include <unordered_map>
 #include <utility>
 #include <type_traits>
 #include <ranges>
 #include <iostream>
+#include <vector>
 
 #include "./config.hpp"
 #include "./format.hpp"
 #include "./StatusOr.hpp"
+#include "Status.hpp"
 
 namespace accat::auxilia::program_options {
 

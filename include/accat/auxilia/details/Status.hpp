@@ -8,6 +8,8 @@
 #ifndef ACCAT_AUXILIA_STATUS_HPP
 #define ACCAT_AUXILIA_STATUS_HPP
 
+#include <limits>
+#include <type_traits>
 #include <cstdint>
 #include <string>
 #include <string_view>

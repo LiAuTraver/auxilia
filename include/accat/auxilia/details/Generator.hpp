@@ -1,6 +1,8 @@
 #pragma once
 
 #include <coroutine>
+#include <cstddef>
+#include <iterator>
 #include <utility>
 #include <optional>
 #include <exception>
@@ -38,6 +40,7 @@ public:
 private:
   template <typename Derived> struct promise_type_base {
     friend struct iterator;
+    friend class Generator;
     ~promise_type_base() {}
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
     std::exception_ptr exception;
@@ -88,7 +91,7 @@ private:
 
 private:
   template <typename R>
-  struct promise_type_impl<R, false> : public promise_type_base<promise_type> {
+  struct promise_type_impl<R, false> : promise_type_base<promise_type> {
     static_assert(std::is_nothrow_move_constructible_v<R>,
                   "ReturnType must be nothrow move constructible");
     friend struct iterator;
@@ -99,7 +102,7 @@ private:
     void return_value(const R &value) noexcept { final_return_value = value; }
   };
   template <typename R>
-  struct promise_type_impl<R, true> : public promise_type_base<promise_type> {
+  struct promise_type_impl<R, true> : promise_type_base<promise_type> {
     friend struct iterator;
     const YieldType *current_value = nullptr;
     void return_void() noexcept {}

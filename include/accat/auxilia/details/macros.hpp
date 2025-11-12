@@ -1,6 +1,5 @@
 #pragma once
-
-#include "./variadic-inl.h"
+#include "./variadic-inl.h" // IWYU pragma: export
 
 #if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
 #  if defined(_MSC_VER) && !defined(__clang__)
@@ -38,7 +37,7 @@
 /// @note I use Source Code Annotation sometimes; but libstdc++
 /// doesn't support; so we manually define it here.
 #if __has_include(<sal.h>)
-#  include <sal.h>
+#  include <sal.h> // IWYU pragma: export
 #else
 #  define _In_
 #  define _Inout_
@@ -142,7 +141,7 @@
 #else
 #  define EXPORT_AUXILIA
 #  if AC_DEBUG_ENABLED
-#    include <spdlog/spdlog.h>
+#    include <spdlog/spdlog.h> // IWYU pragma: export
 #  endif
 #endif
 
@@ -262,6 +261,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_)
 #endif
 
 #ifdef _WIN32
+#  include <vcruntime.h>
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
 extern "C" __declspec(dllimport) int SetConsoleOutputCP(unsigned int);
 #elif defined(__linux__)
@@ -280,6 +280,8 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #endif
 }
 } // namespace accat::auxilia::details
+
+#include <cstdio>
 #define AC_DEBUG_BREAK                                                         \
   do {                                                                         \
     if (::accat::auxilia::details::_is_debugger_present()) {                   \

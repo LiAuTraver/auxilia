@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <future>
+#include <tuple>
 #include <type_traits>
 #include <concepts>
 
-#include "./macros.hpp"
+#include "./macros.hpp" // IWYU pragma: export
 
 EXPORT_AUXILIA
 namespace accat::auxilia {

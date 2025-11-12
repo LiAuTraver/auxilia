@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <fstream>
+#include <sstream>
 #include <utility>
 #include <filesystem>
 #include <bit>
@@ -10,8 +12,10 @@
 #include <ios>
 #include <cstddef>
 #include <ranges>
+#include <vector>
 
 #include "./config.hpp"
+#include "./Status.hpp"
 #include "./StatusOr.hpp"
 
 namespace accat::auxilia::details {
