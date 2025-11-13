@@ -528,3 +528,4 @@ CppDependOut/
 ### workaround
 CMakePresets.json
 .clangd
+clangd.bat

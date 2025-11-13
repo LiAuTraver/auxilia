@@ -165,7 +165,6 @@ public:
                     "lexeme() called on a non-lexeme token")
     return lexeme_;
   }
-  // Changed number() to return a variant instead of long double.
   auto number() const AC_NOEXCEPT {
     AC_PRECONDITION(type_ == Type::kNumber,
                     "number() called on a non-number token");
