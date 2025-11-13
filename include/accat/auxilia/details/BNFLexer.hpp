@@ -190,7 +190,7 @@ public:
     if (format_policy == auxilia::FormatPolicy::kBrief)
       str = _do_format(format_policy);
     else
-      str = format("type: {}, {}, line: {}",
+      str = Format("type: {}, {}, line: {}",
                    type_str(),
                    _do_format(format_policy),
                    line_);
@@ -298,7 +298,7 @@ private:
     using namespace std::string_literals;
     if (format_policy == auxilia::FormatPolicy::kBrief) {
       if (type_ == Type::kNumber)
-        str = format("{}", format_number());
+        str = Format("{}", format_number());
       else if (type_ == Type::kLexError)
         str = lexeme_;
       else if (type_ == Type::kMonostate)
@@ -307,13 +307,13 @@ private:
         str = type_str();
     } else {
       if (type_ == Type::kNumber)
-        str = format("number: '{}'", format_number());
+        str = Format("number: '{}'", format_number());
       else if (type_ == Type::kLexError)
-        str = format("error: '{}'", lexeme_);
+        str = Format("error: '{}'", lexeme_);
       else if (type_ == Type::kMonostate)
         str = "monostate"s;
       else
-        str = format("lexeme: '{}'", type_str());
+        str = Format("lexeme: '{}'", type_str());
     }
     return str;
   }
@@ -430,7 +430,7 @@ inline auto Lexer::to_number(string_view_type value, bool isFloating, int Base)
   std::from_chars_result res;
   if (isFloating) {
     if (Base != 10) {
-      println("Only base 10 is supported for floating point");
+      Println("Only base 10 is supported for floating point");
       return {};
     }
     long double number;
@@ -445,7 +445,7 @@ inline auto Lexer::to_number(string_view_type value, bool isFloating, int Base)
     if (res.ec == std::errc())
       return {{number}};
   }
-  println("Unable to convert string '{0}' to number: at {1}, "
+  Println("Unable to convert string '{0}' to number: at {1}, "
           "error: {2}",
           realValStr,
           res.ptr,

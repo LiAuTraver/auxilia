@@ -20,10 +20,10 @@ int main(int argc, char **argv) {
   }
   if (auto verboseOpt = parser->get_option("--verbose");
       verboseOpt && !verboseOpt->values().empty()) {
-    println("Verbose mode enabled");
+    Println("Verbose mode enabled");
   }
   if (auto outputOpt = parser->get_option("--output")) {
-    println("Output file: {}",
+    Println("Output file: {}",
             outputOpt->value().value_or("no output file provided"));
   }
 }

@@ -29,8 +29,12 @@
 /// similar call) was executed, which related to heap corruption. The
 /// program will terminate.
 /// @internal now it's ok again, dunno why.
-#  if !defined(AC_USE_STD_FMT) && __has_include(<fmt/format.h>)
+#endif
+#if !defined(AC_USE_STD_FMT)
+#  if __has_include(<fmt/format.h>)
 #    define AC_USE_STD_FMT 0
+#  else
+#    define AC_USE_STD_FMT 1
 #  endif
 #endif
 
@@ -57,6 +61,7 @@
 #  include <fmt/std.h>
 #  include <fmt/ranges.h>
 #  include <fmt/xchar.h>
+#  define AC_STD_OR_FMT ::fmt::
 #else
 #  define AC_USE_STD_FMT 1
 #  include <format>
@@ -64,6 +69,7 @@
 #  if __has_include(<print>)
 #    include <print>
 #  endif
+#  define AC_STD_OR_FMT ::std::
 #endif
 
 // although C++ standard may be updated, the constexpr feature may not be
@@ -149,27 +155,25 @@
 /// to perform linking for `stacktrace` and `spdlog`.
 #include <stacktrace>
 #if !AC_USE_STD_FMT
-#  define AC_FORMAT_IMPL(...) (::std::format("" __VA_ARGS__))
-#else
-template <>
-struct ::fmt::formatter<::std::stacktrace> : ::fmt::formatter<::std::string> {
+template <> struct ::fmt::formatter<::std::stacktrace> {
+  constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
+
   template <typename FormatContext>
-  auto format(const ::std::stacktrace &st, FormatContext &ctx)
-      -> decltype(ctx.out()) {
-    std::string result;
+  auto format(const ::std::stacktrace &st, FormatContext &ctx) const {
+    auto out = ctx.out();
     for (const auto &entry : st) {
-      result += fmt::format("{} {} {} {}\n",
-                            entry.description(),
-                            entry.native_handle(),
-                            entry.source_file(),
-                            entry.source_line());
+      out = fmt::format_to(out,
+                           "{} {} {} {}\n",
+                           entry.description(),
+                           entry.native_handle(),
+                           entry.source_file(),
+                           entry.source_line());
     }
-    return ::fmt::format_to(ctx, "{}", result);
+    return out;
   }
 };
-#  define AC_FORMAT_IMPL(...) (::fmt::format(__VA_ARGS__))
 #endif
-#define AC_FORMAT(...) AC_FORMAT_IMPL(__VA_ARGS__)
+#define AC_FORMAT(...) (AC_STD_OR_FMT format("" __VA_ARGS__))
 #define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
 #define AC_UNREACHABLE_IMPL                                                    \
   [[assume(false)]];                                                           \
@@ -353,7 +357,8 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #  define AC_NOEXCEPT         // nothing
 #  define AC_TODO_(...)                                                        \
     AC_RUNTIME_ASSERT(false, "Not implemented: " #__VA_ARGS__);                \
-    std::abort(); // shut up the warning 'not all control paths return a value'
+    std::abort(); // shut up the warning 'not all control paths return a
+                  // value'
 #  define AC_UNREACHABLE(...)                                                  \
     AC_RUNTIME_ASSERT(false, "Unreachable code.");                             \
     AC_UNREACHABLE_IMPL

@@ -222,8 +222,8 @@ public:
         return value.to_string(format_policy);
       } else if constexpr (requires { value->to_string(); }) {
         return value.to_string();
-      } else if constexpr (requires { auxilia::format("{}", value); }) {
-        return auxilia::format("{}", value);
+      } else if constexpr (requires { Format("{}", value); }) {
+        return Format("{}", value);
       } else if constexpr (std::is_convertible_v<T, string_type>) {
         return static_cast<string_type>(value);
       } else {

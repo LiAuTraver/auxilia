@@ -13,7 +13,6 @@
 #include <iostream>
 #include <vector>
 
-#include "./config.hpp"
 #include "./format.hpp"
 #include "./StatusOr.hpp"
 #include "Status.hpp"

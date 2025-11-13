@@ -8,6 +8,14 @@ if((NOT DEFINED ${CMAKE_C_STANDARD}) OR("${${CMAKE_C_STANDARD}}" STREQUAL ""))
   set(CMAKE_C_STANDARD 17)
 endif()
 
+add_executable(demo
+  demo.cpp
+)
+target_link_libraries(demo
+  PRIVATE
+  auxilia::auxilia
+)
+
 add_executable(demo1
   demo1.cpp
 )

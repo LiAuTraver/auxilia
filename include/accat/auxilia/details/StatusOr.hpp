@@ -559,17 +559,16 @@ public:
   auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
       -> string_type {
     if (!this->ok())
-      return auxilia::format("StatusOr<{}> {{ code: {}, message: \"{}\" }}",
-                             typeid(Ty).name(),
-                             raw_code(),
-                             my_message);
+      return Format("StatusOr<{}> {{ code: {}, message: \"{}\" }}",
+                    typeid(Ty).name(),
+                    raw_code(),
+                    my_message);
     if constexpr (std::is_base_of_v<Printable, Ty>)
       return my_value.to_string(policy);
-    else if constexpr (requires { auxilia::format("{}", my_value); })
-      return auxilia::format("{}", my_value);
+    else if constexpr (requires { Format("{}", my_value); })
+      return Format("{}", my_value);
     else
-      return auxilia::format("StatusOr<{}>: <unformattable>",
-                             typeid(Ty).name());
+      return Format("StatusOr<{}>: <unformattable>", typeid(Ty).name());
   }
 
 private:

@@ -74,7 +74,7 @@ TEST(Variant, ToString) {
   v1.emplace(3.14);
   EXPECT_EQ(v1.to_string(), "3.14");
   v1.clear();
-  auto str = format("v1: {}", v1);
+  auto str = Format("v1: {}", v1);
   EXPECT_EQ(str, "v1: Monostate");
   v1.emplace_and_then(100).clear();
 }
@@ -86,6 +86,6 @@ TEST(Variant, MonostateLikeType) {
   Variant<MyMonostate, int, double> v1 = 42;
   EXPECT_EQ(v1.to_string(), "42");
   v1.reset();
-  auto str = format("v1: {}", v1);
+  auto str = Format("v1: {}", v1);
   EXPECT_EQ(str, "v1: MyMonostate");
 }

@@ -51,13 +51,13 @@ digraph {} {{
     [[nodiscard]] bool is_epsilon() const noexcept { return symbol == '\0'; }
     auto to_string(const FormatPolicy policy = FormatPolicy::kDefault) const {
       if (policy == FormatPolicy::kDefault)
-        return format(
+        return Format(
             "--{}->{}", is_epsilon() ? epsilon : widen(symbol), target_id);
       else if (policy == FormatPolicy::kBrief)
-        return format(
+        return Format(
             "{}: {}", is_epsilon() ? epsilon : widen(symbol), target_id);
       else if (policy == FormatPolicy::kDetailed)
-        return format("Transition{{target_id={}, symbol={}}}",
+        return Format("Transition{{target_id={}, symbol={}}}",
                       target_id,
                       is_epsilon() ? epsilon : widen(symbol));
       AC_UNREACHABLE()
@@ -117,21 +117,21 @@ digraph {} {{
       std::string result;
 
       if (policy == FormatPolicy::kDetailed) {
-        result += format("{{type={}, edges=[", type_string());
+        result += Format("{{type={}, edges=[", type_string());
         for (const auto &e : edges)
-          result += format("{} ,", e.to_string(policy));
+          result += Format("{} ,", e.to_string(policy));
         result += "]}";
         return result;
       }
 
       if (type == Type::kIntermediate)
-        result += format("{}\n", type_string());
+        result += Format("{}\n", type_string());
 
       if (policy == FormatPolicy::kDefault)
         for (const auto &e : edges)
-          result += format("{}\n", e.to_string(policy));
+          result += Format("{}\n", e.to_string(policy));
       else if (policy == FormatPolicy::kBrief)
-        result += format("[{} edges]", edges.size());
+        result += Format("[{} edges]", edges.size());
 
       return result;
     }
@@ -175,7 +175,7 @@ digraph {} {{
                              s.type == State::Type::kStartAndAccept);
 
       // doublecircle for accept states, single for others
-      dot += format(R"~~~({0}[label="{0}\n{1}", shape={2}circle];)~~~"
+      dot += Format(R"~~~({0}[label="{0}\n{1}", shape={2}circle];)~~~"
                     " \n",
                     id,
                     s.type_string(),
@@ -262,7 +262,7 @@ digraph {} {{
     std::string dot;
     for (const auto &[id, s] : states) {
       for (const auto &e : s.edges) {
-        dot += format(R"(  {} -> {} [label="{}"];)"
+        dot += Format(R"(  {} -> {} [label="{}"];)"
                       "\n",
                       id,
                       e.target_id,
@@ -325,7 +325,7 @@ digraph Automaton {
 
     std::string result = "Automaton: [\n";
     for (const auto &[id, s] : states)
-      result += format("State {}: {}\n", id, s.to_string(policy));
+      result += Format("State {}: {}\n", id, s.to_string(policy));
 
     result.replace(result.end() - 1, result.end(), "]");
     result += "\n";
@@ -437,7 +437,7 @@ private:
     return {postfix};
   }
   auto _to_dot_impl(const FormatPolicy) const -> std::string {
-    auto dot = format(unformatted_header, "NFA", start_id);
+    auto dot = Format(unformatted_header, "NFA", start_id);
 
     dot += _dot_states(states);
 
@@ -618,12 +618,12 @@ private:
     for (const auto &[dfa_id, nfa_states] : mapping) {
       std::string nfa_states_str;
       for (const auto nfa_state_id : nfa_states) {
-        nfa_states_str += format("{}, ", nfa_state_id);
+        nfa_states_str += Format("{}, ", nfa_state_id);
       }
       if (!nfa_states_str.empty()) {
         nfa_states_str.erase(nfa_states_str.size() - 2); // remove last ", "
       }
-      dot += format("{0} [label=\"{0}\n"
+      dot += Format("{0} [label=\"{0}\n"
                     "({1})\"];  \n",
                     dfa_id,
                     nfa_states_str);
@@ -631,7 +631,7 @@ private:
     return dot;
   }
   auto _to_dot_impl(const FormatPolicy policy) const -> std::string {
-    auto dot = format(unformatted_header, "DFA", start_id);
+    auto dot = Format(unformatted_header, "DFA", start_id);
     dot += _dot_states(states);
 
     // not only output, but also add notation for the NFA states represented

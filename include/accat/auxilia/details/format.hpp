@@ -6,97 +6,139 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
+#include "./macros.hpp"
 #include "./config.hpp"
-EXPORT_AUXILIA
-namespace accat::auxilia {
 #if !AC_USE_STD_FMT
-using ::fmt::format;
-using ::fmt::format_string;
-using ::fmt::format_to;
-using ::fmt::is_formattable;
-using ::fmt::print;
-#  ifdef __clang__
-#    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Wcxx-attribute-extension"
-[[clang::using_if_exists]] using ::fmt::formattable;
-[[clang::using_if_exists]] using ::fmt::println;
-#    pragma clang diagnostic pop
-#  elif _WIN32
-using ::fmt::println;
-#  else
-// some wired issue `fmt::println not found` on gcc 13
+#  include <fmt/color.h>
+#  include <fmt/xchar.h>
+namespace accat::auxilia {
 template <typename... T>
-inline auto println(fmt::format_string<T...> fmt, T &&...args) {
-  fmt::println(stdout, fmt, std::forward<T>(args)...);
-}
-template <typename... T>
-inline auto println(FILE *f, fmt::format_string<T...> fmt, T &&...args) {
-  fmt::print(f, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
+inline auto
+Format(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+  return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
-println(std::ostream &os, fmt::format_string<T...> fmt, T &&...args) {
-  fmt::print(os, "{}\n", fmt::format(fmt, std::forward<T>(args)...));
-}
-template <typename... Args>
-inline auto
-println(std::wostream &os,
-        fmt::basic_format_string<wchar_t, fmt::type_identity_t<Args>...> fmt,
-        Args &&...args) {
-  fmt::print(os, L"{}\n", fmt::format(fmt, std::forward<Args>(args)...));
+Format(fmt::text_style ts, fmt::wformat_string<T...> fmt, T &&...args) {
+  return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto println(std::FILE *f, fmt::wformat_string<T...> fmt, T &&...args) {
-  fmt::print(f, L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
-}
-
-template <typename... T>
-inline auto println(fmt::wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return fmt::print(
-      L"{}\n", fmt::format(fmt, std::forward<T>(args)...));
-}
-#  endif
-#  ifdef _WIN32
-// workaround
-template <class... T>
 inline auto
-println(const fmt::text_style &ts, fmt::format_string<T...> fmt, T &&...args) {
-  fmt::print(ts, fmt, std::forward<decltype(args)>(args)...);
-  ::putchar('\n');
+Print(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return ::fmt::print(
+      ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
 }
-template <class... T>
-inline auto println(FILE *f,
-                    const fmt::text_style &ts,
+template <typename... T>
+inline auto Print(::std::FILE *f,
+                  fmt::text_style ts,
+                  fmt::format_string<T...> fmt,
+                  T &&...args) {
+  [[clang::musttail]] return ::fmt::print(
+      f, ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto
+Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return ::fmt::println(
+      ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Println(::std::FILE *f,
+                    fmt::text_style ts,
                     fmt::format_string<T...> fmt,
                     T &&...args) {
-  fmt::print(f, ts, fmt, std::forward<decltype(args)>(args)...);
-  ::putchar('\n');
+  [[clang::musttail]] return ::fmt::println(
+      f, ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
 }
-#  endif
-#else
-using ::std::format;
-using ::std::format_string;
-using ::std::format_to;
-using ::std::formattable;
-using ::std::print;
-using ::std::println;
-
-// compatible with fmt::text_style, for std::format does not support it
-template <typename E, class... T>
-  requires std::is_enum_v<E>
-inline auto println(const E &, std::format_string<T...> fmt, T &&...args) {
-  std::print(fmt, std::forward<decltype(args)>(args)...);
-  ::putchar('\n');
-}
-template <typename E, class... T>
-  requires std::is_enum_v<E>
-inline auto
-println(FILE *f, const E &, std::format_string<T...> fmt, T &&...args) {
-  std::print(f, fmt, std::forward<decltype(args)>(args)...);
-  ::putchar('\n');
-}
+} // namespace accat::auxilia
 #endif
+namespace accat::auxilia {
+template <typename T, typename Char = char>
+concept Formattable = AC_STD_OR_FMT formattable<T, Char>;
+
+// omit the locale overload
+template <typename... T>
+inline auto Format(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Format(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+  return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
+}
+
+template <typename... T>
+inline auto
+Print(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print(
+      f, (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Print(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print((fmt),
+                                                 ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto
+Print(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print(
+      f, (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Print(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print((fmt),
+                                                 ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto
+Print(::std::ostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print(
+      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto
+Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT print(
+      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Println(::std::ostream &os,
+                    AC_STD_OR_FMT format_string<T...> fmt,
+                    T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println(
+      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Println(::std::wostream &os,
+                    AC_STD_OR_FMT format_string<T...> fmt,
+                    T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println(
+      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+}
+
+template <typename... T>
+inline auto
+Println(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println(
+      f, (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Println(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println((fmt),
+                                                   ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto
+Println(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println(
+      f, (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+inline auto Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+  [[clang::musttail]] return AC_STD_OR_FMT println((fmt),
+                                                   ::std::forward<T>(args)...);
+}
 } // namespace accat::auxilia
 
 namespace accat::auxilia {
@@ -107,7 +149,7 @@ struct Viewable;
 template <typename Ty>
   requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
 inline bool is_integer(Ty &&value) noexcept {
-  return std::trunc(std::forward<Ty>(value)) == value;
+  return std::trunc(::std::forward<Ty>(value)) == value;
 }
 template <typename... Ts> struct match : Ts... {
   using Ts::operator()...;
@@ -162,8 +204,8 @@ protected:
 
 namespace std {
 template <typename Derived>
-  requires is_base_of_v<::accat::auxilia::Printable,
-                        Derived>
+  requires std::is_base_of_v<::accat::auxilia::Printable,
+                             Derived>
 struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
   inline constexpr auto parse(format_parse_context &ctx) const noexcept {
     return ctx.begin();
