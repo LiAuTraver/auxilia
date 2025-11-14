@@ -139,6 +139,7 @@ inline auto Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   [[clang::musttail]] return AC_STD_OR_FMT println((fmt),
                                                    ::std::forward<T>(args)...);
 }
+inline auto Println(void) { return AC_STD_OR_FMT println(""); }
 } // namespace accat::auxilia
 
 namespace accat::auxilia {
@@ -204,9 +205,8 @@ protected:
 
 namespace std {
 template <typename Derived>
-  requires std::is_base_of_v<::accat::auxilia::Printable,
-                             Derived>
-struct formatter<Derived> { // NOLINT(cert-dcl58-cpp)
+  requires std::is_base_of_v<::accat::auxilia::Printable, Derived>
+struct formatter<Derived> {
   inline constexpr auto parse(format_parse_context &ctx) const noexcept {
     return ctx.begin();
   }

@@ -93,4 +93,5 @@ auto async(auto &&func, auto... args) -> decltype(auto)
 // https://softwareengineering.stackexchange.com/a/402543
 inline constexpr auto hash_magic_number_32bit = 0x9e3779b9u;
 inline constexpr auto hash_magic_number_64bit = 0x9e3779b97f4a7c15ull;
+inline constexpr auto epsilon = "ε";
 } // namespace accat::auxilia

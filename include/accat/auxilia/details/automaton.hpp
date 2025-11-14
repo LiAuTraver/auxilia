@@ -33,7 +33,6 @@ protected:
 
   static constexpr auto npos = static_cast<size_t>(-1);
   static constexpr auto operators = as_chars("|*.+?()");
-  static constexpr auto epsilon = "ε";
   static constexpr auto unformatted_header = raw(R"(
 digraph {} {{
   rankdir=LR;

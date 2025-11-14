@@ -1,3 +1,4 @@
+// IWYU pragma: private, include "./config.hpp"
 #pragma once
 #include "./variadic-inl.h"
 

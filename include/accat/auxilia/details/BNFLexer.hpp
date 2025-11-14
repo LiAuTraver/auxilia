@@ -5,14 +5,14 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
+#include <cstring>
 #include <limits>
-#include <locale>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -143,11 +143,71 @@ struct Token : auxilia::Printable {
     }
     return "Unknown"sv;
   }
+  constexpr auto token_type_operator() const -> std::string_view {
+    using namespace std::string_view_literals;
+    switch (type_) {
+    case Type::kLeftParen:
+      return "("sv;
+    case Type::kRightParen:
+      return ")"sv;
+    case Type::kLeftBrace:
+      return "{"sv;
+    case Type::kRightBrace:
+      return "}"sv;
+    case Type::kComma:
+      return ","sv;
+    case Type::kDot:
+      return "."sv;
+    case Type::kMinus:
+      return "-"sv;
+    case Type::kPlus:
+      return "+"sv;
+    case Type::kSemicolon:
+      return "sv;"sv;
+    case Type::kSlash:
+      return "/"sv;
+    case Type::kAmpersand:
+      return "&"sv;
+    case Type::kStar:
+      return "*"sv;
+    case Type::kBang:
+      return "!"sv;
+    case Type::kBangEqual:
+      return "!="sv;
+    case Type::kEqual:
+      return "="sv;
+    case Type::kEqualEqual:
+      return "=="sv;
+    case Type::kGreater:
+      return ">"sv;
+    case Type::kGreaterEqual:
+      return ">="sv;
+    case Type::kLess:
+      return "<"sv;
+    case Type::kLessEqual:
+      return "<="sv;
+    case Type::kLeftArrow:
+      return "->"sv;
+    case Type::kBitwiseOr:
+      return "|"sv;
+    case Type::kMonostate:
+    case Type::kIdentifier:
+      [[fallthrough]];
+    case Type::kString:
+      [[fallthrough]];
+    case Type::kNumber:
+      [[fallthrough]];
+    case Type::kLexError:
+      [[fallthrough]];
+    case Type::kEndOfFile:
+      return lexeme_;
+    }
+  }
   Token() = default;
   Token(Type type, std::string_view lexeme, uint_least32_t line)
       : type_(type), lexeme_(std::string{lexeme}), line_(line) {}
-  Token(const Token &) = delete;
-  Token &operator=(const Token &) = delete;
+  // Token(const Token &) = delete;
+  // Token &operator=(const Token &) = delete;
   Token(Token &&that) noexcept { _do_move(std::move(that)); }
   Token &operator=(Token &&that) noexcept {
     if (this == &that)
@@ -248,10 +308,28 @@ public:
       noexcept(noexcept(this->operator<=>(that))) -> bool {
     return *this <=> that != std::partial_ordering::equivalent;
   }
+  Token copy() {
+    Token newT;
+    newT.type_ = type_;
+    if (type_ == Type::kNumber) {
+      if ((newT.number_is_integer_ = number_is_integer_)) {
+        newT.num_ll_ = num_ll_;
+      } else {
+        newT.num_ld_ = num_ld_;
+      }
+    } else if (type_ != Type::kMonostate) {
+      ::new (std::addressof(newT.lexeme_)) std::string((lexeme_));
+    }
+    AC_DEBUG_ONLY(else { newT.monostate_ = monostate_; })
+    AC_DEBUG_ONLY(newT.line_ = line_;)
+
+    return newT;
+  }
 
 private:
   Type type_ = Type::kMonostate;
   union {
+    static_assert(std::is_trivial_v<std::monostate>);
     std::monostate monostate_{};
     string_type lexeme_;
     struct {
@@ -303,7 +381,7 @@ private:
       else if (type_ == Type::kMonostate)
         str = "monostate"s;
       else
-        str = type_str();
+        str = token_type_operator();
     } else {
       if (type_ == Type::kNumber)
         str = Format("number: '{}'", format_number());
@@ -312,7 +390,7 @@ private:
       else if (type_ == Type::kMonostate)
         str = "monostate"s;
       else
-        str = Format("lexeme: '{}'", type_str());
+        str = Format("lexeme: '{}'", token_type_operator());
     }
     return str;
   }

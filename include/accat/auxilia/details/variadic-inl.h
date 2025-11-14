@@ -1,3 +1,4 @@
+// IWYU pragma: private, include "./config.hpp"
 //////////////////////////////////////////////////////////////////////////
 /// @file variadic-inl.h
 /// @brief Variadic macros for C and C++.
