@@ -267,19 +267,24 @@ protected:
 
 public:
   static auto Number(const std::variant<long long, long double> value,
-                     const uint_least32_t line) noexcept {
+                     const uint_least32_t line = npos32) noexcept {
     return std::visit(
         [line](auto &&v) { return Token{Type::kNumber, v, line}; }, value);
   }
   static auto Lexeme(const Type type,
                      const std::string_view lexeme,
-                     const uint_least32_t line) noexcept {
+                     const uint_least32_t line = npos32) noexcept {
     return Token{type, lexeme, line};
   }
-  static auto Error(std::string &&message, const uint_least32_t line) noexcept {
+  static auto Error(std::string &&message,
+                    const uint_least32_t line = npos32) noexcept {
     return Token{Type::kLexError, std::move(message), line};
   }
-  static auto eof(const uint_least32_t line) noexcept {
+  static auto Identifier(const std::string_view ident,
+                         const uint_least32_t line = npos32) noexcept {
+    return Token{Type::kIdentifier, ident, line};
+  }
+  static auto eof(const uint_least32_t line /* required */) noexcept {
     using namespace std::string_view_literals;
     return Token{Type::kEndOfFile, ""sv, line};
   }
@@ -308,7 +313,7 @@ public:
       noexcept(noexcept(this->operator<=>(that))) -> bool {
     return *this <=> that != std::partial_ordering::equivalent;
   }
-  Token copy() {
+  Token copy() const {
     Token newT;
     newT.type_ = type_;
     if (type_ == Type::kNumber) {

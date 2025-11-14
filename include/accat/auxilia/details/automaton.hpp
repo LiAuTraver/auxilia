@@ -31,7 +31,6 @@ protected:
   AutomatonMixin &operator=(const AutomatonMixin &) = delete;
   AutomatonMixin &operator=(AutomatonMixin &&) noexcept = default;
 
-  static constexpr auto npos = static_cast<size_t>(-1);
   static constexpr auto operators = as_chars("|*.+?()");
   static constexpr auto unformatted_header = raw(R"(
 digraph {} {{

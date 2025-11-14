@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <tuple>
@@ -94,4 +95,6 @@ auto async(auto &&func, auto... args) -> decltype(auto)
 inline constexpr auto hash_magic_number_32bit = 0x9e3779b9u;
 inline constexpr auto hash_magic_number_64bit = 0x9e3779b97f4a7c15ull;
 inline constexpr auto epsilon = "ε";
+inline constexpr auto npos = static_cast<size_t>(-1);
+inline constexpr auto npos32 = static_cast<uint32_t>(-1);
 } // namespace accat::auxilia
