@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -46,6 +47,7 @@ struct Token : Printable {
     kBitwiseOr, // |
     kSquareBracketOpen, // [
     kSquareBracketClose, // ]
+    kCaret, // ^
 
     kLexError,
     // end of file.
@@ -381,6 +383,8 @@ private:
       return add_token(kSquareBracketOpen);
     case ']':
       return add_token(kSquareBracketClose);
+    case '^':
+      return add_token(kCaret);
     case '!':
       return add_token(advance_if_is('=') ? kBangEqual : kBang);
     case '=':
@@ -603,7 +607,7 @@ private:
 };
 class Grammar : public Printable {
   using enum Token::Type;
-  static constexpr auto copyToken = [](const Token &token) constexpr noexcept {
+  static auto copyToken (const Token &token) noexcept {
     return token.copy();
   };
 
@@ -655,9 +659,8 @@ private:
   std::unordered_map<std::string, size_t> index_map;
 
 private:
-  void _direct_lr(Piece &A,
-                  const Piece::rhs_t &rhsElems,
-                  const Piece::rhs_t &nonRecRhsElems) {
+  void
+  _direct_lr(Piece &A, Piece::rhs_t &&rhsElems, Piece::rhs_t &&nonRecRhsElems) {
     auto prime = std::string(A.lhs.lexeme()) + "'";
     // ensure uniqueness
     while (index_map.contains(prime))
@@ -670,24 +673,22 @@ private:
 
     // A -> beta A'
     Piece::rhs_t new_A_rhs;
-    for (auto &beta : nonRecRhsElems) {
-      auto &b = new_A_rhs.emplace_back();
-      b.reserve(beta.size() + 1);
-      for (auto &t : beta)
-        b.emplace_back(t.copy());
-      b.emplace_back(newPiece.lhs.copy());
+    for (auto &&beta : nonRecRhsElems | std::ranges::views::as_rvalue) {
+      auto &betaAprime = new_A_rhs.emplace_back();
+      betaAprime.reserve(beta.size() + 1);
+      betaAprime.append_range(beta | std::ranges::views::as_rvalue);
+      betaAprime.emplace_back(newPiece.lhs.copy());
     }
     A.rhs = std::move(new_A_rhs);
 
     // A' -> alpha A' | epsilion
-    for (auto &alpha : rhsElems) {
-      auto &a = newPiece.rhs.emplace_back();
-      a.reserve(alpha.size() + 1);
-      for (const auto &t : alpha)
-        a.emplace_back(t.copy());
-      a.emplace_back(newPiece.lhs.copy());
+    for (auto &&alpha : rhsElems | std::ranges::views::as_rvalue) {
+      auto &alphaAprime = newPiece.rhs.emplace_back();
+      alphaAprime.reserve(alpha.size() + 1);
+      alphaAprime.assign_range(alpha | std::ranges::views::as_rvalue);
+      alphaAprime.emplace_back(newPiece.lhs.copy());
     }
-    newPiece.rhs.emplace_back().emplace_back(Token::Identifier(epsilon, 0));
+    newPiece.rhs.emplace_back().emplace_back(Token::Identifier(epsilon));
 
     pieces.emplace_back(std::move(newPiece));
   }
@@ -696,34 +697,42 @@ private:
     Piece::rhs_t nonRecRhsElems;
     Piece::rhs_t recRhsElems; // store alpha (without leading A)
     // for readability I choose not to remove braces and got alpha and beta as
-    // aliases (, though I really want to write tham one line).
-    for (auto &rhsElem : A.rhs) {
+    // aliases (, though I really want to write them one line).
+    for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       if (rhsElem.front().lexeme() == A.lhs.lexeme()) {
-
         auto &alpha = recRhsElems.emplace_back();
-        std::ranges::transform(rhsElem | std::ranges::views::drop(1),
-                               std::back_inserter(alpha),
-                               copyToken);
+        alpha.assign_range(rhsElem | std::ranges::views::drop(1) |
+                           std::ranges::views::as_rvalue);
       } else {
         auto &beta = nonRecRhsElems.emplace_back();
-        std::ranges::transform(rhsElem, std::back_inserter(beta), copyToken);
+        // std::ranges::transform(rhsElem, std::back_inserter(beta), copyToken);
+        beta.assign_range(rhsElem | std::ranges::views::as_rvalue);
       }
     }
-    if (recRhsElems.empty())
+    if (recRhsElems.empty()) {
       // no direct left recursion
+      // note: A.rhs invalid for we marked it as xvalue previously,
+      // so we shall move it back here.
+      A.rhs.assign_range(std::move(nonRecRhsElems) |
+                         std::ranges::views::as_rvalue);
       return OkStatus();
+    }
 
     if (nonRecRhsElems.empty())
       // A -> A
       return ResourceExhaustedError("infinite loop");
 
     // create A'
-    _direct_lr(A, recRhsElems, nonRecRhsElems);
+    _direct_lr(A, std::move(recRhsElems), std::move(nonRecRhsElems));
     return OkStatus();
   }
   void _indirect_lr(Piece &A, const Piece &B) const {
     Piece::rhs_t new_rhs;
-    for (auto &rhsElem : A.rhs) {
+    for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
+      AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
+      AC_DEBUG_ONLY(
+          static_assert(std::is_rvalue_reference_v<decltype(rhsElem)>);)
+
       if ((rhsElem.front().lexeme() == B.lhs.lexeme())) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
@@ -732,26 +741,31 @@ private:
 
           combined.reserve(delta.size() + (rhsElem.size() - 1));
           std::ranges::transform(
-              delta, std::back_inserter(combined), copyToken);
-          std::ranges::transform(rhsElem | std::ranges::views::drop(1),
+              delta, std::back_inserter(combined), &Token::copy);
+
+          std::ranges::transform(rhsElem                            //
+                                     | std::ranges::views::as_const //
+                                     | std::ranges::views::drop(1),
                                  std::back_inserter(combined),
-                                 copyToken);
+                                 &Token::copy);
+          // ^^^ as_const is for readability:
+          // we prevent/didn't perform move here from xvalue `rhsElem`
+          // (we may use rhsElem again during next iteration of delta)
         }
       } else {
-        auto &kept = new_rhs.emplace_back();
-        kept.reserve(rhsElem.size());
-        std::ranges::transform(rhsElem, std::back_inserter(kept), copyToken);
+        // keep untouched
+        new_rhs.emplace_back(std::move(rhsElem));
       }
     }
     A.rhs = std::move(new_rhs);
   }
-  static Status postValidation(const std::vector<Token> &tokens) {
+  static Status preprocess(const std::vector<Token> &tokens) {
     if (tokens.size() == 1) {
       AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
       Println("nothing to do");
       return OkStatus();
     }
-    if (std::ranges::any_of(tokens, [&](const Token &token) {
+    if (string_type str; std::ranges::any_of(tokens, [&](const Token &token) {
           // allowed type in this Left Recursion Grammar.
           using enum Token::Type;
           const auto invalid = false; // workaround
@@ -760,16 +774,148 @@ private:
                                       //   return !token.is_type(type);
                                       // });
           if (invalid)
-            Println(R"('{1}' Contains non-allowed type '{0}')",
-                    token.type_str(),
-                    token.to_string(FormatPolicy::kBrief));
+            str.append(Format(R"('{1}' Contains non-allowed type '{0}')",
+                              token.type_str(),
+                              token.to_string(FormatPolicy::kBrief)));
           return invalid;
         })) {
-      Println(stderr, "Validation failure.");
-      return UnimplementedError("Grammar contains non-allowed token types.");
+      return UnimplementedError(std::move(str).append(
+          "Grammar contains non-allowed token types; Validation failure."));
     }
-    Println("Lex process successfully finished.");
-    return OkStatus();
+    return OkStatus("Lex process successfully finished.");
+  }
+  void postprocess(std::ranges::common_range auto &&lines) {
+
+    for (auto &&l : lines) {
+      auto &piece = pieces.emplace_back();
+      piece.lhs = l.front().front();
+      // build index_map here
+      index_map.emplace(piece.lhs.lexeme(), piece.lhs.line());
+      for (auto &&chunk_view : l // already rvalue
+                                   | std::ranges::views::drop(1) //
+                                   | std::ranges::views::as_rvalue) {
+        piece.rhs.emplace_back().assign_range(chunk_view);
+      }
+    }
+  }
+  static StatusOr<Grammar> do_parse(std::vector<Token> &&tokens) {
+    // I admit it's a bit messy here, but as the saying goes:
+    // "If it works, don't touch it".
+
+    if (auto status = preprocess(tokens); !status)
+      return status;
+
+    string_type errorMsg_lazy;
+
+    constexpr auto stmtSeperator = [](auto &&a, auto &&b) {
+      return a.line() == b.line() // same line
+                                  // or different line but same statement
+             || ((a.line() < b.line()) &&
+                     (a.is_type(kBitwiseOr) || b.is_type(kBitwiseOr)) ||
+                 (a.is_type(kLeftArrow) || b.is_type(kLeftArrow)));
+    };
+
+    // first should be a single Identifier.
+    const auto is_first_chunk_valid = [&](auto &&chunk) -> bool {
+      if (chunk.size() != 1) {
+        errorMsg_lazy += Format(
+            "line {}: First chunk should only contain a single Identifier\n",
+            chunk.front().line());
+        return false;
+      }
+      if (chunk.front().is_type(kLeftArrow)) {
+        errorMsg_lazy +=
+            Format("line {}: First chunk should be an Identifier"
+                   "(special characters as non-terminal is not accepted).\n",
+                   chunk.front().line());
+        return false;
+      }
+      return true;
+    };
+
+    // Second should be a single LeftArrow.
+    // We don't include this chunk in the final output, so always return false.
+    // Only append an error if it's malformed.
+    const auto is_second_chunk_valid = [&](auto &&chunk) -> bool {
+      if (chunk.size() != 1 || !chunk.front().is_type(kLeftArrow)) {
+        errorMsg_lazy += Format(
+            "line {}: Second chunk should only contain a single LeftArrow.\n",
+            chunk.front().line());
+      }
+      return false;
+    };
+
+    // following chunks must not contain additional LeftArrow tokens.
+    const auto is_following_chunk_valid = [&](auto &&chunk) -> bool {
+      if (std::ranges::any_of(chunk,
+                              [](auto &&t) { return t.is_type(kLeftArrow); })) {
+        errorMsg_lazy += Format("line {}: Unexpected LeftArrow in rhs.\n",
+                                chunk.front().line());
+        return false;
+      }
+      // BitwiseOr indicates an alternative separator;
+      // if present, it must be the only token in this chunk.
+      if (std::ranges::any_of(chunk,
+                              [](auto &&t) { return t.is_type(kBitwiseOr); })) {
+        if (chunk.size() != 1) {
+          errorMsg_lazy += Format("line {}: Unexpected BitwiseOr in rhs.\n",
+                                  chunk.front().line());
+          return false;
+        }
+        // valid BitwiseOr, but we don't need it as a chunk to keep.
+        return false;
+      }
+      // valid elem of rhs.
+      return true;
+    };
+
+    const auto validSep = [&](auto &&pair) {
+      auto &&[index, chunk] = pair;
+      if (index == 0)
+        // lhs
+        return is_first_chunk_valid(chunk);
+      if (index == 1)
+        // the LeftArrow
+        return is_second_chunk_valid(chunk);
+      // rhs
+      return is_following_chunk_valid(chunk);
+    };
+    constexpr auto segmentsSep = [](auto &&lhs, auto &&rhs) {
+      return (lhs.is_type(kLeftArrow) == rhs.is_type(kLeftArrow)) &&
+             (lhs.is_type(kBitwiseOr) == rhs.is_type(kBitwiseOr));
+    };
+
+    // transform_view<chunk_by_view<take_view<as_rvalue_view<owning_view<vector<Token>>>>,(l)>,(l)>
+    auto lines =
+        std::move(tokens) // xvalue to form a owning view rather than a ref view
+        | std::ranges::views::as_rvalue // mark token in tokens as rvalue
+        | std::ranges::views::take(tokens.size() - 1) // drop that kEndOfFile
+        | std::ranges::views::chunk_by(stmtSeperator) // split by line
+        |
+        std::ranges::views::transform([&](auto &&line) {
+          return line // now: lhs kLeftArrow rhs_elem1 kBitwiseOr rhs_elem2 ...
+                 | std::ranges::views::chunk_by(segmentsSep) // result ^^^
+                 | std::ranges::views::enumerate             // [index, chunk]
+                 | std::ranges::views::filter(validSep) // extract lhs and rhs.
+                 | std::ranges::views::values // drop views::enum's key.
+                 | std::ranges::views::common // idk, prevent compat issues
+              ;                      // returned: lhs rhs_elem1 rhs_elem2 ...
+        })                           //
+        | std::ranges::views::common // ditto
+        ;
+
+    Grammar grammar;
+    grammar.postprocess(std::move(lines));
+
+    // IMPORTANT: ranges::views are lazy-evaluated, so the validation is done
+    // during the post_parse call(where we actually iterate through the views).
+    // Thus we should check errorMsg after that;
+    // otherwise errorMsg will always be empty here.
+    if (!errorMsg_lazy.empty()) {
+      return {InvalidArgumentError(std::move(errorMsg_lazy))};
+    }
+
+    return {std::move(grammar)};
   }
 
 public:
@@ -787,96 +933,8 @@ public:
     }
     return OkStatus();
   }
-
-  static StatusOr<Grammar> parse(std::vector<Token> &&tokens) {
-    if (auto status = postValidation(tokens); !status)
-      return status;
-
-    constexpr auto lineSeperator = [](auto &&a, auto &&b) {
-      return a.line() == b.line();
-    };
-    constexpr auto validSep = [](auto &&pair) {
-      auto &&[index, chunk] = pair;
-      if (index == 0) {
-        // first should be a single Identifier.
-        if (chunk.size() != 1 || std::ranges::any_of(chunk, [](auto &&t) {
-              return t.is_type(kLeftArrow);
-            })) {
-          AC_DEBUG_BREAK
-        }
-        return true;
-      }
-      // second should be a single LeftArrow.
-      if (index == 1) {
-        if (chunk.size() != 1 || !chunk.front().is_type(kLeftArrow)) {
-          AC_DEBUG_BREAK
-          return false;
-        }
-        return false;
-      }
-      // following chunks
-      if (std::ranges::any_of(chunk,
-                              [](auto &&t) { return t.is_type(kLeftArrow); })) {
-        // should not be more LeftArrows.
-        AC_DEBUG_BREAK
-        return false;
-      }
-      if (std::ranges::any_of(chunk,
-                              [](auto &&t) { return t.is_type(kBitwiseOr); })) {
-        if (chunk.size() != 1) {
-          // multiple BitwiseOr appears.
-          AC_DEBUG_BREAK
-          return false;
-        }
-        // valid BitwiseOr, but we don't need it.
-        return false;
-      }
-      // valid elem of rhs.
-      return true;
-    };
-    constexpr auto segmentsSep = [](auto &&lhs, auto &&rhs) {
-      return (lhs.is_type(kLeftArrow) == rhs.is_type(kLeftArrow)) &&
-             (lhs.is_type(kBitwiseOr) == rhs.is_type(kBitwiseOr));
-    };
-    // split according to line number
-    // transform_view<chunk_by_view<take_view<as_rvalue_view<owning_view<vector<Token>>>>,
-    // (lambda)>, (lambda)>
-    auto lines =
-        std::move(tokens) // xvalue to form a owning view rather than a ref view
-        | std::ranges::views::as_rvalue // mark token in tokens as rvalue
-        | std::ranges::views::take(tokens.size() - 1) // drop that kEndOfFile
-        | std::ranges::views::chunk_by(lineSeperator) // split by line
-        |
-        std::ranges::views::transform([&](auto &&line) {
-          return line // now: lhs kLeftArrow rhs_elem1 kBitwiseOr rhs_elem2 ...
-                 | std::ranges::views::chunk_by(segmentsSep) // result ^^^
-                 | std::ranges::views::enumerate             // [index, chunk]
-                 | std::ranges::views::filter(validSep) // extract lhs and rhs.
-                 | std::ranges::views::values // drop views::enum's key.
-                 | std::ranges::views::common // idk, prevent compat issues
-              ;                      // returned: lhs rhs_elem1 rhs_elem2 ...
-        })                           //
-        | std::ranges::views::common // ditto
-        ;
-
-    Grammar grammar;
-    grammar.post_parse(std::move(lines));
-
-    return {std::move(grammar)};
-  }
-  void post_parse(auto &&lines) {
-
-    for (auto &&l : lines) {
-      auto &piece = pieces.emplace_back();
-      piece.lhs = l.front().front();
-      // build index_map here
-      index_map.emplace(piece.lhs.lexeme(), piece.lhs.line());
-      for (auto &&chunk_view : l // already rvalue
-                                   | std::ranges::views::drop(1) //
-                                   | std::ranges::views::as_rvalue) {
-        piece.rhs.emplace_back().assign_range(chunk_view);
-      }
-    }
+  static auto parse(std::vector<Token> &&tokens) {
+    return do_parse(std::move(tokens));
   }
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
     return std::ranges::views::join_with(
@@ -951,6 +1009,8 @@ constexpr auto Token::token_type_str(const Type type) -> std::string_view {
     return "SquareBracketOpen"sv;
   case Type::kSquareBracketClose:
     return "SquareBracketClose"sv;
+  case Type::kCaret:
+    return "Caret"sv;
   default:
     break;
   }
@@ -1007,6 +1067,8 @@ constexpr auto Token::token_type_operator() const -> std::string_view {
     return "["sv;
   case Type::kSquareBracketClose:
     return "]"sv;
+  case Type::kCaret:
+    return "^"sv;
   case Type::kMonostate:
     [[fallthrough]];
   case Type::kIdentifier:
@@ -1018,7 +1080,6 @@ constexpr auto Token::token_type_operator() const -> std::string_view {
   case Type::kLexError:
     [[fallthrough]];
   case Type::kEndOfFile:
-    break;
     break;
   }
   return lexeme_;

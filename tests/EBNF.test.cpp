@@ -45,11 +45,22 @@ List -> Element List'
 Element -> a | b | c
 List' -> , Element List' | ε
 )~~";
-
+// also test different line here!
 constexpr auto mixed_ops = R"~~(
-E -> E == T | E != T | T
-T -> T < F | T > F | F
-F -> (E) | id | num
+E -> 
+E == T | 
+E != T | 
+T
+T
+-> T < F 
+| T > F 
+| F
+F -> 
+(E) 
+| 
+id 
+| 
+num
 )~~";
 
 constexpr auto mixed_ops_expected = R"~~(
@@ -87,7 +98,7 @@ auto getStr(auto &&str) -> std::string {
 }
 #include <accat/auxilia/details/views.hpp>
 using ranges::views::trim;
-TEST(EBNF, lr) {
+TEST(EBNF, LR) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(arithmetic)), trim(arithmetic_expected));
@@ -96,4 +107,73 @@ TEST(EBNF, lr) {
   EXPECT_EQ(trim(getStr(mixed_ops)), trim(mixed_ops_expected));
   EXPECT_EQ(trim(getStr(multiple_recursion)),
             trim(multiple_recursion_expected));
+}
+constexpr auto multipleLeftArrow = R"~~(
+A -> A -> B | B
+)~~";
+constexpr auto multipleLeftArrow_expected = R"~~(
+line 2: Unexpected LeftArrow in rhs.
+)~~";
+TEST(EBNF, LRErrorHandling) {
+  set_console_output_cp_utf8();
+
+  EXPECT_EQ(trim(getStr(multipleLeftArrow)), trim(multipleLeftArrow_expected));
+}
+constexpr auto nested_left_recursion = R"~~(
+S -> A | B
+A -> A a B | A b C | d
+B -> B c A | B d B | e  
+C -> C f A | C g B | h
+)~~";
+constexpr auto nested_left_recursion_expected = R"~~(
+S -> A | B
+A -> d A'
+B -> e B'
+C -> h C'
+A' -> a B A' | b C A' | ε
+B' -> c A B' | d B B' | ε
+C' -> f A C' | g B C' | ε
+)~~";
+
+constexpr auto multi_level_recursion = R"~~(
+Expr -> Expr + Term | Expr - Term | Term
+Term -> Term * Factor | Term / Factor | Factor  
+Factor -> Factor Pow Primary | Primary
+Pow -> ^
+Primary -> ( Expr ) | id | num
+)~~";
+constexpr auto multi_level_recursion_expected = R"~~(
+Expr -> Term Expr'
+Term -> Factor Term'
+Factor -> Primary Factor'
+Pow -> ^
+Primary -> ( Expr ) | id | num
+Expr' -> + Term Expr' | - Term Expr' | ε
+Term' -> * Factor Term' | / Factor Term' | ε
+Factor' -> ^ Primary Factor' | ε
+)~~";
+
+constexpr auto crazy = R"~~(
+A -> A B C | A C B | a
+B -> B A C | B C A | b  
+C -> C A B | C B A | c
+)~~";
+constexpr auto crazy_doomed = R"~~(
+A -> a A'
+B -> b B' 
+C -> c C'
+A' -> B C A' | C B A' | ε
+B' -> A C B' | C A B' | ε
+C' -> A B C' | B A C' | ε
+)~~";
+TEST(EBNF, ComplexLR) {
+  set_console_output_cp_utf8();
+
+  EXPECT_EQ(trim(getStr(nested_left_recursion)),
+            trim(nested_left_recursion_expected));
+  EXPECT_EQ(trim(getStr(multi_level_recursion)),
+            trim(multi_level_recursion_expected));
+  // failed: substitues too eagerly
+  // A' -> b B' C A' | c C' B A' | ε
+  // EXPECT_EQ(trim(getStr(crazy)), trim(crazy_doomed));
 }
