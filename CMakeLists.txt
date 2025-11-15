@@ -21,7 +21,8 @@ target_include_directories(auxilia INTERFACE
 )
 add_compile_definitions(-D_ENABLE_STL_INTERNAL_CHECK=1)
 
-if(DEFINED ENV{AC_CPP_DEBUG} AND "$ENV{AC_CPP_DEBUG}" STREQUAL "ON")
+if(DEFINED ENV{AC_CPP_DEBUG} AND "$ENV{AC_CPP_DEBUG}" STREQUAL "ON" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+  message(STATUS "Enabling debug mode macros")
   target_compile_definitions(auxilia INTERFACE AC_CPP_DEBUG)
   find_package(spdlog REQUIRED)
   target_link_libraries(auxilia INTERFACE spdlog::spdlog)

@@ -1,8 +1,4 @@
-#include <gtest/gtest.h>
-
-#include <accat/auxilia/defines.hpp>
-
-AC_SPDLOG_INITIALIZATION(auxilia, info)
+#include "./test.env.inl.hpp"
 
 #include <accat/auxilia/details/automaton.hpp>
 

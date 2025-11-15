@@ -317,10 +317,6 @@ digraph Automaton {
     if (empty())
       return "Automaton <empty>";
 
-#ifdef _WIN32
-    SetConsoleOutputCP(65001);
-#endif
-
     std::string result = "Automaton: [\n";
     for (const auto &[id, s] : states)
       result += Format("State {}: {}\n", id, s.to_string(policy));

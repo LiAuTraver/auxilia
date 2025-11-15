@@ -97,4 +97,11 @@ inline constexpr auto hash_magic_number_64bit = 0x9e3779b97f4a7c15ull;
 inline constexpr auto epsilon = "ε";
 inline constexpr auto npos = static_cast<size_t>(-1);
 inline constexpr auto npos32 = static_cast<uint32_t>(-1);
+
+AC_FLATTEN_ inline bool is_debugger_present() noexcept {
+  return details::_is_debugger_present();
+}
+AC_FLATTEN_ inline void set_console_output_cp_utf8() noexcept {
+  details::_set_console_output_cp_utf8();
+}
 } // namespace accat::auxilia

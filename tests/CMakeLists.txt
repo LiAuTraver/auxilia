@@ -29,6 +29,7 @@ add_executable(auxilia.test
   Bitset.test.cpp
   Chars.test.cpp
   Automata.test.cpp
+  EBNF.test.cpp
 )
 
 target_compile_options(auxilia.test PRIVATE -DAC_USE_STD_FMT=1)

@@ -165,10 +165,14 @@ inline constexpr details::_swap_endian_fn swap_endian;
 inline constexpr details::_surround_fn surround;
 /// @brief trims the leading and trailing whitespace-like characters
 /// from given range(char-like elements)
-inline constexpr auto trim(const std::string_view str) -> std::string_view {
-  auto beg = std::ranges::find_if_not(str, isspacelike);
-  auto end = std::ranges::find_last_if_not(str, isspacelike).end();
-  return {std::move(beg), std::move(end)};
+inline constexpr auto trim(std::string_view sv) -> std::string_view {
+  std::size_t i = 0;
+  while (i < sv.size() && isspacelike(sv[i]))
+    ++i;
+  std::size_t j = sv.size();
+  while (j > i && isspacelike(sv[j - 1]))
+    --j;
+  return sv.substr(i, j - i);
 }
 } // namespace accat::auxilia::ranges::views
 

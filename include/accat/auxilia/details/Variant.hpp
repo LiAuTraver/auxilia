@@ -260,4 +260,9 @@ inline constexpr auto visit(Callable &&callable, Variants &&...vs)
   return std::visit(std::forward<Callable>(callable),
                     std::forward<Variants>(vs).my_variant...);
 }
+template <typename... Types>
+Variant(Types &&...) -> Variant<std::decay_t<Types>...>;
+
+template <typename... Types>
+Variant(std::variant<Types...> &&) -> Variant<Types...>;
 } // namespace accat::auxilia

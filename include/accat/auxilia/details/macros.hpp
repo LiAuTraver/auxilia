@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "./config.hpp"
+// IWYU pragma: private, include <accat/auxilia/defines.hpp>
 #pragma once
 #include "./variadic-inl.h"
 
@@ -10,6 +10,10 @@
            "If you are certain C++20 has turned on, " \
            "maybe you forgot to add /Zc:__cplusplus."
 #  endif
+#endif
+
+#if defined(__GNUC__) && defined(_WIN32)
+#  error This library does not support GCC on Windows.
 #endif
 
 #if defined(AC_CPP_DEBUG)
@@ -282,6 +286,14 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
 #else
   // not implemented
   return false;
+#endif
+}
+AC_FLATTEN_ inline void _set_console_output_cp_utf8() noexcept {
+#ifdef _WIN32
+  ::SetConsoleOutputCP(65001);
+#else
+  system("export LANG=en_US.UTF-8");
+  system("export LC_CTYPE=en_US.UTF-8");
 #endif
 }
 } // namespace accat::auxilia::details
