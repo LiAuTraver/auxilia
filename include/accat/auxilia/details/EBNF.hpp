@@ -29,7 +29,8 @@
 #include "./chars.hpp"
 
 namespace accat::auxilia {
-struct Token : Printable {
+class Token : Printable {
+public:
   enum class Type : uint8_t {
     // clang-format off
     kMonostate = 0,
@@ -92,8 +93,16 @@ public:
   }
   constexpr auto type() const noexcept { return type_; }
   constexpr auto type_str() const noexcept { return token_type_str(type_); }
-  constexpr auto is_type(const Type type) const noexcept {
-    return type_ == type;
+
+private:
+  constexpr auto is_type() const noexcept { return false; }
+
+public:
+  template <typename... Ts>
+  constexpr auto is_type(const Ts... types) const noexcept {
+    static_assert((std::same_as<Ts, Type> && ...),
+                  "All arguments must be of type Token::Type");
+    return ((type_ == types) || ...);
   }
   constexpr auto line() const noexcept { return line_; }
   auto to_string(const auxilia::FormatPolicy &format_policy =
@@ -607,9 +616,7 @@ private:
 };
 class Grammar : public Printable {
   using enum Token::Type;
-  static auto copyToken (const Token &token) noexcept {
-    return token.copy();
-  };
+  static auto copyToken(const Token &token) noexcept { return token.copy(); };
 
 public:
   Grammar() noexcept = default;
@@ -810,9 +817,8 @@ private:
     constexpr auto stmtSeperator = [](auto &&a, auto &&b) {
       return a.line() == b.line() // same line
                                   // or different line but same statement
-             || ((a.line() < b.line()) &&
-                     (a.is_type(kBitwiseOr) || b.is_type(kBitwiseOr)) ||
-                 (a.is_type(kLeftArrow) || b.is_type(kLeftArrow)));
+             || ((a.line() < b.line()) && (a.is_type(kBitwiseOr, kLeftArrow) ||
+                                           b.is_type(kBitwiseOr, kLeftArrow)));
     };
 
     // first should be a single Identifier.
