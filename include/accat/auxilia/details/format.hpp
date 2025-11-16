@@ -28,29 +28,33 @@ template <typename... T>
 inline auto
 Print(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   [[clang::musttail]] return ::fmt::print(
-      ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+      ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Print(::std::FILE *f,
                   fmt::text_style ts,
                   fmt::format_string<T...> fmt,
                   T &&...args) {
-  [[clang::musttail]] return ::fmt::print(
-      f, ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+  [[clang::musttail]] return ::fmt::print(f,
+                                          ::std::forward<fmt::text_style>(ts),
+                                          (fmt),
+                                          ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   [[clang::musttail]] return ::fmt::println(
-      ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+      ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::FILE *f,
                     fmt::text_style ts,
                     fmt::format_string<T...> fmt,
                     T &&...args) {
-  [[clang::musttail]] return ::fmt::println(
-      f, ::std::forward(ts), (fmt), ::std::forward<T>(args)...);
+  [[clang::musttail]] return ::fmt::println(f,
+                                            ::std::forward<fmt::text_style>(ts),
+                                            (fmt),
+                                            ::std::forward<T>(args)...);
 }
 } // namespace accat::auxilia
 #endif
@@ -94,27 +98,27 @@ template <typename... T>
 inline auto
 Print(::std::ostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   [[clang::musttail]] return AC_STD_OR_FMT print(
-      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+      os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   [[clang::musttail]] return AC_STD_OR_FMT print(
-      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+      os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::ostream &os,
                     AC_STD_OR_FMT format_string<T...> fmt,
                     T &&...args) {
   [[clang::musttail]] return AC_STD_OR_FMT println(
-      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+      os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::wostream &os,
                     AC_STD_OR_FMT format_string<T...> fmt,
                     T &&...args) {
   [[clang::musttail]] return AC_STD_OR_FMT println(
-      ::std::forward(os), (fmt), ::std::forward<T>(args)...);
+      os, (fmt), ::std::forward<T>(args)...);
 }
 
 template <typename... T>
@@ -167,12 +171,17 @@ enum class FormatPolicy : uint8_t {
 /// printed via `std::cout` or `fmt::print`.
 /// @note use public inheritance to make fmt::print work.
 struct AC_NOVTABLE_ AC_EMPTY_BASES_ Printable {
+
 protected:
   using string_type = std::string;
   template <typename T>
     requires std::is_base_of_v<Printable, T>
   friend auto operator<<(std::ostream &os, const T &p) -> std::ostream & {
-    return os << p.to_string(FormatPolicy::kDefault);
+    if constexpr (requires { p.to_string(FormatPolicy::kDefault); }) {
+      return os << p.to_string(FormatPolicy::kDefault);
+    } else {
+      return os << p.to_string();
+    }
   }
   template <typename T>
     requires std::is_base_of_v<Printable, T>
@@ -181,8 +190,23 @@ protected:
   format_as(const T &p,
             const FormatPolicy format_policy = FormatPolicy::kDefault)
       -> Printable::string_type {
-    return p.to_string(format_policy);
+    if constexpr (requires { p.to_string(format_policy); }) {
+      return p.to_string(format_policy);
+    } else {
+      return p.to_string();
+    }
   }
+
+public:
+  static constexpr auto Brief = [](const auto &p)
+    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
+  { return p.to_string(FormatPolicy::kBrief); };
+  static constexpr auto Detailed = [](const auto &p)
+    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
+  { return p.to_string(FormatPolicy::kDetailed); };
+  static constexpr auto Default = [](const auto &p)
+    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
+  { return p.to_string(FormatPolicy::kDefault); };
 };
 
 /// @interface Viewable
@@ -192,14 +216,33 @@ protected:
   template <typename T>
     requires std::is_base_of_v<Viewable, T>
   friend auto operator<<(std::ostream &os, const T &v) -> std::ostream & {
-    return os << v.to_string_view(FormatPolicy::kDefault);
+    if constexpr (requires { v.to_string_view(FormatPolicy::kDefault); }) {
+      return os << v.to_string_view(FormatPolicy::kDefault);
+    } else {
+      return os << v.to_string_view();
+    }
   }
   template <typename T>
     requires std::is_base_of_v<Viewable, T>
   [[nodiscard]] friend auto operator<<(std::wostream &os, const T &v)
       -> std::wostream & {
-    return os << v.to_string_view(FormatPolicy::kDefault);
+    if constexpr (requires { v.to_string_view(FormatPolicy::kDefault); }) {
+      return os << v.to_string_view(FormatPolicy::kDefault);
+    } else {
+      return os << v.to_string_view();
+    }
   }
+
+public:
+  static constexpr auto Brief = [](const auto &v)
+    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
+  { return v.to_string_view(FormatPolicy::kBrief); };
+  static constexpr auto Detailed = [](const auto &v)
+    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
+  { return v.to_string_view(FormatPolicy::kDetailed); };
+  static constexpr auto Default = [](const auto &v)
+    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
+  { return v.to_string_view(FormatPolicy::kDefault); };
 };
 } // namespace accat::auxilia
 

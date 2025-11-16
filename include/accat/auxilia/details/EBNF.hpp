@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -29,7 +30,7 @@
 #include "./chars.hpp"
 
 namespace accat::auxilia {
-class Token : Printable {
+class Token : public Printable {
 public:
   enum class Type : uint8_t {
     // clang-format off
@@ -311,15 +312,17 @@ public:
     if (!error())
       return result;
 
-    return std::unexpected(
-        std::ranges::views::join_with(
-            result | std::views::filter([](const token_t &t) {
-              return t.is_type(Token::Type::kLexError);
-            }) | std::views::transform([](const token_t &t) {
-              return std::string(t.error_message());
-            }),
-            '\n') |
-        std::ranges::to<string_type>());
+    return std::unexpected(result //
+                           | std::ranges::views::filter([](const token_t &t) {
+                               return t.is_type(Token::Type::kLexError);
+                             }) //
+                           |
+                           std::ranges::views::transform([](const token_t &t) {
+                             return std::string(t.error_message());
+                           }) |
+                           std::ranges::views::join_with('\n') //
+                           | std::ranges::to<string_type>()    //
+    );
   }
   /// @brief get the number of errors
   /// @return the number of errors
@@ -634,26 +637,19 @@ private:
     lhs_t lhs;
     rhs_t rhs;
 
-    auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
+    auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
       return lhs.to_string(FormatPolicy::kBrief)
           .append(" -> ")
           .append_range( //
-              std::ranges::views::join_with(
-                  rhs //
-                      | std::ranges::views::transform([](auto &&alt) {
-                          return std::ranges::views::join_with(
-                              alt                                  //
-                                  | std::ranges::views::transform( //
-                                        [](auto &&sym) {
-                                          return sym.to_string(
-                                              FormatPolicy::kBrief);
-                                        }),
-                              ' ') //
-                              ;
-                        }),
-                  std::string_view(" | ")) //
+              rhs        //
+              | std::ranges::views::transform([&](auto &&alt) {
+                  return alt                                               //
+                         | std::ranges::views::transform(Printable::Brief) //
+                         | std::ranges::views::join_with(' ')              //
+                      ;
+                })                                                     //
+              | std::ranges::views::join_with(std::string_view(" | ")) //
               // ^^^ workaround, pass const char* seems cause issue
-              | std::ranges::views::as_rvalue //
           );
     }
 
@@ -942,13 +938,15 @@ public:
   static auto parse(std::vector<Token> &&tokens) {
     return do_parse(std::move(tokens));
   }
+  Status extract_left_factor() {
+    AC_TODO_()
+    return UnimplementedError();
+  }
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
-    return std::ranges::views::join_with(
-               pieces //
-                   | std::views::transform(
-                         [](auto &&piece) { return piece.to_string(); }),
-               '\n')                        //
-           | std::ranges::to<string_type>() //
+    return pieces                                              //
+           | std::ranges::views::transform(Printable::Default) //
+           | std::ranges::views::join_with('\n')               //
+           | std::ranges::to<string_type>()                    //
         ;
   }
 };
