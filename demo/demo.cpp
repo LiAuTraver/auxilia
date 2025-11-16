@@ -17,35 +17,20 @@
 #include "accat/auxilia/details/EBNF.hpp"
 #include "accat/auxilia/details/views.hpp"
 
+#include "accat/auxilia/defines.hpp"
+
 using namespace accat::auxilia;
 
-constexpr auto complex_expr = R"~~(
-Expr -> Expr + Term | Expr - Term | Term
-Term -> Term * Factor | Term / Factor | Factor
-Factor -> (Expr) | num | id
-)~~";
-
-// After elimination:
-constexpr auto complex_expr_fixed = R"~~(
-Expr -> Term Expr'
-Term -> Factor Term'
-Factor -> ( Expr ) | num | id
-Expr' -> + Term Expr' | - Term Expr' | ε
-Term' -> * Factor Term' | / Factor Term' | ε
-)~~";
-
-constexpr auto nested_left_recursion = R"~~(
-S -> A | B
-A -> A a B | A b C | d
-B -> B c A | B d B | e  
-C -> C f A | C g B | h
+constexpr auto flight = R"~~(
+S -> AS | b
+A -> SA | a
 )~~";
 
 extern const char *const sysc;
-#include "accat/auxilia/defines.hpp"
+
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(nested_left_recursion);
+  Lexer lexer(sysc);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {

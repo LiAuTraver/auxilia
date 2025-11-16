@@ -227,6 +227,8 @@ operator*(_dbg_block_helper_struct_, Fun_ f_)
         ->void // NOLINT(bugprone-macro-parentheses)
 
 #  define AC_DEBUG_ONLY(...) __VA_ARGS__
+#  define AC_STATIC_ASSERT(_cond_, ...)                                        \
+    static_assert(_cond_ __VA_OPT__(, ) __VA_ARGS__)
 
 /// @note detect if gtest was included, if so, emit a different message.
 #  ifdef GTEST_API_
@@ -383,6 +385,7 @@ AC_FLATTEN_ inline void _set_console_output_cp_utf8() noexcept {
 #  define AC_DEBUG_LOGGING_SETUP(...) (void)0;
 #  define AC_DEBUG_BLOCK [&]()->void
 #  define AC_DEBUG_ONLY(...)
+#  define AC_STATIC_ASSERT(...) static_assert(...)
 #  define AC_DBG_BREAK (void)0;
 #  define AC_NOEXCEPT_IF(...) noexcept(__VA_ARGS__)
 #  define AC_NOEXCEPT noexcept

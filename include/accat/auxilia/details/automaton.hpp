@@ -67,10 +67,10 @@ digraph {} {{
     /* const */ size_t start = npos;
     /* const */ size_t end = npos;
   };
-  static_assert(std::conjunction_v<std::is_aggregate<Transition>,
-                                   std::is_aggregate<Fragment>,
-                                   std::is_trivially_copyable<Transition>,
-                                   std::is_trivially_copyable<Fragment>>);
+  AC_STATIC_ASSERT(std::conjunction_v<std::is_aggregate<Transition>,
+                                      std::is_aggregate<Fragment>,
+                                      std::is_trivially_copyable<Transition>,
+                                      std::is_trivially_copyable<Fragment>>);
   struct State : Printable {
     using edges_t = std::unordered_set<
         Transition,

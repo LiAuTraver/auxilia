@@ -16,10 +16,10 @@ target_link_libraries(demo
   auxilia::auxilia
 )
 
-add_executable(demo1
-  demo1.cpp
+add_executable(program_options_demo
+  program.options.demo.cpp
 )
-target_link_libraries(demo1
+target_link_libraries(program_options_demo
   PRIVATE
   auxilia::auxilia
 )

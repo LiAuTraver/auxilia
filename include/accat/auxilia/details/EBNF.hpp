@@ -95,15 +95,15 @@ public:
   constexpr auto type() const noexcept { return type_; }
   constexpr auto type_str() const noexcept { return token_type_str(type_); }
 
-private:
-  constexpr auto is_type() const noexcept { return false; }
-
 public:
   template <typename... Ts>
   constexpr auto is_type(const Ts... types) const noexcept {
     static_assert((std::same_as<Ts, Type> && ...),
                   "All arguments must be of type Token::Type");
-    return ((type_ == types) || ...);
+    if constexpr (sizeof...(Ts) == 0)
+      return false;
+    else
+      return ((type_ == types) || ...);
   }
   constexpr auto line() const noexcept { return line_; }
   auto to_string(const auxilia::FormatPolicy &format_policy =
@@ -197,7 +197,7 @@ public:
 private:
   Type type_ = Type::kMonostate;
   union {
-    static_assert(std::is_trivial_v<std::monostate>);
+    AC_STATIC_ASSERT(std::is_trivial_v<std::monostate>);
     std::monostate monostate_{};
     string_type lexeme_;
     struct {
@@ -640,8 +640,8 @@ private:
     auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
       return lhs.to_string(FormatPolicy::kBrief)
           .append(" -> ")
-          .append_range( //
-              rhs        //
+          .append_range(
+              rhs //
               | std::ranges::views::transform([&](auto &&alt) {
                   return alt                                               //
                          | std::ranges::views::transform(Printable::Brief) //
@@ -662,8 +662,9 @@ private:
   std::unordered_map<std::string, size_t> index_map;
 
 private:
-  void
-  _direct_lr(Piece &A, Piece::rhs_t &&rhsElems, Piece::rhs_t &&nonRecRhsElems) {
+  void _direct_lr(Piece &A,
+                  Piece::rhs_t &&recRhsElems,
+                  Piece::rhs_t &&nonRecRhsElems) {
     auto prime = std::string(A.lhs.lexeme()) + "'";
     // ensure uniqueness
     while (index_map.contains(prime))
@@ -685,7 +686,7 @@ private:
     A.rhs = std::move(new_A_rhs);
 
     // A' -> alpha A' | epsilion
-    for (auto &&alpha : rhsElems | std::ranges::views::as_rvalue) {
+    for (auto &&alpha : recRhsElems | std::ranges::views::as_rvalue) {
       auto &alphaAprime = newPiece.rhs.emplace_back();
       alphaAprime.reserve(alpha.size() + 1);
       alphaAprime.assign_range(alpha | std::ranges::views::as_rvalue);
@@ -703,12 +704,12 @@ private:
     // aliases (, though I really want to write them one line).
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       if (rhsElem.front().lexeme() == A.lhs.lexeme()) {
+        // has left recursion
         auto &alpha = recRhsElems.emplace_back();
         alpha.assign_range(rhsElem | std::ranges::views::drop(1) |
                            std::ranges::views::as_rvalue);
       } else {
         auto &beta = nonRecRhsElems.emplace_back();
-        // std::ranges::transform(rhsElem, std::back_inserter(beta), copyToken);
         beta.assign_range(rhsElem | std::ranges::views::as_rvalue);
       }
     }
@@ -733,8 +734,7 @@ private:
     Piece::rhs_t new_rhs;
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
-      AC_DEBUG_ONLY(
-          static_assert(std::is_rvalue_reference_v<decltype(rhsElem)>);)
+      AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
 
       if ((rhsElem.front().lexeme() == B.lhs.lexeme())) {
         // A -> B gamma  =>  substitute B -> delta into A
@@ -790,6 +790,7 @@ private:
   void postprocess(std::ranges::common_range auto &&lines) {
 
     for (auto &&l : lines) {
+      AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(l)>);
       auto &piece = pieces.emplace_back();
       piece.lhs = l.front().front();
       // build index_map here
