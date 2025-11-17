@@ -32,3 +32,11 @@ target_link_libraries(demo2
   PRIVATE
   auxilia::auxilia
 )
+
+add_executable(flight
+  flight.cpp
+)
+target_link_libraries(flight
+  PRIVATE
+  auxilia::auxilia
+)
