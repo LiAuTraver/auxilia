@@ -30,7 +30,7 @@
 #include "./Generator.hpp"
 #include "./chars.hpp"
 
-#include "./EBNF_lexing.hpp"
+#include "./lexing.hpp"
 namespace accat::auxilia {
 class Grammar : public Printable {
   using enum Token::Type;
@@ -44,7 +44,7 @@ public:
   Grammar &operator=(const Grammar &other) = delete;
 
 private:
-  using elem_t = Token;
+  using elem_t = string_type;
   struct Piece : Printable {
     using lhs_t = elem_t;
     using rhs_elem_t = std::vector<elem_t>;
@@ -59,22 +59,16 @@ private:
     static auto longest_common_prefix_count(const rhs_elem_t &a,
                                             const rhs_elem_t &b) {
       AC_PRECONDITION(!a.empty() && !b.empty())
-      auto &&[it_a, it_b] = std::ranges::mismatch(
-          a, b, std::ranges::equal_to{}, &Token::lexeme, &Token::lexeme);
+      auto &&[it_a, it_b] = std::ranges::mismatch(a, b);
       return std::ranges::distance(a.begin(), std::move(it_a));
     }
 
     auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
-      return lhs //
-          .to_string(FormatPolicy::kBrief)
-          .append(" -> ")
+      return (lhs + (" -> "))
           .append_range(
               rhs //
               | std::ranges::views::transform([](auto &&alt) {
-                  return alt                                               //
-                         | std::ranges::views::transform(Printable::Brief) //
-                         | std::ranges::views::join_with(' ')              //
-                      ;
+                  return alt | std::ranges::views::join_with(' ');
                 })                                                     //
               | std::ranges::views::join_with(std::string_view(" | ")) //
               // ^^^ workaround, pass const char* seems cause issue
@@ -93,7 +87,7 @@ private:
   void _direct_lr(Piece &A,
                   Piece::rhs_t &&recRhsElems,
                   Piece::rhs_t &&nonRecRhsElems) {
-    auto prime = std::string(A.lhs.lexeme()) + "'";
+    auto prime = std::string(A.lhs) + "'";
     // ensure uniqueness
     while (index_map.contains(prime))
       prime += "'";
@@ -101,7 +95,7 @@ private:
 
     // create new piece for A'
     Piece newPiece;
-    newPiece.lhs = Token::Identifier(prime);
+    newPiece.lhs = (prime);
 
     // A -> beta A'
     Piece::rhs_t new_A_rhs;
@@ -109,7 +103,7 @@ private:
       auto &betaAprime = new_A_rhs.emplace_back();
       betaAprime.reserve(beta.size() + 1);
       betaAprime.append_range(beta | std::ranges::views::as_rvalue);
-      betaAprime.emplace_back(newPiece.lhs.copy());
+      betaAprime.emplace_back(newPiece.lhs);
     }
     A.rhs = std::move(new_A_rhs);
 
@@ -118,9 +112,9 @@ private:
       auto &alphaAprime = newPiece.rhs.emplace_back();
       alphaAprime.reserve(alpha.size() + 1);
       alphaAprime.assign_range(alpha | std::ranges::views::as_rvalue);
-      alphaAprime.emplace_back(newPiece.lhs.copy());
+      alphaAprime.emplace_back(newPiece.lhs);
     }
-    newPiece.rhs.emplace_back().emplace_back(Token::Identifier(epsilon));
+    newPiece.rhs.emplace_back().emplace_back(epsilon);
 
     pieces.emplace_back(std::move(newPiece));
   }
@@ -131,7 +125,7 @@ private:
     // for readability I choose not to remove braces and got alpha and beta as
     // aliases (, though I really want to write them one line).
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
-      if (rhsElem.front().lexeme() == A.lhs.lexeme()) {
+      if (rhsElem.front() == A.lhs) {
         // has left recursion
         auto &alpha = recRhsElems.emplace_back();
         alpha.assign_range(rhsElem | std::ranges::views::drop(1) |
@@ -164,21 +158,19 @@ private:
       AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
 
-      if ((rhsElem.front().lexeme() == B.lhs.lexeme())) {
+      if ((rhsElem.front() == B.lhs)) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
 
           auto &combined = new_rhs.emplace_back();
 
           combined.reserve(delta.size() + (rhsElem.size() - 1));
-          std::ranges::transform(
-              delta, std::back_inserter(combined), &Token::copy);
+          std::ranges::copy(delta, std::back_inserter(combined));
 
-          std::ranges::transform(rhsElem                            //
-                                     | std::ranges::views::as_const //
-                                     | std::ranges::views::drop(1),
-                                 std::back_inserter(combined),
-                                 &Token::copy);
+          std::ranges::copy(rhsElem                            //
+                                | std::ranges::views::as_const //
+                                | std::ranges::views::drop(1),
+                            std::back_inserter(combined));
           // ^^^ as_const is for readability:
           // we prevent/didn't perform move here from xvalue `rhsElem`
           // (we may use rhsElem again during next iteration of delta)
@@ -220,13 +212,16 @@ private:
     for (auto &&l : lines) {
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(l)>);
       auto &piece = pieces.emplace_back();
-      piece.lhs = l.front().front();
+      piece.lhs = l.front().front().lexeme();
       // build index_map here
-      index_map.emplace(piece.lhs.lexeme(), piece.lhs.line());
+      index_map.emplace(piece.lhs, l.front().front().line());
       for (auto &&chunk_view : l // already rvalue
                                    | std::ranges::views::drop(1) //
                                    | std::ranges::views::as_rvalue) {
-        piece.rhs.emplace_back().assign_range(chunk_view);
+        piece.rhs.emplace_back().assign_range(
+            chunk_view | std::ranges::views::transform([](auto &&token) {
+              return token.lexeme().data();
+            }));
       }
     }
   }
