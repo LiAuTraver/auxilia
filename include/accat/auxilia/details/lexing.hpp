@@ -1,3 +1,4 @@
+#include <locale>
 #include "./format.hpp"
 #include "./Generator.hpp"
 #include "./Status.hpp"
@@ -35,8 +36,13 @@ public:
   Token() = default;
   Token(Type type, std::string_view lexeme, uint_least32_t line)
       : type_(type), lexeme_(std::string{lexeme}), line_(line) {}
-  Token(const Token &) = delete;
-  Token &operator=(const Token &) = delete;
+#if __cpp_deleted_function >= 202403L
+#  define AC_TOKEN_DELETE delete ("use Token::copy() const noexcept")
+#else
+#  define AC_TOKEN_DELETE delete
+#endif
+  Token(const Token &) = AC_TOKEN_DELETE;
+  Token &operator=(const Token &) = AC_TOKEN_DELETE;
   Token(Token &&that) noexcept { _do_move(std::move(that)); }
   Token &operator=(Token &&that) noexcept {
     if (this == &that)
@@ -392,11 +398,11 @@ private:
         return add_string();
       }
       // first, numbers(order matters!)
-      if (std::isdigit(c)) {
+      if (std::isdigit(c, std::locale())) {
         return add_number();
       }
       // finally, letters
-      if (std::isalpha(c) or tolerable_chars.contains(c)) {
+      if (std::isalpha(c, std::locale()) or tolerable_chars.contains(c)) {
         return add_identifier_or_keyword();
       }
       return add_error_token(
@@ -459,7 +465,7 @@ private:
     }
     bool is_floating_point = false;
     // maybe a '.'?
-    if (peek() == '.' && std::isdigit(peek(1))) {
+    if (peek() == '.' && std::isdigit(peek(1), std::locale())) {
       get(); // consume the '.'
       while (is_valid_digit_of_base(peek(), Base)) {
         get();
@@ -474,7 +480,7 @@ private:
     return to_number(value, is_floating_point, Base);
   }
   inline string_view_type lex_identifier() {
-    while (std::isalnum(peek()) ||
+    while (std::isalnum(peek(), std::locale()) ||
            tolerable_chars.find(peek()) != string_view_type::npos) {
       get();
     }
@@ -571,9 +577,9 @@ private:
     case 8:
       return c >= '0' && c <= '7';
     case 10:
-      return std::isdigit(c);
+      return std::isdigit(c, std::locale());
     case 16:
-      return std::isxdigit(c);
+      return std::isxdigit(c, std::locale());
     default:
       return false;
     }

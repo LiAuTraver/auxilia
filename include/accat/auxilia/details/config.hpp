@@ -75,11 +75,6 @@ inline consteval auto operator""_raw(const char *str, const size_t) noexcept
   return raw(str);
 }
 } // namespace literals
-/// @brief shorthand of static_cast. sugar is all you need :)
-template <typename To, typename From>
-inline constexpr To as(From &&from) noexcept {
-  return static_cast<To>(from);
-}
 /// @brief Asynchronously execute a function with the given arguments
 /// @note just a wrapper, but it's REAL async
 auto async(auto &&func, auto... args) -> decltype(auto)
@@ -98,10 +93,39 @@ inline constexpr auto epsilon = "ε";
 inline constexpr auto npos = static_cast<size_t>(-1);
 inline constexpr auto npos32 = static_cast<uint32_t>(-1);
 
-AC_FLATTEN_ inline bool is_debugger_present() noexcept {
+AC_FLATTEN_ AC_NODISCARD_ inline bool is_debugger_present() noexcept {
   return details::_is_debugger_present();
 }
 AC_FLATTEN_ inline void set_console_output_cp_utf8() noexcept {
   details::_set_console_output_cp_utf8();
+}
+// from MSVC STL:
+// converts from a fancy pointer to a plain pointer
+template <class FancyPtrTy>
+AC_NODISCARD_ constexpr auto unfancy(FancyPtrTy ptr) noexcept {
+  return std::addressof(*ptr);
+}
+// do nothing for plain pointers
+template <class PtrTy>
+AC_NODISCARD_ constexpr PtrTy *unfancy(PtrTy *ptr) noexcept {
+  return ptr;
+}
+
+// converts from a (potentially null) fancy pointer to a plain pointer
+template <class FancyPtrTy>
+AC_NODISCARD_ constexpr auto unfancy_maybe_null(FancyPtrTy ptr) noexcept {
+  return ptr ? std::addressof(*ptr) : nullptr;
+}
+// do nothing for plain pointers
+template <class PtrTy>
+AC_NODISCARD_ constexpr PtrTy *unfancy_maybe_null(PtrTy *ptr) noexcept {
+  return ptr;
+}
+template <class PtrTy> AC_NODISCARD_ void *voidify_unfancy(PtrTy Ptr) noexcept {
+  if constexpr (std::is_pointer_v<PtrTy>) {
+    return Ptr;
+  } else {
+    return std::addressof(*Ptr);
+  }
 }
 } // namespace accat::auxilia

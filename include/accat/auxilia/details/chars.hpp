@@ -1,14 +1,16 @@
 #pragma once
 
-#include <compare>
-#include <cstddef>
-#include <initializer_list>
-#include <type_traits>
 #include <iterator>
-#include <string>
-#include <string_view>
+#include <utility>
 
 #include "./type_traits.hpp"
+
+namespace std {
+template <class> class allocator;
+template <class> struct char_traits;
+template <class, class> class basic_string_view;
+template <class, class, class> class basic_string;
+} // namespace std
 
 namespace accat::auxilia {
 template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>
@@ -169,11 +171,19 @@ public:
     return self.myArr[self.real_size - 1];
   }
   constexpr auto &data() const noexcept { return myArr; }
-  constexpr operator std::basic_string_view<value_type>() const noexcept {
-    return std::basic_string_view<value_type>(myArr, real_size);
+  constexpr
+  operator std::basic_string_view<value_type, std::char_traits<value_type>>()
+      const noexcept {
+    return std::basic_string_view<value_type, std::char_traits<value_type>>(
+        myArr, real_size);
   }
-  constexpr operator std::basic_string<value_type>() const noexcept {
-    return std::basic_string<value_type>(myArr, real_size);
+  constexpr
+  operator std::basic_string<value_type,
+                             std::char_traits<value_type>,
+                             std::allocator<value_type>>() const noexcept {
+    return std::basic_string<value_type,
+                             std::char_traits<value_type>,
+                             std::allocator<value_type>>(myArr, real_size);
   }
   constexpr operator const value_type *() const noexcept
       [[clang::lifetimebound]] {
@@ -383,11 +393,14 @@ public:
       return it + n;
     }
   };
-  constexpr std::basic_string<value_type> to_string() const noexcept {
+  constexpr std::basic_string<value_type,
+                              std::char_traits<value_type>,
+                              std::allocator<value_type>>
+  to_string() const noexcept {
     return myArr;
   }
-  constexpr std::basic_string_view<value_type> to_string_view() const noexcept
-      [[clang::lifetimebound]] {
+  constexpr std::basic_string_view<value_type, std::char_traits<value_type>>
+  to_string_view() const noexcept [[clang::lifetimebound]] {
     return myArr;
   }
 };

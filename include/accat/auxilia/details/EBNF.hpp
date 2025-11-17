@@ -31,11 +31,9 @@
 #include "./chars.hpp"
 
 #include "./lexing.hpp"
+#include "./Trie.hpp"
 namespace accat::auxilia {
 class Grammar : public Printable {
-  using enum Token::Type;
-  static auto copyToken(const Token &token) noexcept { return token.copy(); };
-
 public:
   Grammar() noexcept = default;
   Grammar(Grammar &&) noexcept = default;
@@ -51,18 +49,6 @@ private:
     using rhs_t = std::vector<rhs_elem_t>;
     lhs_t lhs;
     rhs_t rhs;
-
-    auto longest_common_prefix() const {
-      std::unordered_map<string_type, size_t> m;
-    }
-
-    static auto longest_common_prefix_count(const rhs_elem_t &a,
-                                            const rhs_elem_t &b) {
-      AC_PRECONDITION(!a.empty() && !b.empty())
-      auto &&[it_a, it_b] = std::ranges::mismatch(a, b);
-      return std::ranges::distance(a.begin(), std::move(it_a));
-    }
-
     auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
       return (lhs + (" -> "))
           .append_range(
@@ -74,20 +60,15 @@ private:
               // ^^^ workaround, pass const char* seems cause issue
           );
     }
-
-  private:
-    decltype(auto) tie(this auto &&self) noexcept {
-      return std::tie(self.lhs, self.rhs);
-    }
   };
   std::vector<Piece> pieces;
-  std::unordered_map<std::string, size_t> index_map;
+  std::unordered_map<string_type, size_t> index_map;
 
 private:
   void _direct_lr(Piece &A,
                   Piece::rhs_t &&recRhsElems,
                   Piece::rhs_t &&nonRecRhsElems) {
-    auto prime = std::string(A.lhs) + "'";
+    auto prime = A.lhs + "'";
     // ensure uniqueness
     while (index_map.contains(prime))
       prime += "'";
@@ -157,7 +138,12 @@ private:
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
-
+      // FIXME: this only eliminate 1 depth indirect lr,
+      // A -> C B
+      // B -> A C
+      // C -> B A | d
+      // does not work for C.
+      // TODO: recurse it and also with a table to prevent infinite loop
       if ((rhsElem.front() == B.lhs)) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
@@ -226,6 +212,8 @@ private:
     }
   }
   static StatusOr<Grammar> do_parse(std::vector<Token> &&tokens) {
+    using enum Token::Type;
+
     // I admit it's a bit messy here, but as the saying goes:
     // "If it works, don't touch it".
 
@@ -344,7 +332,128 @@ private:
     return {std::move(grammar)};
   }
 
+  Status do_extract(Piece &piece) {
+    using rhs_elem_t = Piece::rhs_elem_t;
+    using rhs_t = Piece::rhs_t;
+
+    Trie<rhs_elem_t> trie;
+    trie.assign_range(piece.rhs);
+
+    // track one factoring candidate (longest prefix with branching).
+    rhs_elem_t bestPrefix;
+
+    rhs_elem_t path;
+    // dfs to find deepest branching node.
+    const auto dfs =
+        [&](this auto &&self, auto *node, rhs_elem_t &path) -> void {
+      bool branching =
+          (node->children().size() > 1)
+          // branching, e.g, when iterating `app` in [`application`,`apple`]
+          || (node->has_value() && !node->children().empty());
+      // it itself is a value and also has branch, ^^^
+      // e.g,  when iterating `app` in [`app` and `apple`]
+
+      if (branching) {
+        if (path.size() > bestPrefix.size()) {
+          bestPrefix = path;
+        }
+      }
+      for (auto &[elemKey, child] : node->children()) {
+        path.emplace_back(elemKey);
+        self(&child, path);
+        path.pop_back();
+      }
+    };
+
+    dfs(&trie.root(), path);
+
+    if (bestPrefix.empty())
+      // nothing to factor for this piece
+      return {};
+
+    // collect suffixes of all productions sharing bestPrefix.
+    rhs_t suffixes;
+
+    const auto collect =
+        [&](this auto &&self, auto *node, rhs_elem_t &pathAccum) -> void {
+      if (node->has_value()) {
+        // pathAccum is a full original production.
+        rhs_elem_t suffix;
+        if (pathAccum.size() > bestPrefix.size()) {
+          suffix.assign_range(pathAccum |
+                              std::ranges::views::drop(bestPrefix.size()));
+        } else {
+          // production exactly equals prefix => epsilon alternative.
+          suffix.emplace_back(epsilon);
+        }
+        suffixes.emplace_back(std::move(suffix));
+      }
+      for (auto &[elemKey, child] : node->children()) {
+        pathAccum.emplace_back(elemKey);
+        self(&child, pathAccum);
+        pathAccum.pop_back();
+      }
+    };
+
+    // navigate to node representing bestPrefix.
+    auto *current = &trie.root();
+    for (auto &sym : bestPrefix) {
+      auto it = current->children().find(sym);
+      if (it == current->children().end()) {
+        // should not happen
+        return InternalError();
+      }
+      current = &it->second;
+    }
+    rhs_elem_t accum = bestPrefix;
+    collect(current, accum);
+
+    auto newName = piece.lhs + "'";
+    while (index_map.contains(newName)) {
+      newName += "'";
+    }
+
+    // filter original rhs: keep those not starting with bestPrefix.
+    rhs_t newRhs;
+    for (auto &alt : piece.rhs) {
+      bool matches =
+          alt.size() >= bestPrefix.size() &&
+          std::ranges::equal(bestPrefix,
+                             alt | std::ranges::views::take(bestPrefix.size()));
+      if (!matches) {
+        newRhs.emplace_back(alt);
+      }
+    }
+    // add factored prefix + newName.
+    rhs_elem_t factoredPrefix = bestPrefix;
+    factoredPrefix.emplace_back(newName);
+    newRhs.emplace_back(std::move(factoredPrefix));
+    piece.rhs = std::move(newRhs);
+
+    // new piece for factored suffixes
+    Piece newPiece;
+    newPiece.lhs = newName;
+
+    // if suffix is single epsilon token, keep as-is;
+    // else just the sequence.
+    // Remove standalone epsilon marker if prefer empty production;
+    // here we just keep it.
+    newPiece.rhs.append_range(std::move(suffixes) |
+                              std::ranges::views::as_rvalue);
+
+    index_map.emplace(newPiece.lhs, pieces.size());
+    pieces.emplace_back(std::move(newPiece));
+    return {};
+  }
+
 public:
+  auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
+    return pieces                                              //
+           | std::ranges::views::transform(Printable::Default) //
+           | std::ranges::views::join_with('\n')               //
+           | std::ranges::to<string_type>()                    //
+        ;
+  }
   Status eliminate_left_recursion() {
     // eliminate indirect left recursion
     for (size_t i = 0; i < pieces.size(); ++i) {
@@ -359,19 +468,27 @@ public:
     }
     return OkStatus();
   }
-  Status extract_left_factor() {
-    AC_TODO_()
-    return UnimplementedError();
-  }
   static auto parse(std::vector<Token> &&tokens) {
     return do_parse(std::move(tokens));
   }
-  auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
-    return pieces                                              //
-           | std::ranges::views::transform(Printable::Default) //
-           | std::ranges::views::join_with('\n')               //
-           | std::ranges::to<string_type>()                    //
-        ;
+
+  Status extract_left_factor() {
+
+    for (bool changed = true; changed;) {
+      changed = false;
+      for (auto i = 0ull; i < pieces.size(); ++i) {
+        auto &piece = pieces[i];
+        auto before = piece.rhs.size();
+        if (auto status = do_extract(piece); !status) {
+          return status;
+        }
+        if (piece.rhs.size() != before) {
+          changed = true;
+        }
+      }
+    }
+
+    return OkStatus();
   }
 };
 } // namespace accat::auxilia

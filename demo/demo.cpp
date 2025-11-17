@@ -22,15 +22,20 @@
 using namespace accat::auxilia;
 
 constexpr auto flight = R"~~(
-S -> AS | b
-A -> SA | a
+E -> E+T | T
+T -> T*F | F
+F -> (E) | id
+)~~";
+
+constexpr auto factors = R"~~(
+A -> b c D | b c E | b F
 )~~";
 
 extern const char *const sysc;
-
+// ABC -> BACBC -> CABACBC
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(sysc);
+  Lexer lexer(factors);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {
@@ -49,6 +54,10 @@ int main() {
     Println(stderr, "Error: {}", good.message());
     exit(1);
   }
+  std::cout << grammar << "\n\n\n\n\n\n";
+
+  grammar->extract_left_factor();
+
   std::cout << grammar << std::endl;
 }
 

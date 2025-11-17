@@ -1,21 +1,50 @@
 #include <iostream>
-#include <ostream>
-#include <vector>
-#include <ranges>
-#include <algorithm>
+#include <memory>
+#include <unordered_map>
+#include <string>
+#include <optional>
+
+#include <accat/auxilia/details/Trie.hpp>
+using namespace accat::auxilia;
 
 int main() {
-  std::vector<int> v1 = {1, 2, 3, 4, 5, 6};
-  std::vector<int> v2 = {1, 2, 4, 5, 6, 8};
+  Trie<std::string, int> trie;
 
-  auto [it1, it2] = std::ranges::mismatch(v1, v2);
+  // Insert test data
+  trie.insert_or_assign("apple", 1);
+  trie.insert_or_assign("app", 2);
+  trie.insert_or_assign("banana", 3);
+  trie.insert_or_assign("band", 4);
+  trie.insert_or_assign("bandit", 5);
 
-  // Extract matching prefix from v1.begin() to it1
-  std::vector<int> v_matched(v1.begin(), it1);
+  // Test lookups
+  const auto print_lookup = [&](const std::string &key) {
+    const auto v = trie.find(key);
+    if (v)
+      std::cout << "FOUND:  " << key << " = " << v->value() << "\n";
+    else
+      std::cout << "MISSING: " << key << "\n";
+  };
 
-  std::cout << "Matched elements: ";
-  for (auto elem : v_matched) {
-    std::cout << elem << " ";
-  }
-  std::cout << std::endl;
+  print_lookup("apple");
+  print_lookup("app");
+  print_lookup("banana");
+  print_lookup("band");
+  print_lookup("bandit");
+  print_lookup("ban");     // should be missing
+  print_lookup("bandana"); // missing
+
+  std::cout << "\nErasing 'band'...\n";
+  trie.erase("band");
+
+  print_lookup("band");   // removed
+  print_lookup("bandit"); // must still exist
+
+  std::cout << "\nErasing 'apple'...\n";
+  trie.erase("apple");
+
+  print_lookup("apple"); // removed
+  print_lookup("app");   // must still exist
+
+  return 0;
 }
