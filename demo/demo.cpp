@@ -28,14 +28,26 @@ F -> (E) | id
 )~~";
 
 constexpr auto factors = R"~~(
-A -> b c D | b c E | b F
+A -> α β | α γ | δ
 )~~";
-
+constexpr auto grammar2 = R"~~(
+A -> b c D 
+   | b c E 
+   | b F
+B -> x Y z | x Z
+C -> p Q | p R | s T
+)~~";
+constexpr auto grammar3 = R"~~(
+Expression -> Term + Expression | Term - Expression | Term
+Term -> Factor * Term | Factor / Term | Factor
+Factor -> ( Expression ) | Number | Identifier
+)~~";
 extern const char *const sysc;
 // ABC -> BACBC -> CABACBC
+AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(factors);
+  Lexer lexer(sysc);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {
@@ -56,7 +68,7 @@ int main() {
   }
   std::cout << grammar << "\n\n\n\n\n\n";
 
-  grammar->extract_left_factor();
+  grammar->apply_left_factorization();
 
   std::cout << grammar << std::endl;
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <optional>
@@ -10,6 +12,7 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "./config.hpp"
 #include "./format.hpp"
@@ -58,13 +61,12 @@ private:
       return self.value_.value();
     }
     auto &children(this auto &&self) { return self.children_; }
-
-    // private:
-    auto tie(this auto &&self) noexcept {
-      return std::tie(std::forward<decltype(self)>(self).value_,
-                      std::forward<decltype(self)>(self).children_);
-    }
   };
+  struct from_lcp_result {
+    key_type path;
+    const Node *node;
+  };
+  AC_STATIC_ASSERT(std::is_aggregate_v<from_lcp_result>);
   Node root_;
 
 private:
@@ -181,6 +183,88 @@ public:
   bool erase(const key_type &key) { return do_erase(&root_, key, 0); }
 
   auto &root(this auto &&self) noexcept { return self.root_; }
+
+  auto longest_common_prefix() const -> from_lcp_result {
+    // track one factoring candidate (longest prefix with branching).
+    key_type path;
+    key_type lcp;
+    const Node *lcpNode = nullptr;
+
+    // dfs to find deepest branching node.
+    const auto dfs = [&](this auto &&self, const Node *node) -> void {
+      const bool branching =
+          (node->children().size() > 1)
+          // branching, e.g, when iterating `app` in [`application`,`apple`]
+          || (node->has_value() && !node->children().empty());
+      // it itself is a value and also has branch, ^^^
+      // e.g,  when iterating `app` in [`app` and `apple`]
+
+      if (branching && path.size() > lcp.size()) {
+        lcp = path;
+        lcpNode = node;
+      }
+      for (const auto &[elemKey, child] : node->children()) {
+        // string only has `push_back` not `emplace_back`
+        // yet no performance boost to use `emaplce_back` with lvalue.
+        path.push_back(elemKey);
+        self(&child);
+        path.pop_back();
+      }
+    };
+
+    dfs(&root_);
+    return {std::move(lcp), lcpNode};
+  }
+
+  /// this is a heavy operation, use it sparely.
+  /// @pre the @param node should be in this Trie.
+  auto collect(const Node *node,
+               const std::optional<node_key_type> defaultKey) const {
+    std::vector<key_type> allKeys;
+
+    key_type path;
+
+    const auto traverse = [&](this auto &&self, const Node *node) -> void {
+      if (node->has_value()) {
+        // pathAccum is a full original production,
+        // e.g., `app` in [`app`, `apple`].
+        auto &newPath = allKeys.emplace_back();
+        // A -> app | apple
+        // => A -> app A'
+        // with A' -> epsilon | le
+        if (path.size() > 0) {
+          newPath.assign_range(path);
+        } else if (defaultKey.has_value()) {
+          newPath.emplace_back(*defaultKey);
+        }
+      }
+      for (const auto &[elemKey, child] : node->children()) {
+        path.push_back(elemKey);
+        self(&child);
+        path.pop_back();
+      }
+    };
+
+    traverse(node);
+
+    return allKeys;
+  }
+  auto iterate(const Node *node, auto &&fun = std::identity{}) const {
+    static_assert(std::invocable<decltype(fun), const Node *, key_type &>);
+    key_type path;
+
+    const auto traverse = [&](this auto &&self, const Node *current) -> void {
+      std::invoke(std::forward<decltype(fun)>(fun), current, std::ref(path));
+
+      for (const auto &[elemKey, child] : current->children()) {
+        path.push_back(elemKey);
+        self(&child);
+        path.pop_back();
+      }
+    };
+
+    traverse(node);
+  }
 
   auto to_string(FormatPolicy) const { AC_TODO_() }
 };

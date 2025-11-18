@@ -28,6 +28,7 @@ EXPORT_AUXILIA inline Parser Local(std::string_view,
                                    std::string_view = "unknown");
 EXPORT_AUXILIA inline Parser *find(std::string_view);
 EXPORT_AUXILIA inline Parser &get(std::string_view);
+EXPORT_AUXILIA inline bool erase(std::string_view);
 
 namespace details {
 inline auto _get_global_parsers() -> std::vector<Parser> &;
@@ -397,4 +398,14 @@ inline auto get(std::string_view program_name) -> Parser & {
 
   AC_THROW_OR_DIE_(format("Parser does not exist: {}", program_name));
 }
+inline auto erase(std::string_view program_name) -> bool {
+  auto &parsers = details::_get_global_parsers();
+  auto it = std::ranges::find_if(
+      parsers, [&](const Parser &p) { return p.program_name() == program_name; });
+  if (it != parsers.end()) {
+    parsers.erase(it);
+    return true;
+  }
+  return false;
+  }
 } // namespace accat::auxilia::program_options

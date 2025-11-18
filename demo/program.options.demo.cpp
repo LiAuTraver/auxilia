@@ -1,9 +1,12 @@
 #include <accat/auxilia/details/program_options.hpp>
+#include <accat/auxilia/defines.hpp>
 
 int main(int argc, char **argv) {
   using namespace accat::auxilia;
-  using namespace accat::auxilia::program_options;
-  auto parser = Global("demo", "0.1");
+  auto parser = program_options::Global("demo", "0.1");
+
+  defer { contract_assert(program_options::erase("demo") == true) };
+
   parser->add_option("--input", "-i", "Input file").required().nargs('+');
   parser->add_option("--verbose", "", "Enable verbose mode").nargs(0);
   parser->add_option("--output", "-o", "Output file").nargs(1);

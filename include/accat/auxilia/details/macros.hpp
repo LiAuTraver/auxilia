@@ -279,8 +279,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_)
 #  define AC_DEBUG_LOGGING(...) (void)0;
 #endif
 
-/// @note magic_enum seems to require __PRETTY_FUNCTION__ to be defined; also
-/// language server clangd does not work.
+/// @note magic_enum seems to require __PRETTY_FUNCTION__ to be defined
 #if !defined(__PRETTY_FUNCTION__) && !defined(__INTELLISENSE__)
 #  if defined(__FUNCSIG__)
 #    define __PRETTY_FUNCTION__ __FUNCSIG__

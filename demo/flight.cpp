@@ -35,6 +35,8 @@ int main() {
     print_lookup("ban");     // should be missing
     print_lookup("bandana"); // missing
 
+    std::cout << "lcp: " << trie.longest_common_prefix().path;
+
     std::cout << "\nErasing 'band'...\n";
     trie.erase("band");
 
