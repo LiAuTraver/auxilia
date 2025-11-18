@@ -2,7 +2,7 @@
 
 #include "./test.env.inl.hpp"
 
-#include <accat/auxilia/details/EBNF.hpp>
+#include <accat/auxilia/details/Grammar.hpp>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -81,7 +81,7 @@ S' -> a S' | b S' | ε
 )~~";
 
 using namespace accat::auxilia;
-auto getStr(auto &&str, bool leftFactoering = false) -> std::string {
+auto getStr(auto &&str) -> std::string {
   auto tokens = Lexer(str).lexAll_or_error();
   if (!tokens)
     return tokens.error();
@@ -90,12 +90,8 @@ auto getStr(auto &&str, bool leftFactoering = false) -> std::string {
   if (!grammar)
     return grammar.raw_message();
 
-  auto ok = grammar->eliminate_left_recursion();
-  if (!ok)
+  if (auto ok = grammar->eliminate_left_recursion(); !ok)
     return ok.raw_message();
-
-  if (leftFactoering)
-    grammar->apply_left_factorization();
 
   return grammar->to_string();
 }
@@ -227,12 +223,18 @@ Condition -> ID Condition@
 Statement@ -> ε | else Statement
 Condition@ -> == NUM | != NUM
 )~~";
+auto getLL1Str(auto &&str) {
+  auto tokens = Lexer(str).lexAll_or_error();
 
+  return tokens ? Grammar::ContextFree(*std::move(tokens))
+                      .to_string(FormatPolicy::kBrief)
+                : tokens.error();
+}
 TEST(EBNF, LeftFactoring) {
   set_console_output_cp_utf8();
 
-  EXPECT_EQ(trim(getStr(simple, true)), trim(simple_expected));
-  EXPECT_EQ(trim(getStr(multi, true)), trim(multi_expected));
-  EXPECT_EQ(trim(getStr(complex, true)), trim(complex_expected));
-  EXPECT_EQ(trim(getStr(cond, true)), trim(cond_expected));
+  EXPECT_EQ(trim(getLL1Str(simple)), trim(simple_expected));
+  EXPECT_EQ(trim(getLL1Str(multi)), trim(multi_expected));
+  EXPECT_EQ(trim(getLL1Str(complex)), trim(complex_expected));
+  EXPECT_EQ(trim(getLL1Str(cond)), trim(cond_expected));
 }

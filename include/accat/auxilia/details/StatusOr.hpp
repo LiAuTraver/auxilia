@@ -560,11 +560,16 @@ public:
 public:
   auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
       -> string_type {
-    if (!this->ok())
-      return Format("StatusOr<{}> {{ code: {}, message: \"{}\" }}",
-                    typeid(Ty).name(),
-                    raw_code(),
-                    my_message);
+    if (!this->ok()) {
+      if (policy == FormatPolicy::kBrief)
+        return my_message;
+      else
+        return Format("StatusOr<{}> {{ code: {}, message: \"{}\" }}",
+                      typeid(Ty).name(),
+                      raw_code(),
+                      my_message);
+    }
+
     if constexpr (std::is_base_of_v<Printable, Ty>)
       return my_value.to_string(policy);
     else if constexpr (requires { Format("{}", my_value); })

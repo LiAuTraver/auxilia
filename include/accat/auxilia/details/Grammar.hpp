@@ -74,9 +74,9 @@ public:
   Token &operator=(const Token &) = AC_TOKEN_DELETE;
   Token(Token &&that) noexcept { _do_move(std::move(that)); }
   Token &operator=(Token &&that) noexcept {
-    if (this == &that)
-      return *this;
-    return _do_move(std::move(that));
+    if (this != &that)
+      _do_move(std::move(that));
+    return *this;
   }
   AC_CONSTEXPR20 ~Token() noexcept {
     if (type_ != Type::kNumber && type_ != Type::kMonostate)
@@ -220,7 +220,7 @@ private:
   uint_least32_t line_ = std::numeric_limits<uint_least32_t>::signaling_NaN();
 
 private:
-  Token &_do_move(Token &&that) noexcept {
+  void _do_move(Token &&that) noexcept {
     // Destroy old active member
     if (type_ != Type::kNumber && type_ != Type::kMonostate)
       lexeme_.~string_type();
@@ -241,7 +241,6 @@ private:
     }
 
     that.type_ = Type::kMonostate;
-    return *this;
   }
   auto _do_format(const auxilia::FormatPolicy format_policy) const
       -> string_type {
@@ -1171,6 +1170,18 @@ public:
     }
 
     return *this;
+  }
+
+  static StatusOr<Grammar> ContextFree(std::vector<Token> &&tokens) {
+    auto grammar = parse(std::forward<decltype(tokens)>(tokens));
+
+    if (!grammar)
+      return {std::move(grammar).as_status()};
+
+    if (auto status = grammar->eliminate_left_recursion(); !status)
+      return {std::move(status)};
+
+    return {std::move(grammar->apply_left_factorization())};
   }
 };
 } // namespace accat::auxilia
