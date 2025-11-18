@@ -875,17 +875,14 @@ private:
         A, std::move(recRhsElems), std::move(nonRecRhsElems));
     return OkStatus();
   }
+
+  // eliminate indirect left recursion
   void _indirect_left_recursion(Piece &A, const Piece &B) const {
     Piece::rhs_t new_rhs;
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
-      // FIXME: this only eliminate 1 depth indirect lr,
-      // A -> C B
-      // B -> A C
-      // C -> B A | d
-      // does not work for C.
-      // need to do: recurse it and also with a table to prevent infinite loop
+
       if ((rhsElem.front() == B.lhs)) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
@@ -1143,8 +1140,10 @@ public:
     return {std::move(grammar)};
   }
   auto eliminate_left_recursion() {
-    // eliminate indirect left recursion
-    for (size_t i = 0; i < pieces.size(); ++i) {
+    // only need to examine the original grammar, no need to inspect newly
+    // generated one; newly generated is appended after the originals.
+    const auto mySize = pieces.size();
+    for (size_t i = 0; i < mySize; ++i) {
       auto &A = pieces[i];
       for (size_t j = 0; j < i; ++j) {
         auto &B = pieces[j];

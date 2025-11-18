@@ -28,15 +28,16 @@ F -> (E) | id
 )~~";
 
 constexpr auto factors = R"~~(
-A -> α β | α γ | δ
+A -> A B C | A C B | a
+B -> B A C | B C A | b  
+C -> C A B | C B A | c
 )~~";
 
 extern const char *const sysc;
-// ABC -> BACBC -> CABACBC
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(sysc);
+  Lexer lexer(factors);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {

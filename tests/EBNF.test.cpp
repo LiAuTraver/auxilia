@@ -153,7 +153,7 @@ Pow -> ^
 Primary -> ( Expr ) | id | num
 Expr' -> + Term Expr' | - Term Expr' | ε
 Term' -> * Factor Term' | / Factor Term' | ε
-Factor' -> ^ Primary Factor' | ε
+Factor' -> Pow Primary Factor' | ε
 )~~";
 
 constexpr auto crazy = R"~~(
@@ -163,7 +163,7 @@ C -> C A B | C B A | c
 )~~";
 constexpr auto crazy_doomed = R"~~(
 A -> a A'
-B -> b B' 
+B -> b B'
 C -> c C'
 A' -> B C A' | C B A' | ε
 B' -> A C B' | C A B' | ε
@@ -178,7 +178,7 @@ TEST(EBNF, ComplexLeftRecursive) {
             trim(multi_level_recursion_expected));
   // failed: substitues too eagerly
   // A' -> b B' C A' | c C' B A' | ε
-  // EXPECT_EQ(trim(getStr(crazy)), trim(crazy_doomed));
+  EXPECT_EQ(trim(getStr(crazy)), trim(crazy_doomed));
 }
 
 constexpr auto simple = R"~~(
