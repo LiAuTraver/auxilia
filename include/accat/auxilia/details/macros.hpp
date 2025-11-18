@@ -127,6 +127,12 @@
 #  define AC_NODISCARD
 #endif
 
+#if __cpp_deleted_function >= 202403L
+#  define AC_DELETE_WITH_MESSAGE(msg) delete (msg)
+#else
+#  define AC_DELETE_WITH_MESSAGE(msg) delete
+#endif
+
 #ifdef __clang__
 /// @def AC_FLATTEN
 /// @brief function flatten attribute

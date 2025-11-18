@@ -19,6 +19,11 @@
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
+/// @note used to avoid zero-initialization when the stored object is
+/// value-initialized
+struct dummy_type {
+  constexpr dummy_type() noexcept {}
+};
 
 /// @brief A class that represents the status of a function call,
 ///          or a value.
@@ -70,18 +75,15 @@ public:
     my_value = std::move(that.my_value);
     return *this;
   }
-  ~StatusOr() = default;
-#  if __cpp_deleted_function >= 202403L
-#    define AC_STATUSOR_DELETE                                                 \
-      delete (                                                                 \
-          "Constructing a StatusOr<Ty> from a StatusOr<Uy> where Ty != Uy is " \
-          "not allowed. Please use explicit function `as_status()` if you "    \
-          "want to return the Status, or use monadic functions like "          \
-          "`and_then()` or `or_else()` to convert the StatusOr<Uy> to "        \
-          "StatusOr<Ty>.")
-#  else
-#    define AC_STATUSOR_DELETE delete
-#  endif
+  ~StatusOr() noexcept = default;
+#  define AC_STATUSOR_DELETE                                                   \
+    AC_DELETE_WITH_MESSAGE(                                                    \
+        "Constructing a StatusOr<Ty> from a StatusOr<Uy> where Ty != Uy is "   \
+        "not allowed. Please use explicit function `as_status()` if you "      \
+        "want to return the Status, or use monadic functions like "            \
+        "`and_then()` or `or_else()` to convert the StatusOr<Uy> to "          \
+        "StatusOr<Ty>.")
+
   template <typename U> StatusOr(const StatusOr<U> &) = AC_STATUSOR_DELETE;
   template <typename U> StatusOr(StatusOr<U> &&) = AC_STATUSOR_DELETE;
   template <typename U>

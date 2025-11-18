@@ -31,7 +31,6 @@
 #include "./StatusOr.hpp"
 #include "./chars.hpp"
 #include "./Trie.hpp"
-#include "accat/auxilia/details/Status.hpp"
 
 namespace accat::auxilia {
 
@@ -886,7 +885,7 @@ private:
       // B -> A C
       // C -> B A | d
       // does not work for C.
-      // TODO: recurse it and also with a table to prevent infinite loop
+      // need to do: recurse it and also with a table to prevent infinite loop
       if ((rhsElem.front() == B.lhs)) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
@@ -1092,10 +1091,6 @@ private:
     for (auto &&rhsElem :
          std::move(piece.rhs) | std::ranges::views::as_rvalue) {
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
-      // const bool matches =
-      //     rhsElem.size() >= lcpPath.size() &&
-      //     std::ranges::equal(
-      //         lcpPath, rhsElem | std::ranges::views::take(lcpPath.size()));
       if (!std::ranges::equal(
               lcpPath, rhsElem | std::ranges::views::take(lcpPath.size()))) {
         // deos not have the lcp

@@ -174,8 +174,9 @@ inline constexpr auto trim(std::string_view sv) -> std::string_view {
   return sv.substr(i, j - i);
 }
 } // namespace accat::auxilia::ranges::views
-
+namespace accat::auxilia::ranges {
+using views::details::surround_view;
+}
 namespace accat::auxilia {
-using ranges::views::details::surround_view;
-namespace views = ranges::views; // NOLINT(misc-unused-alias-decls)
+namespace views = ranges::views;
 } // namespace accat::auxilia

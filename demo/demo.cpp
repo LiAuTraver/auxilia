@@ -30,18 +30,7 @@ F -> (E) | id
 constexpr auto factors = R"~~(
 A -> α β | α γ | δ
 )~~";
-constexpr auto grammar2 = R"~~(
-A -> b c D 
-   | b c E 
-   | b F
-B -> x Y z | x Z
-C -> p Q | p R | s T
-)~~";
-constexpr auto grammar3 = R"~~(
-Expression -> Term + Expression | Term - Expression | Term
-Term -> Factor * Term | Factor / Term | Factor
-Factor -> ( Expression ) | Number | Identifier
-)~~";
+
 extern const char *const sysc;
 // ABC -> BACBC -> CABACBC
 AC_SPDLOG_INITIALIZATION("demo", debug)

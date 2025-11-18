@@ -81,7 +81,7 @@ S' -> a S' | b S' | ε
 )~~";
 
 using namespace accat::auxilia;
-auto getStr(auto &&str) -> std::string {
+auto getStr(auto &&str, bool leftFactoering = false) -> std::string {
   auto tokens = Lexer(str).lexAll_or_error();
   if (!tokens)
     return tokens.error();
@@ -94,11 +94,14 @@ auto getStr(auto &&str) -> std::string {
   if (!ok)
     return ok.raw_message();
 
+  if (leftFactoering)
+    grammar->apply_left_factorization();
+
   return grammar->to_string();
 }
 #include <accat/auxilia/details/views.hpp>
 using ranges::views::trim;
-TEST(EBNF, LR) {
+TEST(EBNF, LeftRecursive) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(arithmetic)), trim(arithmetic_expected));
@@ -114,7 +117,7 @@ A -> A -> B | B
 constexpr auto multipleLeftArrow_expected = R"~~(
 line 2: Unexpected LeftArrow in rhs.
 )~~";
-TEST(EBNF, LRErrorHandling) {
+TEST(EBNF, LeftRecursiveErrorHandling) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(multipleLeftArrow)), trim(multipleLeftArrow_expected));
@@ -166,7 +169,7 @@ A' -> B C A' | C B A' | ε
 B' -> A C B' | C A B' | ε
 C' -> A B C' | B A C' | ε
 )~~";
-TEST(EBNF, ComplexLR) {
+TEST(EBNF, ComplexLeftRecursive) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(nested_left_recursion)),
@@ -176,4 +179,60 @@ TEST(EBNF, ComplexLR) {
   // failed: substitues too eagerly
   // A' -> b B' C A' | c C' B A' | ε
   // EXPECT_EQ(trim(getStr(crazy)), trim(crazy_doomed));
+}
+
+constexpr auto simple = R"~~(
+A -> b c D | b c E | b F
+)~~";
+constexpr auto simple_expected = R"~~(
+A -> b A@@
+A@ -> D | E
+A@@ -> F | c A@
+)~~";
+constexpr auto multi = R"~~(
+A -> b c D 
+   | b c E 
+   | b F
+B -> x Y z | x Z
+C -> p Q | p R | s T
+)~~";
+constexpr auto multi_expected = R"~~(
+A -> b A@@
+B -> x B@
+C -> s T | p C@
+A@ -> D | E
+B@ -> Y z | Z
+C@ -> Q | R
+A@@ -> F | c A@
+)~~";
+constexpr auto complex = R"~~(
+Expression -> Term + Expression | Term - Expression | Term
+Term -> Factor * Term | Factor / Term | Factor
+Factor -> ( Expression ) | Number | Identifier
+)~~";
+constexpr auto complex_expected = R"~~(
+Expression -> Term Expression@
+Term -> Factor Term@
+Factor -> ( Expression ) | Number | Identifier
+Expression@ -> ε | + Expression | - Expression
+Term@ -> ε | * Term | / Term
+)~~";
+constexpr auto cond = R"~~(
+Statement -> if ( Condition ) Statement | if ( Condition ) Statement else Statement
+Condition -> ID == NUM | ID != NUM
+)~~";
+constexpr auto cond_expected = R"~~(
+Statement -> if ( Condition ) Statement Statement@
+Condition -> ID Condition@
+Statement@ -> ε | else Statement
+Condition@ -> == NUM | != NUM
+)~~";
+
+TEST(EBNF, LeftFactoring) {
+  set_console_output_cp_utf8();
+
+  EXPECT_EQ(trim(getStr(simple, true)), trim(simple_expected));
+  EXPECT_EQ(trim(getStr(multi, true)), trim(multi_expected));
+  EXPECT_EQ(trim(getStr(complex, true)), trim(complex_expected));
+  EXPECT_EQ(trim(getStr(cond, true)), trim(cond_expected));
 }

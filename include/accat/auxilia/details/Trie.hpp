@@ -32,11 +32,21 @@ public:
   Trie &operator=(const Trie &) = delete;
 
 public:
-  using key_type = KeyT;
-  using value_type = ValueT;
+  using fake_value_type = ValueT;
   using node_key_type = CharT;
-  using stored_value_type =
-      std::conditional_t<std::is_void_v<ValueT>, Monostate, ValueT>;
+  using hasher = CharTHasher;
+  using key_type = KeyT;
+  using key_equal = CharTEq;
+  using mapped_type = std::conditional_t<std::is_void_v<fake_value_type>,
+                                         Monostate,
+                                         fake_value_type>;
+  using value_type = std::pair<const key_type, mapped_type>;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  using reference = value_type &;
+  using const_reference = const value_type &;
+  using pointer = value_type *;
+  using const_pointer = const value_type *;
 
 private:
   struct Node {
@@ -50,8 +60,8 @@ private:
     Node &operator=(const Node &) = delete;
 
   private:
-    std::optional<stored_value_type> value_;
-    std::unordered_map<CharT, Node, CharTHasher, CharTEq> children_;
+    std::optional<mapped_type> value_;
+    std::unordered_map<node_key_type, Node, hasher, key_equal> children_;
 
   public:
     bool has_value() const noexcept { return value_.has_value(); }
@@ -72,9 +82,9 @@ private:
 private:
   template <typename V>
   auto do_insert(const key_type &key, V &&value, const bool doOverride)
-      -> std::pair<std::optional<stored_value_type> &, bool> {
+      -> std::pair<std::optional<mapped_type> &, bool> {
     static_assert(!std::is_void_v<ValueT> ||
-                      std::is_same_v<std::remove_cvref_t<V>, stored_value_type>,
+                      std::is_same_v<std::remove_cvref_t<V>, mapped_type>,
                   "For void value_type, pass std::monostate");
 
     Node *current = &root_;
@@ -132,7 +142,7 @@ public:
       if constexpr (sizeof...(value) == 1) {
         return do_insert((key), std::forward<decltype(value)>(value)..., false);
       } else {
-        return do_insert((key), stored_value_type{}, false);
+        return do_insert((key), mapped_type{}, false);
       }
     }
   }
@@ -165,14 +175,14 @@ public:
       if constexpr (sizeof...(value) == 1) {
         return do_insert((key), std::forward<decltype(value)>(value)..., true);
       } else
-        return do_insert((key), stored_value_type{}, true);
+        return do_insert((key), mapped_type{}, true);
     }
   }
 
   auto assign_range(auto &&range) {
     for (auto &&elem : range) {
       if constexpr (std::is_void_v<ValueT>) {
-        do_insert(elem, stored_value_type{}, true);
+        do_insert(elem, mapped_type{}, true);
       } else {
         auto &&[key, value] = elem;
         insert_or_assign(key, value);
@@ -217,6 +227,7 @@ public:
   }
 
   /// this is a heavy operation, use it sparely.
+  /// currently only used for left factoring in Grammar.
   /// @pre the @param node should be in this Trie.
   auto collect(const Node *node,
                const std::optional<node_key_type> defaultKey) const {
@@ -250,7 +261,8 @@ public:
     return allKeys;
   }
   auto iterate(const Node *node, auto &&fun = std::identity{}) const {
-    static_assert(std::invocable<decltype(fun), const Node *, key_type &>);
+    static_assert(std::invocable<decltype(fun), const Node *, key_type &>,
+                  "fun should be callable with (const Node*, key_type&)");
     key_type path;
 
     const auto traverse = [&](this auto &&self, const Node *current) -> void {
