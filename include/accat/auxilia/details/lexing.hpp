@@ -49,7 +49,7 @@ public:
       return *this;
     return _do_move(std::move(that));
   }
-  AC_CONSTEXPR20_ ~Token() noexcept {
+  AC_CONSTEXPR20 ~Token() noexcept {
     if (type_ != Type::kNumber && type_ != Type::kMonostate)
       lexeme_.~string_type();
   }
@@ -242,7 +242,7 @@ private:
     }
     return str;
   }
-} inline AC_CONSTEXPR20_ nulltok{};
+} inline AC_CONSTEXPR20 nulltok{};
 class Lexer {
 public:
   using size_type = typename std::string::size_type;

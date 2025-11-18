@@ -92,7 +92,7 @@ class Status : public Printable {
 public:
   /// @enum Code
   // clang-format off
-  enum class AC_NODISCARD_REASON_(
+  enum class AC_NODISCARD_REASON(
       "Discarding Status Code is strongly discouraged.") Code : uint8_t {
 
   /// kOK (gRPC code "OK") does not indicate an error; this value is returned on
@@ -261,21 +261,21 @@ public:
   using enum Code;
 
 public:
-  AC_NODISCARD_
+  AC_NODISCARD
   constexpr Status() = default;
-  AC_NODISCARD_ AC_CONSTEXPR20_ Status(const Code code,
-                                       const std::string_view message = {})
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code,
+                                     const std::string_view message = {})
       : my_code(code), my_message(message) {}
-  AC_NODISCARD_
+  AC_NODISCARD
   Status(Status &&that) noexcept
       : my_code(that.my_code), my_message(std::move(that.my_message)) {
     that.my_code = kMovedFrom;
     AC_DEBUG_ONLY(that.my_message = "This status has been moved from.");
   }
-  // AC_NODISCARD_
+  // AC_NODISCARD
   Status(const Status &that) = default;
   auto operator=(const Status &that) -> Status & = default;
-  // AC_NODISCARD_
+  // AC_NODISCARD
   Status &operator=(Status &&that) noexcept {
     my_code = that.my_code;
     my_message = std::move(that.my_message);
@@ -286,14 +286,14 @@ public:
   /// @brief Logical OR operator.
   /// @note Useful for chaining status checks rather than
   /// a bunch of `if` statements.
-  AC_NODISCARD_
+  AC_NODISCARD
   inline constexpr auto operator||(const Status &that) -> Status {
     if (this->ok())
       return *this;
     return that;
   }
   /// @brief Logical AND operator.
-  AC_NODISCARD_
+  AC_NODISCARD
   inline constexpr auto operator&&(const Status &that) -> Status {
     if (!this->ok())
       return *this;
@@ -314,24 +314,24 @@ public:
   inline constexpr ~Status() = default;
 
 public:
-  AC_NODISCARD_
-  inline AC_CONSTEXPR20_ explicit operator bool() const AC_NOEXCEPT {
+  AC_NODISCARD
+  inline AC_CONSTEXPR20 explicit operator bool() const AC_NOEXCEPT {
     return this->ok();
   }
-  AC_NODISCARD_ constexpr bool ok() const AC_NOEXCEPT { return my_code == kOk; }
-  AC_NODISCARD_ AC_CONSTEXPR20_ bool is_return() const AC_NOEXCEPT {
+  AC_NODISCARD constexpr bool ok() const AC_NOEXCEPT { return my_code == kOk; }
+  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const AC_NOEXCEPT {
     return my_code == kReturning;
   }
-  AC_NODISCARD_
+  AC_NODISCARD
   Code code() const AC_NOEXCEPT { return my_code; }
-  AC_NODISCARD_
+  AC_NODISCARD
   auto raw_code() const AC_NOEXCEPT {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
-  AC_NODISCARD_ std::string_view message() const [[clang::lifetimebound]] {
+  AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
-  AC_NODISCARD_ auto &raw_message() const noexcept { return my_message; }
+  AC_NODISCARD auto &raw_message() const noexcept { return my_message; }
   inline void ignore_error() const AC_NOEXCEPT {
     AC_DEBUG_ONLY(
         if (!this->ok()) AC_DEBUG_LOGGING(
@@ -358,134 +358,134 @@ protected:
   string_type my_message{};
 };
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OkStatus(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kOk, message};
 }
 
 // New overloads for other status codes using std::string_view messages:
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 Cancelled(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kCancelled, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnknownError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnknown, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InvalidArgumentError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kInvalidArgument, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DeadlineExceededError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 NotFoundError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kNotFound, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AlreadyExistsError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kAlreadyExists, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 PermissionDeniedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kPermissionDenied, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ResourceExhaustedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kResourceExhausted, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 FailedPreconditionError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kFailedPrecondition, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AbortedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kAborted, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OutOfRangeError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kOutOfRange, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnimplementedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnimplemented, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InternalError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kInternal, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnavailableError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnavailable, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DataLossError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kDataLoss, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnauthenticatedError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ReturnMe(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kReturning, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ParseError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kParseError, message};
 }
 
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 LexError(std::string_view message = "") AC_NOEXCEPT {
   return {Status::kLexError, message};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OkStatus(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kOk, Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 Cancelled(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kCancelled,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnknownError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kUnknown, Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InvalidArgumentError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kInvalidArgument,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DeadlineExceededError(AC_STD_OR_FMT format_string<Args...> fmt,
                       Args &&...args) {
   return {Status::kDeadlineExceeded,
@@ -493,21 +493,21 @@ DeadlineExceededError(AC_STD_OR_FMT format_string<Args...> fmt,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 NotFoundError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kNotFound,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AlreadyExistsError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kAlreadyExists,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 PermissionDeniedError(AC_STD_OR_FMT format_string<Args...> fmt,
                       Args &&...args) {
   return {Status::kPermissionDenied,
@@ -515,7 +515,7 @@ PermissionDeniedError(AC_STD_OR_FMT format_string<Args...> fmt,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ResourceExhaustedError(AC_STD_OR_FMT format_string<Args...> fmt,
                        Args &&...args) {
   return {Status::kResourceExhausted,
@@ -523,7 +523,7 @@ ResourceExhaustedError(AC_STD_OR_FMT format_string<Args...> fmt,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 FailedPreconditionError(AC_STD_OR_FMT format_string<Args...> fmt,
                         Args &&...args) {
   return {Status::kFailedPrecondition,
@@ -531,76 +531,76 @@ FailedPreconditionError(AC_STD_OR_FMT format_string<Args...> fmt,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AbortedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kAborted, Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OutOfRangeError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kOutOfRange,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnimplementedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kUnimplemented,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InternalError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kInternal,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnavailableError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kUnavailable,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DataLossError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kDataLoss,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnauthenticatedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kUnauthenticated,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ReturnMe(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kReturning,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ParseError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kParseError,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 LexError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kLexError,
           Format(fmt, std::forward<decltype(args)>(args)...)};
 }
 #  if !AC_USE_STD_FMT
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20
     Status OkStatus(const fmt::text_style &ts,
                     fmt::format_string<Args...> fmt,
                     Args &&...args) {
@@ -609,7 +609,7 @@ AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 Cancelled(const fmt::text_style &ts,
           fmt::format_string<Args...> fmt,
           Args &&...args) {
@@ -618,7 +618,7 @@ Cancelled(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnknownError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
@@ -627,7 +627,7 @@ UnknownError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InvalidArgumentError(const fmt::text_style &ts,
                      fmt::format_string<Args...> fmt,
                      Args &&...args) {
@@ -636,7 +636,7 @@ InvalidArgumentError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DeadlineExceededError(const fmt::text_style &ts,
                       fmt::format_string<Args...> fmt,
                       Args &&...args) {
@@ -645,7 +645,7 @@ DeadlineExceededError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 NotFoundError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
@@ -654,7 +654,7 @@ NotFoundError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AlreadyExistsError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
@@ -663,7 +663,7 @@ AlreadyExistsError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 PermissionDeniedError(const fmt::text_style &ts,
                       fmt::format_string<Args...> fmt,
                       Args &&...args) {
@@ -672,7 +672,7 @@ PermissionDeniedError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ResourceExhaustedError(const fmt::text_style &ts,
                        fmt::format_string<Args...> fmt,
                        Args &&...args) {
@@ -681,7 +681,7 @@ ResourceExhaustedError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 FailedPreconditionError(const fmt::text_style &ts,
                         fmt::format_string<Args...> fmt,
                         Args &&...args) {
@@ -690,7 +690,7 @@ FailedPreconditionError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AbortedError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
@@ -699,7 +699,7 @@ AbortedError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OutOfRangeError(const fmt::text_style &ts,
                 fmt::format_string<Args...> fmt,
                 Args &&...args) {
@@ -708,7 +708,7 @@ OutOfRangeError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnimplementedError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
@@ -717,7 +717,7 @@ UnimplementedError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InternalError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
@@ -726,7 +726,7 @@ InternalError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnavailableError(const fmt::text_style &ts,
                  fmt::format_string<Args...> fmt,
                  Args &&...args) {
@@ -735,7 +735,7 @@ UnavailableError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DataLossError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
@@ -744,7 +744,7 @@ DataLossError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnauthenticatedError(const fmt::text_style &ts,
                      fmt::format_string<Args...> fmt,
                      Args &&...args) {
@@ -753,7 +753,7 @@ UnauthenticatedError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ReturnMe(const fmt::text_style &ts,
          fmt::format_string<Args...> fmt,
          Args &&...args) {
@@ -762,7 +762,7 @@ ReturnMe(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ParseError(const fmt::text_style &ts,
            fmt::format_string<Args...> fmt,
            Args &&...args) {
@@ -771,7 +771,7 @@ ParseError(const fmt::text_style &ts,
 }
 
 template <typename... Args>
-AC_NODISCARD_ AC_FORCEINLINE_ AC_FLATTEN_ static inline AC_CONSTEXPR20_ Status
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 LexError(const fmt::text_style &ts,
          fmt::format_string<Args...> fmt,
          Args &&...args) {

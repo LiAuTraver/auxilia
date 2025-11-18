@@ -1,4 +1,3 @@
-// IWYU pragma: private, include <accat/auxilia/defines.hpp>
 #pragma once
 #include "./variadic-inl.h"
 
@@ -80,70 +79,100 @@
 // although C++ standard may be updated, the constexpr feature may not be
 // supported by all compilers.
 #if __cpp_constexpr >= 202000L
-#  define AC_CONSTEXPR20_ constexpr
+/// @def AC_CONSTEXPR20
+/// @brief c++20-style constexpr support
+#  define AC_CONSTEXPR20 constexpr
 #else
-#  define AC_CONSTEXPR20_
+#  define AC_CONSTEXPR20
 #endif
 
 #if __cpp_constexpr >= 202211L
-#  define AC_CONSTEXPR23_ constexpr
+
+/// @def AC_CONSTEXPR23
+/// @brief c++23-style constexpr support
+#  define AC_CONSTEXPR23 constexpr
 #else
-#  define AC_CONSTEXPR23_
+#  define AC_CONSTEXPR23
 #endif
 
 #if __cpp_consteval >= 202211L
-#  define AC_CONSTEVAL_ consteval
+/// @def AC_CONSTEVAL
+/// @brief propagate consteval support
+#  define AC_CONSTEVAL consteval
 #else
-#  define AC_CONSTEVAL_ AC_CONSTEXPR20_
+#  define AC_CONSTEVAL AC_CONSTEXPR20
 #endif
 
 #if __cpp_static_call_operator >= 202207L
-#  define AC_STATIC_CALL_OPERATOR_ static
-#  define AC_CONST_CALL_OPERATOR_
+#  define AC_STATIC_CALL_OPERATOR static
+#  define AC_CONST_CALL_OPERATOR
 #else
-#  define AC_STATIC_CALL_OPERATOR_
-#  define AC_CONST_CALL_OPERATOR_ const
+#  define AC_STATIC_CALL_OPERATOR
+#  define AC_CONST_CALL_OPERATOR const
 #endif
 
 #if __has_cpp_attribute(nodiscard) >= 201907L
-#  define AC_NODISCARD_REASON_(...) [[nodiscard(__VA_ARGS__)]]
-#  define AC_NODISCARD_ [[nodiscard]]
+#  define AC_NODISCARD_REASON(...) [[nodiscard(__VA_ARGS__)]]
+/// @def AC_NODISCARD
+/// @brief nodiscard attribute
+/// @note why this macro? mostly because attribute with `[[]]` costs more
+/// typing,
+///       especially if clangd is used. ;)
+#  define AC_NODISCARD [[nodiscard]]
 #elif __has_cpp_attribute(nodiscard) >= 201603L
-#  define AC_NODISCARD_REASON_(...) [[nodiscard]]
-#  define AC_NODISCARD_ [[nodiscard]]
+#  define AC_NODISCARD_REASON(...) [[nodiscard]]
+#  define AC_NODISCARD [[nodiscard]]
 #else
-#  define AC_NODISCARD_REASON_(...)
-#  define AC_NODISCARD_
+#  define AC_NODISCARD_REASON(...)
+#  define AC_NODISCARD
 #endif
 
 #ifdef __clang__
-#  define AC_FLATTEN_ [[gnu::flatten]]
-#  define AC_NO_SANITIZE_ADDRESS_ [[clang::no_sanitize("address")]]
-#  define AC_FORCEINLINE_ [[clang::always_inline]]
-#  define AC_DEBUG_FUNCTION_NAME_ __PRETTY_FUNCTION__
+/// @def AC_FLATTEN
+/// @brief function flatten attribute
+/// @note non-standard but well supported.
+#  define AC_FLATTEN [[gnu::flatten]]
+/// @def AC_NO_SANITIZE_ADDRESS
+/// @brief function no address sanitizer attribute
+/// @note non-standard but well supported.
+#  define AC_NO_SANITIZE_ADDRESS [[clang::no_sanitize("address")]]
+/// @def AC_FORCEINLINE
+/// @brief function force inline attribute
+/// @note the attribute is non-standard
+///       but supported by all three major compilers.
+#  define AC_FORCEINLINE [[clang::always_inline]]
+#  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
-#  define AC_FLATTEN_ [[msvc::flatten]]
-#  define AC_NO_SANITIZE_ADDRESS_ __declspec(no_sanitize_address)
-#  define AC_FORCEINLINE_ [[msvc::forceinline]]
-#  define AC_DEBUG_FUNCTION_NAME_ __FUNCSIG__
+#  define AC_FLATTEN [[msvc::flatten]]
+#  define AC_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
+#  define AC_FORCEINLINE [[msvc::forceinline]]
+#  define AC_DEBUG_FUNCTION_NAME __FUNCSIG__
 #elif defined(__GNUC__)
-#  define AC_FLATTEN_ [[gnu::flatten]]
-#  define AC_NO_SANITIZE_ADDRESS_ __attribute__((no_sanitize("address")))
-#  define AC_FORCEINLINE_ [[gnu::always_inline]]
-#  define AC_DEBUG_FUNCTION_NAME_ __PRETTY_FUNCTION__
+#  define AC_FLATTEN [[gnu::flatten]]
+#  define AC_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
+#  define AC_FORCEINLINE [[gnu::always_inline]]
+#  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
-#  define AC_FLATTEN_
-#  define AC_NO_SANITIZE_ADDRESS_
-#  define AC_FORCEINLINE_ inline
-#  define AC_DEBUG_FUNCTION_NAME_ __func__
+#  define AC_FLATTEN
+#  define AC_NO_SANITIZE_ADDRESS
+#  define AC_FORCEINLINE inline
+#  define AC_DEBUG_FUNCTION_NAME __func__
 #endif
 
 #ifdef _WIN32
-#  define AC_NOVTABLE_ __declspec(novtable)
-#  define AC_EMPTY_BASES_ __declspec(empty_bases)
+/// @def AC_NOVTABLE
+/// @note msvc-specific keyword to prevent vtable generation.
+///     Used in(and should only in) interface classes(i.e., pure interface and
+///     never instantiated directly).
+/// @remark no gcc/clang equivalent.
+#  define AC_NOVTABLE __declspec(novtable)
+/// @def AC_EMPTY_BASES
+/// @note msvc-specific keyword to enforce empty base optimization.
+/// @remark no gcc/clang equivalent.
+#  define AC_EMPTY_BASES __declspec(empty_bases)
 #else
-#  define AC_NOVTABLE_
-#  define AC_EMPTY_BASES_
+#  define AC_NOVTABLE
+#  define AC_EMPTY_BASES
 #endif
 
 #ifdef AUXILIA_BUILD_MODULE
@@ -215,9 +244,9 @@ template <class Fun_> struct _dbg_block_ {
 };
 EXPORT_AUXILIA
 template <class Fun_>
-AC_STATIC_CALL_OPERATOR_ inline constexpr auto
+AC_STATIC_CALL_OPERATOR inline constexpr auto
 operator*(_dbg_block_helper_struct_, Fun_ f_)
-    AC_CONST_CALL_OPERATOR_ noexcept(noexcept(f_())) -> _dbg_block_<Fun_> {
+    AC_CONST_CALL_OPERATOR noexcept(noexcept(f_())) -> _dbg_block_<Fun_> {
   return {f_};
 }
 } // namespace accat::auxilia::details
@@ -280,7 +309,7 @@ extern "C" __declspec(dllimport) int SetConsoleOutputCP(unsigned int);
 #endif
 
 namespace accat::auxilia::details {
-AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
+AC_FLATTEN inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
   return ::IsDebuggerPresent();
 #elif defined(__linux__)
@@ -290,7 +319,7 @@ AC_FLATTEN_ inline bool _is_debugger_present() noexcept {
   return false;
 #endif
 }
-AC_FLATTEN_ inline void _set_console_output_cp_utf8() noexcept {
+AC_FLATTEN inline void _set_console_output_cp_utf8() noexcept {
 #ifdef _WIN32
   ::SetConsoleOutputCP(65001);
 #else
@@ -319,7 +348,7 @@ AC_FLATTEN_ inline void _set_console_output_cp_utf8() noexcept {
     case 0:                                                                    \
     default:
 #  define AC_FILENAME (::std::source_location::current().file_name())
-#  define AC_FUNCTION_NAME AC_DEBUG_FUNCTION_NAME_
+#  define AC_FUNCTION_NAME AC_DEBUG_FUNCTION_NAME
 #  define AC_LINE (::std::source_location::current().line())
 #  define AC_COLUMN (::std::source_location::current().column())
 #  define AC_PRINT_ERROR_MSG_IMPL_WITH_MSG(x, _msg_)                           \
@@ -442,7 +471,7 @@ template <class Fun_> struct _deferrer_ {
 };
 EXPORT_AUXILIA
 template <class Fun_>
-inline AC_CONSTEXPR20_ auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
+inline AC_CONSTEXPR20 auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
     -> _deferrer_<Fun_> {
   return {f_};
 }
@@ -459,7 +488,12 @@ inline AC_CONSTEXPR20_ auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
 #endif
 
 // NOLINTBEGIN(bugprone-macro-parentheses)
-#define AC_BITMASK_OPS_(_bitmask_)                                             \
+/// @def AC_BITMASK_OPS
+/// @brief define the basic bitmask operations for the given bitmask
+/// type. the bitmask type should be an enum class.
+/// @param _bitmask_ the bitmask type
+/// @note this macro was borrowed from Microsoft's STL implementation.
+#define AC_BITMASK_OPS(_bitmask_)                                              \
   [[nodiscard]]                                                                \
   inline constexpr _bitmask_ operator&(                                        \
       _bitmask_ _left_,                                                        \
@@ -523,7 +557,10 @@ inline AC_CONSTEXPR20_ auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
     return !static_cast<_intergral_type_>(_left_);                             \
   }
 
-#define AC_BITMASK_OPS_NESTED_(_bitmask_)                                      \
+/// @def AC_BITMASK_OPSNESTED
+/// @brief Useful if the enum class is nested inside a template class(usually
+/// you won't do this).
+#define AC_BITMASK_OPSNESTED_(_bitmask_)                                       \
   [[nodiscard]] friend inline constexpr _bitmask_ operator&(                   \
       _bitmask_ _left_,                                                        \
       _bitmask_ _right_) noexcept { /* return _left_ & _right_ */              \

@@ -13,8 +13,8 @@
 namespace accat::auxilia::ranges::views::details {
 struct _swap_endian_fn {
   template <std::ranges::viewable_range R>
-  [[nodiscard]] AC_STATIC_CALL_OPERATOR_ constexpr auto operator()(R &&r)
-      AC_CONST_CALL_OPERATOR_->decltype(auto) {
+  [[nodiscard]] AC_STATIC_CALL_OPERATOR constexpr auto operator()(R &&r)
+      AC_CONST_CALL_OPERATOR->decltype(auto) {
     return std::forward<R>(r) | std::views::reverse | std::views::common;
   }
 
@@ -134,20 +134,19 @@ template <typename T> struct surround_adaptor_closure {
 // Range adaptor object
 struct _surround_fn {
   template <typename T>
-  AC_STATIC_CALL_OPERATOR_ auto operator()(T front,
-                                           std::type_identity_t<T> back)
-      AC_CONST_CALL_OPERATOR_ {
+  AC_STATIC_CALL_OPERATOR auto operator()(T front, std::type_identity_t<T> back)
+      AC_CONST_CALL_OPERATOR {
     return surround_adaptor_closure<T>{front, back};
   }
   template <typename T>
-  AC_STATIC_CALL_OPERATOR_ auto operator()(T surround) AC_CONST_CALL_OPERATOR_ {
+  AC_STATIC_CALL_OPERATOR auto operator()(T surround) AC_CONST_CALL_OPERATOR {
     return surround_adaptor_closure<T>{surround, surround};
   }
 
   template <std::ranges::input_range R, typename T>
-  AC_STATIC_CALL_OPERATOR_ auto
+  AC_STATIC_CALL_OPERATOR auto
   operator()(R &&r, T front, std::type_identity_t<T> back)
-      AC_CONST_CALL_OPERATOR_ {
+      AC_CONST_CALL_OPERATOR {
     return surround_view(std::forward<R>(r), front, back);
   }
 };

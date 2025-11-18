@@ -104,7 +104,7 @@ private:
 
 private:
   template <typename R>
-  struct AC_EMPTY_BASES_
+  struct AC_EMPTY_BASES
       promise_type_impl<R, false> : promise_type_base<promise_type> {
     static_assert(std::is_nothrow_move_constructible_v<R>,
                   "ReturnType must be nothrow move constructible");
@@ -116,7 +116,7 @@ private:
     void return_value(const R &value) noexcept { final_return_value = value; }
   };
   template <typename R>
-  struct AC_EMPTY_BASES_
+  struct AC_EMPTY_BASES
       promise_type_impl<R, true> : promise_type_base<promise_type> {
     friend struct iterator;
     const YieldType *current_value = nullptr;

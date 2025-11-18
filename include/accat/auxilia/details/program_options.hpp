@@ -212,7 +212,8 @@ public:
   }
 
   template <typename... Properties>
-  auto &add_option(std::string_view name, Properties &&...props) {
+  auto add_option(std::string_view name, Properties &&...props)
+      -> decltype(auto) {
     return add_option(Option{name, std::forward<Properties>(props)...});
   }
 

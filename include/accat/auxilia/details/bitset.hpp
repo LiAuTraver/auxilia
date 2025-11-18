@@ -106,22 +106,22 @@ private:
     else
       my_word &= ~my_bit;
   }
-  AC_FLATTEN_ constexpr auto
+  AC_FLATTEN constexpr auto
   do_subscript_unchecked(const size_t pos) const noexcept {
     return !!(myArr[word_offset(pos)] & (storage_type{1} << bit_offset(pos)));
   }
-  AC_FLATTEN_ constexpr void do_flip_unchecked(const size_t pos) noexcept {
+  AC_FLATTEN constexpr void do_flip_unchecked(const size_t pos) noexcept {
     myArr[word_offset(pos)] ^= (storage_type{1} << bit_offset(pos));
   }
   // trim off the unused bits in the last storage word
-  AC_FLATTEN_ constexpr void trim() noexcept {
+  AC_FLATTEN constexpr void trim() noexcept {
     if constexpr (N > 0)
       myArr[arr_length - 1] &= (storage_type{1} << (N % bits_per_word)) - 1;
   }
-  AC_FLATTEN_ constexpr auto word_offset(const size_t pos) const noexcept {
+  AC_FLATTEN constexpr auto word_offset(const size_t pos) const noexcept {
     return pos / bits_per_word;
   }
-  AC_FLATTEN_ constexpr auto bit_offset(const size_t pos) const noexcept {
+  AC_FLATTEN constexpr auto bit_offset(const size_t pos) const noexcept {
     return pos % bits_per_word;
   }
   constexpr auto do_to_string(const char zero, const char one) const {
@@ -142,19 +142,19 @@ public:
   /**
    * @name Standard compliant member functions
    */
-  AC_NODISCARD_ constexpr auto test(const size_t pos) const AC_NOEXCEPT {
+  AC_NODISCARD constexpr auto test(const size_t pos) const AC_NOEXCEPT {
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
     return do_subscript_unchecked(pos);
   }
-  AC_NODISCARD_ constexpr auto any() const noexcept {
+  AC_NODISCARD constexpr auto any() const noexcept {
     for (auto i = 0ull; i < arr_length; ++i)
       if (myArr[i] != 0)
         return true;
 
     return false;
   }
-  AC_NODISCARD_ constexpr auto none() const noexcept { return !any(); }
-  AC_NODISCARD_ constexpr auto all() const noexcept {
+  AC_NODISCARD constexpr auto none() const noexcept { return !any(); }
+  AC_NODISCARD constexpr auto all() const noexcept {
     if constexpr (N == 0)
       return true;
     constexpr auto no_padding = N % bits_per_word == 0;
@@ -166,7 +166,7 @@ public:
     return no_padding || myArr[arr_length - 1] ==
                              (storage_type{1} << (N % bits_per_word)) - 1;
   }
-  AC_NODISCARD_ constexpr auto count() const noexcept {
+  AC_NODISCARD constexpr auto count() const noexcept {
     if constexpr (N == 0)
       return 0;
     size_t total = 0;
@@ -178,7 +178,7 @@ public:
 
     return total;
   }
-  AC_NODISCARD_ consteval auto size() const noexcept { return N; }
+  AC_NODISCARD consteval auto size() const noexcept { return N; }
   constexpr auto &set(const size_t pos, const bool val = true) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support set(pos, val)");
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
@@ -226,7 +226,7 @@ public:
     trim();
     return *this;
   }
-  AC_NODISCARD_ constexpr auto to_ulong() const noexcept(N <= 32) {
+  AC_NODISCARD constexpr auto to_ulong() const noexcept(N <= 32) {
     if constexpr (N == 0)
       return 0;
     if constexpr (N > 32) {
@@ -241,7 +241,7 @@ public:
     }
     return static_cast<unsigned long>(myArr[0]);
   }
-  AC_NODISCARD_ constexpr auto to_ullong() const noexcept(N <= 64) {
+  AC_NODISCARD constexpr auto to_ullong() const noexcept(N <= 64) {
     if constexpr (N == 0)
       return 0;
     if constexpr (N > 64) {
@@ -254,12 +254,12 @@ public:
     return static_cast<unsigned long long>(myArr[0]);
   }
 #    ifdef AC_STD_COMPLIANT_BITSET
-  AC_NODISCARD_ constexpr auto to_string(const char zero = '0',
-                                         const char one = '1') const {
+  AC_NODISCARD constexpr auto to_string(const char zero = '0',
+                                        const char one = '1') const {
     return string(zero, one);
   }
 #    else
-  AC_NODISCARD_ constexpr auto
+  AC_NODISCARD constexpr auto
   to_string(const FormatPolicy policy = FormatPolicy::kDefault,
             const char zero = '0',
             const char one = '1') const {
@@ -279,7 +279,7 @@ public:
    *    most of which are just syntactic sugar.
    */
   template <typename NumType = unsigned long long>
-  AC_NODISCARD_ constexpr auto num() const noexcept((N <= 64)) {
+  AC_NODISCARD constexpr auto num() const noexcept((N <= 64)) {
     static_assert(std::is_integral_v<NumType>,
                   "template parameter T must be an integral type");
     if constexpr (std::is_same_v<NumType, unsigned long long>) {
@@ -318,7 +318,7 @@ public:
       return bitset_->do_subscript_unchecked(pos_);
     }
 
-    AC_NODISCARD_ constexpr bool operator~() const noexcept {
+    AC_NODISCARD constexpr bool operator~() const noexcept {
       // ditto
       return !bitset_->do_subscript_unchecked(pos_);
     }
@@ -408,7 +408,7 @@ public:
     trim();
     return *this;
   }
-  AC_NODISCARD_ constexpr auto
+  AC_NODISCARD constexpr auto
   operator==(const bitset<N> &other) const noexcept {
     if consteval {
       for (auto i = 0ull; i < arr_length; ++i) {
@@ -419,22 +419,22 @@ public:
     }
     return ::memcmp(&myArr, &other.myArr, sizeof(myArr)) == 0;
   }
-  AC_NODISCARD_ constexpr auto operator<<(const size_t shift) const noexcept {
+  AC_NODISCARD constexpr auto operator<<(const size_t shift) const noexcept {
     auto tmp = *this;
     tmp <<= shift;
     return tmp;
   }
-  AC_NODISCARD_ constexpr auto operator>>(const size_t shift) const noexcept {
+  AC_NODISCARD constexpr auto operator>>(const size_t shift) const noexcept {
     auto tmp = *this;
     tmp >>= shift;
     return tmp;
   }
-  AC_NODISCARD_ constexpr auto operator[](const size_t pos) const AC_NOEXCEPT {
+  AC_NODISCARD constexpr auto operator[](const size_t pos) const AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[] const");
     AC_PRECONDITION(pos < N, "subscript out of range")
     return do_subscript_unchecked(pos);
   }
-  AC_NODISCARD_ constexpr auto operator[](const size_t pos) AC_NOEXCEPT {
+  AC_NODISCARD constexpr auto operator[](const size_t pos) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[]");
     AC_PRECONDITION(pos < N, "subscript out of range")
     return reference{*this, pos};
@@ -442,22 +442,22 @@ public:
   /// @}
 };
 template <size_t N>
-AC_NODISCARD_ inline constexpr auto operator&(const bitset<N> &left,
-                                              const bitset<N> &right) noexcept {
+AC_NODISCARD inline constexpr auto operator&(const bitset<N> &left,
+                                             const bitset<N> &right) noexcept {
   auto ans = left;
   ans &= right;
   return ans;
 }
 template <size_t N>
-AC_NODISCARD_ inline constexpr auto operator|(const bitset<N> &left,
-                                              const bitset<N> &right) noexcept {
+AC_NODISCARD inline constexpr auto operator|(const bitset<N> &left,
+                                             const bitset<N> &right) noexcept {
   auto ans = left;
   ans |= right;
   return ans;
 }
 template <size_t N>
-AC_NODISCARD_ inline constexpr auto operator^(const bitset<N> &left,
-                                              const bitset<N> &right) noexcept {
+AC_NODISCARD inline constexpr auto operator^(const bitset<N> &left,
+                                             const bitset<N> &right) noexcept {
   auto ans = left;
   ans ^= right;
   return ans;
@@ -489,9 +489,9 @@ consteval auto operator""_bs() noexcept {
 // ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
 template <size_t N> struct hash<::accat::auxilia::bitset<N>> {
-  AC_NODISCARD_ AC_STATIC_CALL_OPERATOR_ constexpr auto
+  AC_NODISCARD AC_STATIC_CALL_OPERATOR constexpr auto
   operator()(const ::accat::auxilia::bitset<N> &bs)
-      AC_CONST_CALL_OPERATOR_ noexcept {
+      AC_CONST_CALL_OPERATOR noexcept {
     size_t seed = 0;
     using storage_type = typename ::accat::auxilia::bitset<N>::storage_type;
     constexpr auto arr_len = ::accat::auxilia::bitset<N>::arr_length;

@@ -29,12 +29,6 @@
 
 #include "./details/macros.hpp" // IWYU pragma: export
 
-#ifdef defer
-#  warning "defer was already defined. please check the code."
-#  pragma pop_macro("defer")
-#endif
-#define defer AC_DEFER
-
 #if (defined(_MSVC_TRADITIONAL) && _MSVC_TRADITIONAL) && !defined(__clang__)
 /// @brief MSVC traditional preprocessor
 /// @def dbg(_level_, _msg_, ...)
@@ -77,58 +71,6 @@
 /// by IDE(which is why this macro exists).
 #define TODO(...) AC_TODO_(__VA_ARGS__)
 
-/// @def AC_NOVTABLE
-/// @note msvc-specific keyword to prevent vtable generation.
-///     Used in(and should only in) interface classes(i.e., pure interface and
-///     never instantiated directly).
-/// @remark no gcc/clang equivalent.
-#define AC_NOVTABLE AC_NOVTABLE_
-
-/// @def AC_EMPTY_BASES
-/// @note msvc-specific keyword to enforce empty base optimization.
-/// @remark no gcc/clang equivalent.
-#define AC_EMPTY_BASES AC_EMPTY_BASES_
-
-/// @def AC_CONSTEVAL
-/// @brief propagate consteval support
-#define AC_CONSTEVAL AC_CONSTEVAL_
-
-/// @def AC_CONSTEXPR20
-/// @brief c++20-style constexpr support
-#define AC_CONSTEXPR20 AC_CONSTEXPR20_
-
-/// @def AC_CONSTEXPR23
-/// @brief c++23-style constexpr support
-#define AC_CONSTEXPR23 AC_CONSTEXPR23_
-
-#define AC_CONST_CALL_OPERATOR AC_CONST_CALL_OPERATOR_
-#define AC_STATIC_CALL_OPERATOR AC_STATIC_CALL_OPERATOR_
-#define AC_DEBUG_FUNCTION_NAME AC_DEBUG_FUNCTION_NAME_
-
-/// @def AC_NODISCARD
-/// @brief nodiscard attribute
-/// @note why this macro? mostly because attribute with `[[]]` costs more
-/// typing,
-///       especially if clangd is used. ;)
-#define AC_NODISCARD AC_NODISCARD_
-#define AC_NODISCARD_REASON(...) AC_NODISCARD_REASON_(__VA_ARGS__)
-
-/// @def AC_FORCEINLINE
-/// @brief function force inline attribute
-/// @note the attribute is non-standard
-///       but supported by all three major compilers.
-#define AC_FORCEINLINE AC_FORCEINLINE_
-
-/// @def AC_FLATTEN
-/// @brief function flatten attribute
-/// @note non-standard but well supported.
-#define AC_FLATTEN AC_FLATTEN_
-
-/// @def AC_NO_SANITIZE_ADDRESS
-/// @brief function no address sanitizer attribute
-/// @note non-standard but well supported.
-#define AC_NO_SANITIZE_ADDRESS AC_NO_SANITIZE_ADDRESS_
-
 /// @def AC_SPDLOG_INITIALIZATION(_exec_, _log_level_) initializes the
 /// spdlog framework
 /// @note only call it once in the whole exec; never call it twice.
@@ -140,16 +82,10 @@
     return nullptr;                                                            \
   }();
 
-/// @def AC_BITMASK_OPS
-/// @brief define the basic bitmask operations for the given bitmask
-/// type. the bitmask type should be an enum class.
-/// @param _bitmask_ the bitmask type
-/// @note this macro was borrowed from Microsoft's STL implementation.
-#define AC_BITMASK_OPS(_bitmask_) AC_BITMASK_OPS_(_bitmask_)
-
-/// @def AC_BITMASK_OPS_NESTED
-/// @brief Useful if the enum class is nested inside a template class(usually
-/// you won't do this).
-#define AC_BITMASK_OPS_NESTED(_bitmask_) AC_BITMASK_OPS_NESTED_(_bitmask_)
-
 #define return_if_not(_status_) AC_RETURN_IF_NOT(_status_)
+
+#ifdef defer
+#  warning "defer was already defined. please check the code."
+#  pragma pop_macro("defer")
+#endif
+#define defer AC_DEFER

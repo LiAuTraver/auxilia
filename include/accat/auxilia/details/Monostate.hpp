@@ -14,10 +14,10 @@ namespace accat::auxilia {
 /// my @link Variant @endlink class;
 /// dont't use consteval because the class is not final
 EXPORT_AUXILIA
-struct Monostate : Printable, Viewable {
+struct AC_EMPTY_BASES AC_NOVTABLE Monostate : Printable, Viewable {
 public:
   inline constexpr Monostate() = default;
-  /* not virtual */ inline AC_CONSTEXPR20_ ~Monostate() noexcept = default;
+  /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() noexcept = default;
   inline constexpr Monostate(const Monostate &) {}
   inline constexpr Monostate(Monostate &&) noexcept {}
   inline /* not consteval */ constexpr auto operator=(const Monostate &)
@@ -38,6 +38,8 @@ public:
   to_string_view(const FormatPolicy) const -> string_view_type {
     return "Monostate";
   }
+  inline consteval auto data(const FormatPolicy) { return "Monostate"; }
+
   friend inline /* not consteval */ constexpr auto
   operator==(const Monostate &, const Monostate &) noexcept -> bool {
     return true;

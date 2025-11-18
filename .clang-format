@@ -46,8 +46,8 @@ StatementAttributeLikeMacros:
   - Q_SLOTS
   - Q_SLOT
   - AC_NOEXCEPT
-  - AC_CONST_CALL_OPERATOR_
-  - AC_STATIC_CALL_OPERATOR_
+  - AC_CONST_CALL_OPERATOR
+  - AC_STATIC_CALL_OPERATOR
   - emit
   - signals
   - slots

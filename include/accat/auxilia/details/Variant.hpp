@@ -59,7 +59,7 @@ public:
   bool operator!=(const Variant &that) const noexcept {
     return my_variant != that.my_variant;
   }
-  AC_CONSTEXPR23_ ~Variant() noexcept(
+  AC_CONSTEXPR23 ~Variant() noexcept(
       noexcept((std::is_nothrow_destructible_v<Types> && ...))) = default;
 
 public:
