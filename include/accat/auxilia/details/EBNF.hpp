@@ -880,12 +880,6 @@ private:
     for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
       AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
-      // FIXME: this only eliminate 1 depth indirect lr,
-      // A -> C B
-      // B -> A C
-      // C -> B A | d
-      // does not work for C.
-      // need to do: recurse it and also with a table to prevent infinite loop
       if ((rhsElem.front() == B.lhs)) {
         // A -> B gamma  =>  substitute B -> delta into A
         for (const auto &delta : B.rhs) {
@@ -1146,9 +1140,25 @@ public:
     // eliminate indirect left recursion
     for (size_t i = 0; i < pieces.size(); ++i) {
       auto &A = pieces[i];
-      for (size_t j = 0; j < i; ++j) {
-        auto &B = pieces[j];
-        _indirect_left_recursion(A, B);
+      
+      // Iteratively substitute all earlier non-terminals until no more exist
+      // at the start of any production. This handles multi-depth indirect LR.
+      bool changed = true;
+      while (changed) {
+        changed = false;
+        for (size_t j = 0; j < i; ++j) {
+          const auto &B = pieces[j];
+          
+          // Check if any production in A starts with B.lhs
+          bool has_indirect_lr = std::ranges::any_of(A.rhs, [&](const auto &rhsElem) {
+            return !rhsElem.empty() && rhsElem.front() == B.lhs;
+          });
+          
+          if (has_indirect_lr) {
+            _indirect_left_recursion(A, B);
+            changed = true;
+          }
+        }
       }
 
       if (auto status = _analyze_left_recursion(A); !status)
