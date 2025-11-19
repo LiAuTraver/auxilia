@@ -147,21 +147,25 @@
 /// @note the attribute is non-standard
 ///       but supported by all three major compilers.
 #  define AC_FORCEINLINE [[clang::always_inline]]
+#  define AC_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
 #  define AC_FLATTEN [[msvc::flatten]]
 #  define AC_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
 #  define AC_FORCEINLINE [[msvc::forceinline]]
+#  define AC_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
 #  define AC_DEBUG_FUNCTION_NAME __FUNCSIG__
 #elif defined(__GNUC__)
 #  define AC_FLATTEN [[gnu::flatten]]
 #  define AC_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
 #  define AC_FORCEINLINE [[gnu::always_inline]]
+#  define AC_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
 #  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
 #else
 #  define AC_FLATTEN
 #  define AC_NO_SANITIZE_ADDRESS
 #  define AC_FORCEINLINE inline
+#  define AC_NO_UNIQUE_ADDRESS
 #  define AC_DEBUG_FUNCTION_NAME __func__
 #endif
 

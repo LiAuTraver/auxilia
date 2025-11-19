@@ -60,7 +60,9 @@ int main() {
 
   grammar->apply_left_factorization();
 
-  std::cout << grammar << std::endl;
+  std::cout << grammar << "\n\n\n\n\n\n";
+
+  Println("{}", fmt::join(grammar->terminals(), "\n"));
 }
 
 constexpr const char *const sysc = R"~~(

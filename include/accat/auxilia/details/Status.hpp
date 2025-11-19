@@ -318,14 +318,14 @@ public:
   inline AC_CONSTEXPR20 explicit operator bool() const AC_NOEXCEPT {
     return this->ok();
   }
-  AC_NODISCARD constexpr bool ok() const AC_NOEXCEPT { return my_code == kOk; }
-  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const AC_NOEXCEPT {
+  AC_NODISCARD constexpr bool ok() const noexcept { return my_code == kOk; }
+  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const noexcept {
     return my_code == kReturning;
   }
   AC_NODISCARD
-  Code code() const AC_NOEXCEPT { return my_code; }
+  Code code() const noexcept { return my_code; }
   AC_NODISCARD
-  auto raw_code() const AC_NOEXCEPT {
+  auto raw_code() const noexcept {
     return static_cast<std::underlying_type_t<Code>>(my_code);
   }
   AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {

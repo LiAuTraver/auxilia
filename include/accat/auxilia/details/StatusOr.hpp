@@ -19,11 +19,6 @@
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
-/// @note used to avoid zero-initialization when the stored object is
-/// value-initialized
-struct dummy_type {
-  constexpr dummy_type() noexcept {}
-};
 
 /// @brief A class that represents the status of a function call,
 ///          or a value.

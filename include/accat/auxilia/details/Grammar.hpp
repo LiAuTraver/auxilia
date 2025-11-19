@@ -20,6 +20,7 @@
 #include <system_error>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -438,7 +439,7 @@ private:
     }
   }
 
-  inline auto add_token(Token::Type type) -> token_t {
+  inline auto add_token(const Token::Type type) -> token_t {
     if (type == kEndOfFile) { // FIXME: lexeme bug at EOF(not critical)
       return token_t::eof(current_line);
     }
@@ -446,7 +447,7 @@ private:
     AC_DEBUG_LOGGING(trace, "lexeme: {}", lexeme)
     return token_t::Lexeme(type, lexeme, current_line);
   }
-  inline auto add_token(number_value_t number) const -> token_t {
+  inline auto add_token(const number_value_t number) const -> token_t {
     AC_DEBUG_LOGGING(trace, "lexeme: number")
     return token_t::Number(number, current_line);
   }
@@ -792,18 +793,37 @@ private:
           );
     }
   };
-  std::vector<Piece> pieces;
-  std::unordered_map<string_type, size_t> index_map;
+  std::vector<Piece> pieces_;
+  std::unordered_set<string_type> nonTerminals_;
+  std::unordered_set<string_type> terminals_;
+
+public:
+  auto non_terminals(this auto &&self) -> decltype(auto) {
+    return std::forward<decltype(self)>(self).nonTerminals_ |
+           std::ranges::views::keys;
+  }
+  auto terminals(this auto &&self) -> decltype(auto) {
+    return std::forward<decltype(self)>(self).terminals_ |
+           std::ranges::views::common;
+  }
+
+  auto is_terminal(const std::string &str) const noexcept {
+    return terminals_.contains(str);
+  }
+  auto is_non_terminal(const std::string &str) const noexcept {
+    return nonTerminals_.contains(str);
+  }
 
 private:
   /// ensure uniqueness of the name.
   /// @note this function only returns a unique name, and does NOT add it into
   /// the `index_map`.
-  auto _new_unique_name(const std::string_view origName, const char *prime) {
+  auto _new_unique_non_terminal_name(const std::string_view origName,
+                                     const char *prime) const {
     string_type newName = origName.data();
     do {
       newName += prime;
-    } while (index_map.contains(newName));
+    } while (nonTerminals_.contains(newName));
     return newName;
   }
 
@@ -811,8 +831,8 @@ private:
   void _immediate_left_recursion(Piece &A,
                                  Piece::rhs_t &&recRhsElems,
                                  Piece::rhs_t &&nonRecRhsElems) {
-    auto prime = _new_unique_name(A.lhs, "'");
-    index_map[prime] = pieces.size();
+    auto prime = _new_unique_non_terminal_name(A.lhs, "'");
+    // nonTerminals_[prime] = pieces.size();
 
     // create new piece for A'
     Piece newPiece;
@@ -837,7 +857,7 @@ private:
     }
     newPiece.rhs.emplace_back().emplace_back(epsilon);
 
-    pieces.emplace_back(std::move(newPiece));
+    pieces_.emplace_back(std::move(newPiece));
   }
   // eliminate direct left recursion for A
   Status _analyze_left_recursion(Piece &A) {
@@ -935,10 +955,10 @@ private:
 
     for (auto &&l : lines) {
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(l)>);
-      auto &piece = pieces.emplace_back();
+      auto &piece = pieces_.emplace_back();
       piece.lhs = l.front().front().lexeme();
       // build index_map here
-      index_map.emplace(piece.lhs, l.front().front().line());
+      nonTerminals_.emplace(piece.lhs);
       for (auto &&chunk_view : l // already rvalue
                                    | std::ranges::views::drop(1) //
                                    | std::ranges::views::as_rvalue) {
@@ -948,6 +968,16 @@ private:
             }));
       }
     }
+    // 1. use for_each to enable possible vectorization(not really in this case)
+    // 2. todo: improve this: scan through again, performance heavy?
+    std::ranges::for_each(pieces_, [this](auto &&piece) {
+      std::ranges::for_each(piece.rhs, [this](auto &&rhsElem) {
+        std::ranges::for_each(rhsElem, [this](auto &&str) {
+          if (!this->nonTerminals_.contains(str))
+            this->terminals_.emplace(str);
+        });
+      });
+    });
   }
   auto do_parse(std::vector<Token> &&tokens) {
     using enum Token::Type;
@@ -1034,11 +1064,14 @@ private:
              (lhs.is_type(kBitwiseOr) == rhs.is_type(kBitwiseOr));
     };
 
+    // is this necessary??? seems not during testing
+    const auto tokSize = tokens.size() - 1;
+
     // transform_view<chunk_by_view<take_view<as_rvalue_view<owning_view<vector<Token>>>>,(l)>,(l)>
     auto lines =
         std::move(tokens) // xvalue to form a owning view rather than a ref view
-        | std::ranges::views::as_rvalue // mark token in tokens as rvalue
-        | std::ranges::views::take(tokens.size() - 1) // drop that kEndOfFile
+        | std::ranges::views::as_rvalue     // mark token in tokens as rvalue
+        | std::ranges::views::take(tokSize) // drop that kEndOfFile
         | std::ranges::views::chunk_by(stmtSeperator) // split by line
         |
         std::ranges::views::transform([&](auto &&line) {
@@ -1093,7 +1126,7 @@ private:
         newARhs.emplace_back(rhsElem);
       }
     }
-    auto newName = _new_unique_name(piece.lhs, "@");
+    auto newName = _new_unique_non_terminal_name(piece.lhs, "@");
 
     // add factored prefix + newName.
     // auto factoredPrefix = lcpPath;
@@ -1105,7 +1138,7 @@ private:
     piece.rhs = std::move(newARhs);
 
     // new piece for factored suffixes
-    auto &newPiece = pieces.emplace_back();
+    auto &newPiece = pieces_.emplace_back();
     newPiece.lhs = std::move(newName);
 
     // if suffix is single epsilon token, keep as-is;
@@ -1115,12 +1148,12 @@ private:
     newPiece.rhs.append_range(std::move(APrimeRhs) |
                               std::ranges::views::as_rvalue);
 
-    index_map.emplace(newPiece.lhs, pieces.size());
+    nonTerminals_.emplace(newPiece.lhs);
   }
 
 public:
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
-    return pieces                                              //
+    return pieces_                                             //
            | std::ranges::views::transform(Printable::Default) //
            | std::ranges::views::join_with('\n')               //
            | std::ranges::to<string_type>()                    //
@@ -1141,11 +1174,11 @@ public:
   auto eliminate_left_recursion() {
     // only need to examine the original grammar, no need to inspect newly
     // generated one; newly generated is appended after the originals.
-    const auto mySize = pieces.size();
+    const auto mySize = pieces_.size();
     for (size_t i = 0; i < mySize; ++i) {
-      auto &A = pieces[i];
+      auto &A = pieces_[i];
       for (size_t j = 0; j < i; ++j) {
-        auto &B = pieces[j];
+        auto &B = pieces_[j];
         _indirect_left_recursion(A, B);
       }
 
@@ -1159,8 +1192,8 @@ public:
 
     for (auto changed = true; changed;) {
       changed = false;
-      for (auto i = 0ull; i < pieces.size(); ++i) {
-        auto &piece = pieces[i];
+      for (auto i = 0ull; i < pieces_.size(); ++i) {
+        auto &piece = pieces_[i];
         auto before = piece.rhs.size();
         do_factoring(piece);
         if (piece.rhs.size() != before) {
