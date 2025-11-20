@@ -5,12 +5,29 @@
 
 #include "./type_traits.hpp"
 
-namespace std {
+namespace
+#if defined(__GLIBCXX__) && !defined(_WIN32)
+    std::inline __cxx11
+#elif defined(_LIBCPP_VERSION) && !defined(_WIN32)
+    std::inline __1
+#else
+    std
+#endif
+{
+template <class, class, class> class basic_string;
+} // namespace std::inline __cxx11
+namespace
+#if defined(_LIBCPP_VERSION) && !defined(_WIN32)
+    std::inline __1
+#else
+    std
+#endif
+{
+
+template <class, class> class basic_string_view;
 template <class> class allocator;
 template <class> struct char_traits;
-template <class, class> class basic_string_view;
-template <class, class, class> class basic_string;
-} // namespace std
+} // namespace std::inline __1
 
 namespace accat::auxilia {
 template <typename CharT, size_t N, typename Traits = std::char_traits<CharT>>

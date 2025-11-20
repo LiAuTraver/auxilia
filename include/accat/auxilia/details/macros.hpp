@@ -195,10 +195,14 @@
 #  endif
 #endif
 
+#define AC_FORMAT(...) (AC_STD_OR_FMT format("" __VA_ARGS__))
+
 /// @note by current time the library was written, GNU on Windows seems failed
 /// to perform linking for `stacktrace` and `spdlog`.
-#include <stacktrace>
-#if !AC_USE_STD_FMT
+
+#if __has_include(<stacktrace>)
+#  include <stacktrace>
+#  if !AC_USE_STD_FMT
 template <> struct ::fmt::formatter<::std::stacktrace> {
   constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
 
@@ -216,9 +220,11 @@ template <> struct ::fmt::formatter<::std::stacktrace> {
     return out;
   }
 };
+#  endif
+#  define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
+#else
+#  define AC_STACKTRACE ("Stacktrace unavailable")
 #endif
-#define AC_FORMAT(...) (AC_STD_OR_FMT format("" __VA_ARGS__))
-#define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
 #define AC_UNREACHABLE_IMPL                                                    \
   [[assume(false)]];                                                           \
   [[unlikely]] std::unreachable(); // 'not all control paths return a value'
@@ -328,13 +334,14 @@ AC_FLATTEN inline bool _is_debugger_present() noexcept {
   return false;
 #endif
 }
-AC_FLATTEN inline void _set_console_output_cp_utf8() noexcept {
+AC_FLATTEN inline auto _set_console_output_cp_utf8() noexcept {
+  return
 #ifdef _WIN32
-  ::SetConsoleOutputCP(65001);
+      ::SetConsoleOutputCP(65001)
 #else
-  system("export LANG=en_US.UTF-8");
-  system("export LC_CTYPE=en_US.UTF-8");
+      system("export LANG=en_US.UTF-8") && system("export LC_CTYPE=en_US.UTF-8")
 #endif
+          ;
 }
 } // namespace accat::auxilia::details
 

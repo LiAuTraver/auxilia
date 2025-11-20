@@ -37,7 +37,7 @@ extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(sysc);
+  Lexer lexer(factors);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {
@@ -62,7 +62,18 @@ int main() {
 
   std::cout << grammar << "\n\n\n\n\n\n";
 
-  Println("{}", fmt::join(grammar->terminals(), "\n"));
+  Println("TERMINALS: {}", fmt::join(grammar->terminals(), "\n"));
+
+  grammar->calculate_set();
+  auto pieces = grammar->non_terminals();
+  Println("FIRST: {}",
+          pieces |
+              std::ranges::views::transform(&Grammar::NonTerminal::first_set));
+  Println("FOLLOW: {}",
+          pieces |
+              std::ranges::views::transform(&Grammar::NonTerminal::follow_set));
+  fflush(stdout);
+  return 0;
 }
 
 constexpr const char *const sysc = R"~~(

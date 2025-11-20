@@ -96,8 +96,8 @@ inline constexpr auto npos32 = static_cast<uint32_t>(-1);
 AC_FLATTEN AC_NODISCARD inline bool is_debugger_present() noexcept {
   return details::_is_debugger_present();
 }
-AC_FLATTEN inline void set_console_output_cp_utf8() noexcept {
-  details::_set_console_output_cp_utf8();
+AC_FLATTEN inline auto set_console_output_cp_utf8() noexcept {
+  return details::_set_console_output_cp_utf8();
 }
 // from MSVC STL:
 // converts from a fancy pointer to a plain pointer

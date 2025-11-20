@@ -14,6 +14,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -277,7 +278,6 @@ public:
   using size_type = typename std::string::size_type;
   using string_type = std::string;
   using string_view_type = std::string_view;
-  using path_type = std::filesystem::path;
   using status_t = auxilia::Status;
   using token_t = Token;
   using token_type_t = Token::Type;
@@ -766,6 +766,9 @@ constexpr auto Token::token_type_operator() const -> std::string_view {
 }
 
 class Grammar : public Printable {
+  using elem_t = string_type;
+  struct Piece;
+
 public:
   Grammar() noexcept = default;
   Grammar(Grammar &&) noexcept = default;
@@ -773,18 +776,27 @@ public:
   Grammar(const Grammar &other) = delete;
   Grammar &operator=(const Grammar &other) = delete;
 
+  using NonTerminal = Piece;
+  using Terminal = elem_t;
+
 private:
-  using elem_t = string_type;
+  /// @note I named thie struct `Piece` at first but it turned out to be
+  /// non-terminal at the end.
   struct Piece : Printable {
+    friend class Grammar;
     using lhs_t = elem_t;
     using rhs_elem_t = std::vector<elem_t>;
     using rhs_t = std::vector<rhs_elem_t>;
-    lhs_t lhs;
-    rhs_t rhs;
+    using set_t = std::unordered_set<string_type>;
+    auto nullable() const {
+      return std::ranges::any_of(rhs_, [this](auto &&rhsElem) {
+        return rhsElem.size() == 1 && rhsElem.front() == epsilon;
+      });
+    }
     auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
-      return (lhs + (" -> "))
+      return (lhs_ + (" -> "))
           .append_range(
-              rhs //
+              rhs_ //
               | std::ranges::views::transform([](auto &&alt) {
                   return alt | std::ranges::views::join_with(' ');
                 })                                                     //
@@ -792,26 +804,44 @@ private:
               // ^^^ workaround, pass const char* seems cause issue
           );
     }
+    auto &lhs() const noexcept { return lhs_; }
+    auto &rhs() const noexcept { return rhs_; }
+    auto &first_set() const noexcept { return first_set_; }
+    auto &follow_set() const noexcept { return follow_set_; }
+    auto &select_set() const noexcept { return select_set_; }
+
+  private:
+    lhs_t lhs_;
+    rhs_t rhs_;
+    set_t first_set_;
+    set_t follow_set_;
+    set_t select_set_;
   };
   std::vector<Piece> pieces_;
-  std::unordered_set<string_type> nonTerminals_;
   std::unordered_set<string_type> terminals_;
 
 public:
+  auto non_terminals_view(this auto &&self) -> decltype(auto) {
+    return self.pieces_ | std::ranges::views::transform(&Piece::lhs_);
+  }
   auto non_terminals(this auto &&self) -> decltype(auto) {
-    return std::forward<decltype(self)>(self).nonTerminals_ |
-           std::ranges::views::keys;
+    return self.pieces_;
   }
   auto terminals(this auto &&self) -> decltype(auto) {
-    return std::forward<decltype(self)>(self).terminals_ |
-           std::ranges::views::common;
+    return self.terminals_ | std::ranges::views::common;
   }
-
-  auto is_terminal(const std::string &str) const noexcept {
-    return terminals_.contains(str);
+  decltype(auto) terminal(this auto &&self, const std::string &str) {
+    auto term = self.terminals_.find(str);
+    if (term == self.terminals_.end())
+      return static_cast<decltype(&*term)>(nullptr);
+    return &*term;
   }
-  auto is_non_terminal(const std::string &str) const noexcept {
-    return nonTerminals_.contains(str);
+  decltype(auto) non_terminal(this auto &&self, const std::string &str) {
+    auto nonT = std::ranges::find(self.pieces_, str, &Piece::lhs_);
+    if (nonT == self.pieces_.end()) {
+      return static_cast<decltype(&*nonT)>(nullptr);
+    }
+    return &*nonT;
   }
 
 private:
@@ -823,7 +853,7 @@ private:
     string_type newName = origName.data();
     do {
       newName += prime;
-    } while (nonTerminals_.contains(newName));
+    } while (non_terminal(newName));
     return newName;
   }
 
@@ -831,12 +861,12 @@ private:
   void _immediate_left_recursion(Piece &A,
                                  Piece::rhs_t &&recRhsElems,
                                  Piece::rhs_t &&nonRecRhsElems) {
-    auto prime = _new_unique_non_terminal_name(A.lhs, "'");
+    auto prime = _new_unique_non_terminal_name(A.lhs_, "'");
     // nonTerminals_[prime] = pieces.size();
 
     // create new piece for A'
     Piece newPiece;
-    newPiece.lhs = (prime);
+    newPiece.lhs_ = (prime);
 
     // A -> beta A'
     Piece::rhs_t new_A_rhs;
@@ -844,18 +874,19 @@ private:
       auto &betaAprime = new_A_rhs.emplace_back();
       betaAprime.reserve(beta.size() + 1);
       betaAprime.append_range(beta | std::ranges::views::as_rvalue);
-      betaAprime.emplace_back(newPiece.lhs);
+      betaAprime.emplace_back(newPiece.lhs_);
     }
-    A.rhs = std::move(new_A_rhs);
+    A.rhs_ = std::move(new_A_rhs);
 
     // A' -> alpha A' | epsilion
     for (auto &&alpha : recRhsElems | std::ranges::views::as_rvalue) {
-      auto &alphaAprime = newPiece.rhs.emplace_back();
+      auto &alphaAprime = newPiece.rhs_.emplace_back();
       alphaAprime.reserve(alpha.size() + 1);
       alphaAprime.assign_range(alpha | std::ranges::views::as_rvalue);
-      alphaAprime.emplace_back(newPiece.lhs);
+      alphaAprime.emplace_back(newPiece.lhs_);
     }
-    newPiece.rhs.emplace_back().emplace_back(epsilon);
+    newPiece.rhs_.emplace_back().emplace_back(epsilon);
+    terminals_.emplace(epsilon);
 
     pieces_.emplace_back(std::move(newPiece));
   }
@@ -865,8 +896,8 @@ private:
     Piece::rhs_t recRhsElems; // store alpha (without leading A)
     // for readability I choose not to remove braces and got alpha and beta as
     // aliases (, though I really want to write them one line).
-    for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
-      if (rhsElem.front() == A.lhs) {
+    for (auto &&rhsElem : std::move(A.rhs_) | std::ranges::views::as_rvalue) {
+      if (rhsElem.front() == A.lhs_) {
         // has left recursion
         auto &alpha = recRhsElems.emplace_back();
         alpha.assign_range(rhsElem | std::ranges::views::drop(1) |
@@ -880,8 +911,8 @@ private:
       // no direct left recursion
       // note: A.rhs invalid for we marked it as xvalue previously,
       // so we shall move it back here.
-      A.rhs.assign_range(std::move(nonRecRhsElems) |
-                         std::ranges::views::as_rvalue);
+      A.rhs_.assign_range(std::move(nonRecRhsElems) |
+                          std::ranges::views::as_rvalue);
       return OkStatus();
     }
 
@@ -898,13 +929,13 @@ private:
   // eliminate indirect left recursion
   void _indirect_left_recursion(Piece &A, const Piece &B) const {
     Piece::rhs_t new_rhs;
-    for (auto &&rhsElem : std::move(A.rhs) | std::ranges::views::as_rvalue) {
-      AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen"))
+    for (auto &&rhsElem : std::move(A.rhs_) | std::ranges::views::as_rvalue) {
+      AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen")
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
 
-      if ((rhsElem.front() == B.lhs)) {
+      if ((rhsElem.front() == B.lhs_)) {
         // A -> B gamma  =>  substitute B -> delta into A
-        for (const auto &delta : B.rhs) {
+        for (const auto &delta : B.rhs_) {
 
           auto &combined = new_rhs.emplace_back();
 
@@ -924,7 +955,7 @@ private:
         new_rhs.emplace_back(std::move(rhsElem));
       }
     }
-    A.rhs = std::move(new_rhs);
+    A.rhs_ = std::move(new_rhs);
   }
   static Status preprocess(const std::vector<Token> &tokens) {
     if (tokens.size() == 1) {
@@ -956,13 +987,12 @@ private:
     for (auto &&l : lines) {
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(l)>);
       auto &piece = pieces_.emplace_back();
-      piece.lhs = l.front().front().lexeme();
-      // build index_map here
-      nonTerminals_.emplace(piece.lhs);
+      piece.lhs_ = l.front().front().lexeme();
+
       for (auto &&chunk_view : l // already rvalue
                                    | std::ranges::views::drop(1) //
                                    | std::ranges::views::as_rvalue) {
-        piece.rhs.emplace_back().assign_range(
+        piece.rhs_.emplace_back().assign_range(
             chunk_view | std::ranges::views::transform([](auto &&token) {
               return token.lexeme().data();
             }));
@@ -971,9 +1001,9 @@ private:
     // 1. use for_each to enable possible vectorization(not really in this case)
     // 2. todo: improve this: scan through again, performance heavy?
     std::ranges::for_each(pieces_, [this](auto &&piece) {
-      std::ranges::for_each(piece.rhs, [this](auto &&rhsElem) {
+      std::ranges::for_each(piece.rhs_, [this](auto &&rhsElem) {
         std::ranges::for_each(rhsElem, [this](auto &&str) {
-          if (!this->nonTerminals_.contains(str))
+          if (!this->non_terminal(str))
             this->terminals_.emplace(str);
         });
       });
@@ -1099,12 +1129,13 @@ private:
     return OkStatus();
   }
 
-  void do_factoring(Piece &piece) {
+  void do_factoring(const size_t index) {
+    auto &piece = pieces_[index];
     using rhs_elem_t = Piece::rhs_elem_t;
     using rhs_t = Piece::rhs_t;
 
     Trie<rhs_elem_t> trie;
-    trie.assign_range(piece.rhs);
+    trie.assign_range(piece.rhs_);
 
     auto [lcpPath, lcpNode] = trie.longest_common_prefix();
 
@@ -1118,7 +1149,7 @@ private:
     // filter original rhs: keep those not starting with bestPrefix.
     rhs_t newARhs;
     for (auto &&rhsElem :
-         std::move(piece.rhs) | std::ranges::views::as_rvalue) {
+         std::move(piece.rhs_) | std::ranges::views::as_rvalue) {
       AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
       if (!std::ranges::equal(
               lcpPath, rhsElem | std::ranges::views::take(lcpPath.size()))) {
@@ -1126,7 +1157,7 @@ private:
         newARhs.emplace_back(rhsElem);
       }
     }
-    auto newName = _new_unique_non_terminal_name(piece.lhs, "@");
+    auto newName = _new_unique_non_terminal_name(piece.lhs_, "@");
 
     // add factored prefix + newName.
     // auto factoredPrefix = lcpPath;
@@ -1135,21 +1166,137 @@ private:
 
     // ^^^ equivalent to vvv
     newARhs.emplace_back(std::move(lcpPath)).emplace_back(newName);
-    piece.rhs = std::move(newARhs);
+    piece.rhs_ = std::move(newARhs);
 
     // new piece for factored suffixes
     auto &newPiece = pieces_.emplace_back();
-    newPiece.lhs = std::move(newName);
+    newPiece.lhs_ = std::move(newName);
 
     // if suffix is single epsilon token, keep as-is;
     // else just the sequence.
     // Remove standalone epsilon marker if prefer empty production;
     // here we just keep it.
-    newPiece.rhs.append_range(std::move(APrimeRhs) |
-                              std::ranges::views::as_rvalue);
-
-    nonTerminals_.emplace(newPiece.lhs);
+    newPiece.rhs_.append_range(std::move(APrimeRhs) |
+                               std::ranges::views::as_rvalue);
   }
+  // IMPORTANT: only Piece::first_set should be modified, other shall as_const
+  auto _compute_first_set() {
+
+    const auto computeFirstSet = [this](this auto &&self, Piece &A) -> void {
+      if (!A.first_set_.empty()) {
+        return;
+      }
+      for (auto &rhsElem : A.rhs_) {
+        AC_RUNTIME_ASSERT(!rhsElem.empty())
+        auto f = rhsElem.cbegin();
+        if (terminal(*f)) {
+          A.first_set_.emplace(*f);
+          if (*f != epsilon)
+            continue;
+        }
+
+        if (*f == epsilon) {
+          if (++f == rhsElem.cend())
+            continue;
+          // else, continue search
+        }
+
+        auto &&piece = *non_terminal(*f);
+        self(piece);
+        A.first_set_.insert_range(piece.first_set_);
+      }
+    };
+
+    std::ranges::for_each(pieces_,
+                          [&](auto &&piece) { computeFirstSet(piece); });
+  }
+  // ditto: follow_set
+  auto _compute_follow_set() {
+    // default: the first added non-terminal as start of the grammar
+    constexpr static auto dollar = "$";
+    pieces_.front().follow_set_.emplace(dollar);
+
+    for (auto changed = true; changed;) {
+      changed = false;
+
+      // helper for cleaner code
+      const auto isNonTerminal = [this](auto &&str) {
+        return non_terminal(str);
+      };
+
+      for (const auto &piece : pieces_) {
+        for (const auto &reversedView :
+             piece.rhs_ | std::ranges::views::transform([](auto &&rhsElem) {
+               return rhsElem                        //
+                      | std::ranges::views::reverse  //
+                      | std::ranges::views::as_const //
+                   ;
+             })) {
+
+          if (std::ranges::none_of(reversedView, isNonTerminal))
+            // nothing to do
+            continue;
+
+          Piece::set_t currentAccStartSet;
+
+          auto myrfNonTermIt =
+              std::ranges::find_if(reversedView, isNonTerminal); // G
+          // guranteed to not pass end
+          auto myrlNonTermIt =
+              std::ranges::find_last_if(reversedView, isNonTerminal)
+                  .begin(); // D
+
+          auto &&myrfFollowSet = non_terminal(*myrfNonTermIt)->follow_set_;
+
+          auto myOldSize = myrfFollowSet.size();
+
+          if (myrfNonTermIt == std::ranges::begin(reversedView)) {
+            currentAccStartSet.insert_range(piece.follow_set_);
+            myrfFollowSet.insert_range(currentAccStartSet);
+          } else {
+            // guranteed to not before begin
+            auto &&rbeforeTerm = *std::ranges::prev(myrfNonTermIt);
+            myrfFollowSet.emplace(rbeforeTerm);
+          }
+
+          auto myNewSize = myrfFollowSet.size();
+          if (myNewSize != myOldSize)
+            changed = true;
+
+          // A -> b c D E f G h i
+          for (auto symbol = myrfNonTermIt; symbol != myrlNonTermIt;
+               std::ranges::advance(symbol, 1L)) {
+            // guranteed not to be end
+            auto &&obj = std::ranges::next(symbol);
+            if (auto objPtr = non_terminal(*obj)) {
+              auto &&objFollowSet = objPtr->follow_set_;
+
+              myOldSize = objFollowSet.size();
+
+              if (auto rfPtr = non_terminal(*symbol)) {
+                if (rfPtr->nullable()) {
+                  currentAccStartSet.insert_range(rfPtr->first_set_);
+                  objFollowSet.insert_range(currentAccStartSet);
+                } else {
+                  objFollowSet.insert_range(rfPtr->first_set_);
+                  currentAccStartSet.clear();
+                }
+                objFollowSet.erase(epsilon);
+              }
+
+              myNewSize = objFollowSet.size();
+              if (myNewSize != myOldSize)
+                changed = true;
+
+            } else {
+              currentAccStartSet.clear();
+            }
+          }
+        }
+      }
+    }
+  }
+  auto _compute_select_set() {}
 
 public:
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
@@ -1192,11 +1339,13 @@ public:
 
     for (auto changed = true; changed;) {
       changed = false;
-      for (auto i = 0ull; i < pieces_.size(); ++i) {
-        auto &piece = pieces_[i];
-        auto before = piece.rhs.size();
-        do_factoring(piece);
-        if (piece.rhs.size() != before) {
+      // here I just append new piece, hence it's the same `piece` with
+      // `piece[index]`, however, to avoid dangling reference problem here we
+      // did not use range-based for loop.
+      for (auto index = 0ull; index < pieces_.size(); ++index) {
+        const auto before = pieces_[index].rhs_.size();
+        do_factoring(index);
+        if (pieces_[index].rhs_.size() != before) {
           changed = true;
         }
       }
@@ -1205,7 +1354,15 @@ public:
     return *this;
   }
 
-  static StatusOr<Grammar> ContextFree(std::vector<Token> &&tokens) {
+  decltype(auto) calculate_set() {
+    _compute_first_set();
+    _compute_follow_set();
+    _compute_select_set();
+
+    return *this;
+  }
+
+  static StatusOr<Grammar> ContextFree(auto &&tokens) {
     auto grammar = parse(std::forward<decltype(tokens)>(tokens));
 
     if (!grammar)
