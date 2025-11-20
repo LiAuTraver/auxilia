@@ -93,6 +93,11 @@ inline constexpr auto epsilon = "ε";
 inline constexpr auto npos = static_cast<size_t>(-1);
 inline constexpr auto npos32 = static_cast<uint32_t>(-1);
 
+inline constexpr auto is_epsilon = [](const char *ptr) constexpr noexcept {
+  return static_cast<unsigned char>(*(ptr + 0)) == 0xCE && //
+         static_cast<unsigned char>(*(ptr + 1)) == 0xB5;
+};
+
 AC_FLATTEN AC_NODISCARD inline bool is_debugger_present() noexcept {
   return details::_is_debugger_present();
 }

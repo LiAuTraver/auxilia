@@ -34,6 +34,7 @@
 #include "./chars.hpp"
 #include "./Trie.hpp"
 
+#pragma region Lexing
 namespace accat::auxilia {
 
 class Token : public Printable {
@@ -117,10 +118,11 @@ public:
       return ((type_ == types) || ...);
   }
   constexpr auto line() const noexcept { return line_; }
-  auto to_string(const auxilia::FormatPolicy &format_policy =
-                     auxilia::FormatPolicy::kDefault) const -> string_type {
+  auto
+  to_string(const FormatPolicy &format_policy = FormatPolicy::kDefault) const
+      -> string_type {
     auto str = string_type{};
-    if (format_policy == auxilia::FormatPolicy::kBrief)
+    if (format_policy == FormatPolicy::kBrief)
       str = _do_format(format_policy);
     else
       str = Format("type: {}, {}, line: {}",
@@ -244,14 +246,13 @@ private:
 
     that.type_ = Type::kMonostate;
   }
-  auto _do_format(const auxilia::FormatPolicy format_policy) const
-      -> string_type {
+  auto _do_format(const FormatPolicy format_policy) const -> string_type {
     auto str = string_type{};
     const auto format_number = [this]() -> long double {
       return number_is_integer_ ? static_cast<long double>(num_ll_) : num_ld_;
     };
     using namespace std::string_literals;
-    if (format_policy == auxilia::FormatPolicy::kBrief) {
+    if (format_policy == FormatPolicy::kBrief) {
       if (type_ == Type::kNumber)
         str = Format("{}", format_number());
       else if (type_ == Type::kLexError)
@@ -273,19 +274,32 @@ private:
     return str;
   }
 } inline AC_CONSTEXPR20 nulltok{};
+
 class Lexer {
+  static inline size_t utf8_cp_len(unsigned char lead) {
+    if (lead < 0x80)
+      return 1;
+    if ((lead >> 5) == 0x6)
+      return 2;
+    if ((lead >> 4) == 0xE)
+      return 3;
+    if ((lead >> 3) == 0x1E)
+      return 4;
+    // treat invalid as single byte
+    return 1;
+  }
+
 public:
   using size_type = typename std::string::size_type;
   using string_type = std::string;
   using string_view_type = std::string_view;
-  using status_t = auxilia::Status;
   using token_t = Token;
   using token_type_t = Token::Type;
   using char_t = typename string_type::value_type;
-  using generator_t = auxilia::Generator<token_t, uint_least32_t>;
+  using generator_t = Generator<token_t, uint_least32_t>;
   using number_value_t = std::variant<long long, long double>;
   using enum token_type_t;
-  static constexpr auto tolerable_chars = as_chars("_`$");
+  static constexpr auto tolerable_chars = as_chars("_`$@");
   static constexpr auto whitespace_chars = as_chars(" \t\r");
   static constexpr auto newline_chars = as_chars("\n\v\f");
 
@@ -374,6 +388,12 @@ private:
     // 			 ^ cursor position
     AC_PRECONDITION(cursor < contents.size(), "cursor out of bounds")
 
+    // UTF-8 epsilon is 2 bytes (0xCE 0xB5)
+    if (cursor + 2 <= contents.size() && is_epsilon(&contents[cursor])) {
+      cursor += 2;
+      return add_token(kIdentifier);
+    }
+
     // we use `monostate` to indicate that the token is a
     switch (auto c = get()) {
     case '(':
@@ -456,7 +476,7 @@ private:
     // return {kLexError, msg, current_line};
     return token_t::Error(std::move(msg), current_line);
   }
-  inline auto lex_string() -> status_t {
+  inline auto lex_string() -> Status {
     while (peek() != '"' && !is_at_end()) {
       if (peek() == '\n')
         current_line++; // multiline string, of course we dont want act like
@@ -465,8 +485,8 @@ private:
       get();
     }
     if (is_at_end() && peek() != '"') {
-      return auxilia::InvalidArgumentError(
-          "Unterminated string: " + contents.substr(head, cursor - head));
+      return InvalidArgumentError("Unterminated string: " +
+                                  contents.substr(head, cursor - head));
     }
     // "i am a string..."
     // 						      ^ cursor position
@@ -764,6 +784,11 @@ constexpr auto Token::token_type_operator() const -> std::string_view {
   }
   return lexeme_;
 }
+} // namespace accat::auxilia
+#pragma endregion Lexing
+
+#pragma region Grammar
+namespace accat::auxilia {
 
 class Grammar : public Printable {
   using elem_t = string_type;
@@ -781,7 +806,7 @@ public:
 
 private:
   /// @note I named thie struct `Piece` at first but it turned out to be
-  /// non-terminal at the end.
+  /// `NonTerminal` at the end.
   struct Piece : Printable {
     friend class Grammar;
     using lhs_t = elem_t;
@@ -821,13 +846,11 @@ private:
   std::unordered_set<string_type> terminals_;
 
 public:
-  auto non_terminals_view(this auto &&self) -> decltype(auto) {
+  decltype(auto) non_terminals_view(this auto &&self) {
     return self.pieces_ | std::ranges::views::transform(&Piece::lhs_);
   }
-  auto non_terminals(this auto &&self) -> decltype(auto) {
-    return self.pieces_;
-  }
-  auto terminals(this auto &&self) -> decltype(auto) {
+  decltype(auto) non_terminals(this auto &&self) { return self.pieces_; }
+  decltype(auto) terminals(this auto &&self) {
     return self.terminals_ | std::ranges::views::common;
   }
   decltype(auto) terminal(this auto &&self, const std::string &str) {
@@ -891,7 +914,7 @@ private:
     pieces_.emplace_back(std::move(newPiece));
   }
   // eliminate direct left recursion for A
-  Status _analyze_left_recursion(Piece &A) {
+  bool _analyze_left_recursion(Piece &A) {
     Piece::rhs_t nonRecRhsElems;
     Piece::rhs_t recRhsElems; // store alpha (without leading A)
     // for readability I choose not to remove braces and got alpha and beta as
@@ -913,17 +936,17 @@ private:
       // so we shall move it back here.
       A.rhs_.assign_range(std::move(nonRecRhsElems) |
                           std::ranges::views::as_rvalue);
-      return OkStatus();
+      return true;
     }
 
     if (nonRecRhsElems.empty())
       // A -> A
-      return ResourceExhaustedError("infinite loop");
+      return false;
 
     // create A'
     _immediate_left_recursion(
         A, std::move(recRhsElems), std::move(nonRecRhsElems));
-    return OkStatus();
+    return true;
   }
 
   // eliminate indirect left recursion
@@ -980,7 +1003,7 @@ private:
       return UnimplementedError(std::move(str).append(
           "Grammar contains non-allowed token types; Validation failure."));
     }
-    return OkStatus("Lex process successfully finished.");
+    return OkStatus();
   }
   void postprocess(std::ranges::common_range auto &&lines) {
 
@@ -1183,32 +1206,63 @@ private:
   auto _compute_first_set() {
 
     const auto computeFirstSet = [this](this auto &&self, Piece &A) -> void {
-      if (!A.first_set_.empty()) {
-        return;
-      }
-      for (auto &rhsElem : A.rhs_) {
+      for (const auto &rhsElem : A.rhs_) {
         AC_RUNTIME_ASSERT(!rhsElem.empty())
+
         auto f = rhsElem.cbegin();
+
+        // A -> ε
+        if (*f == epsilon) {
+          A.first_set_.emplace(*f);
+          // else, continue search?
+          AC_RUNTIME_ASSERT(std::ranges::next(f) == rhsElem.cend(),
+                            "epsilon should be alone in production")
+          continue;
+        }
+
         if (terminal(*f)) {
           A.first_set_.emplace(*f);
-          if (*f != epsilon)
-            continue;
+          AC_RUNTIME_ASSERT(*f != epsilon,
+                            "epsilon should have been handled earlier")
+          continue;
         }
 
-        if (*f == epsilon) {
-          if (++f == rhsElem.cend())
-            continue;
-          // else, continue search
-        }
+        for (; f != rhsElem.cend(); std::ranges::advance(f, 1L)) {
+          // terminal, add and stop
+          if (terminal(*f)) {
+            A.first_set_.emplace(*f);
+            AC_RUNTIME_ASSERT(*f != epsilon,
+                              "epsilon should have been handled earlier")
+            break;
+          }
 
-        auto &&piece = *non_terminal(*f);
-        self(piece);
-        A.first_set_.insert_range(piece.first_set_);
+          // non-terminal, recursively compute its first set if needed
+          auto piecePtr = non_terminal(*f);
+          AC_RUNTIME_ASSERT(piecePtr != nullptr,
+                            "symbol must be terminal or non-terminal")
+
+          if (piecePtr->first_set_.empty())
+            // if not empty it's calculated before
+            self(*piecePtr);
+
+          // add non-terminal's first set, excluding epsilon
+          Piece::set_t setCopy = piecePtr->first_set_;
+          setCopy.erase(epsilon);
+          A.first_set_.insert_range(std::move(setCopy));
+
+          if (!piecePtr->nullable())
+            // not nullable, stop
+            break;
+
+          // nullable and the last symbol, add epsilon
+          if (std::ranges::next(f) == rhsElem.cend()) {
+            A.first_set_.emplace(epsilon);
+          }
+        }
       }
     };
 
-    std::ranges::for_each(pieces_,
-                          [&](auto &&piece) { computeFirstSet(piece); });
+    std::ranges::for_each(pieces_, computeFirstSet);
   }
   // ditto: follow_set
   auto _compute_follow_set() {
@@ -1216,87 +1270,90 @@ private:
     constexpr static auto dollar = "$";
     pieces_.front().follow_set_.emplace(dollar);
 
-    for (auto changed = true; changed;) {
-      changed = false;
+    namespace rv = std::ranges::views;
+    namespace sr = std::ranges;
 
-      // helper for cleaner code
-      const auto isNonTerminal = [this](auto &&str) {
-        return non_terminal(str);
-      };
+    // helper (non-static member function cannot be used directly)
+    const auto isNonTerminal = [this](auto &&str) { return non_terminal(str); };
 
-      for (const auto &piece : pieces_) {
-        for (const auto &reversedView :
-             piece.rhs_ | std::ranges::views::transform([](auto &&rhsElem) {
-               return rhsElem                        //
-                      | std::ranges::views::reverse  //
-                      | std::ranges::views::as_const //
-                   ;
-             })) {
+    const auto computeFollowSet = [&](auto &&reversedView,
+                                      auto &&prevFollowSet) -> bool {
+      bool changed = false;
+      // used to accumulate start set in a reverse order, add start set
+      // into it when the symbol is nullable, clear it when it's not
+      Piece::set_t accumulatedStartSet;
 
-          if (std::ranges::none_of(reversedView, isNonTerminal))
-            // nothing to do
-            continue;
+      const auto myrfNonTermIt = sr::find_if(reversedView, isNonTerminal);
+      // guranteed not to pass end
+      const auto myrlNonTermIt =
+          sr::find_last_if(reversedView, isNonTerminal).begin();
 
-          Piece::set_t currentAccStartSet;
+      auto &&myrfFollowSet = non_terminal(*myrfNonTermIt)->follow_set_;
 
-          auto myrfNonTermIt =
-              std::ranges::find_if(reversedView, isNonTerminal); // G
-          // guranteed to not pass end
-          auto myrlNonTermIt =
-              std::ranges::find_last_if(reversedView, isNonTerminal)
-                  .begin(); // D
+      auto myOldSize = myrfFollowSet.size();
 
-          auto &&myrfFollowSet = non_terminal(*myrfNonTermIt)->follow_set_;
+      if (myrfNonTermIt == sr::cbegin(reversedView)) {
+        accumulatedStartSet.insert_range(prevFollowSet);
+        myrfFollowSet.insert_range(accumulatedStartSet);
+      } else {
+        // guranteed not to before begin
+        auto &&rbeforeTerm = *sr::prev(myrfNonTermIt);
+        myrfFollowSet.emplace(rbeforeTerm);
+      }
 
-          auto myOldSize = myrfFollowSet.size();
+      auto myNewSize = myrfFollowSet.size();
+      if (myNewSize != myOldSize)
+        changed = true;
 
-          if (myrfNonTermIt == std::ranges::begin(reversedView)) {
-            currentAccStartSet.insert_range(piece.follow_set_);
-            myrfFollowSet.insert_range(currentAccStartSet);
-          } else {
-            // guranteed to not before begin
-            auto &&rbeforeTerm = *std::ranges::prev(myrfNonTermIt);
-            myrfFollowSet.emplace(rbeforeTerm);
+      for (auto symbolIt = myrfNonTermIt; symbolIt != myrlNonTermIt;
+           sr::advance(symbolIt, 1L)) {
+        // guranteed not to be end or pass end
+
+        if (auto objIt = sr::next(symbolIt);
+            auto objPtr = non_terminal(*objIt)) {
+          auto &&objFollowSet = objPtr->follow_set_;
+
+          myOldSize = objFollowSet.size();
+
+          if (auto rfPtr = non_terminal(*symbolIt)) {
+            if (rfPtr->nullable()) {
+              accumulatedStartSet.insert_range(rfPtr->first_set_);
+              objFollowSet.insert_range(accumulatedStartSet);
+            } else {
+              objFollowSet.insert_range(rfPtr->first_set_);
+              accumulatedStartSet.clear();
+            }
+            objFollowSet.erase(epsilon);
           }
 
-          auto myNewSize = myrfFollowSet.size();
+          myNewSize = objFollowSet.size();
           if (myNewSize != myOldSize)
             changed = true;
 
-          // A -> b c D E f G h i
-          for (auto symbol = myrfNonTermIt; symbol != myrlNonTermIt;
-               std::ranges::advance(symbol, 1L)) {
-            // guranteed not to be end
-            auto &&obj = std::ranges::next(symbol);
-            if (auto objPtr = non_terminal(*obj)) {
-              auto &&objFollowSet = objPtr->follow_set_;
-
-              myOldSize = objFollowSet.size();
-
-              if (auto rfPtr = non_terminal(*symbol)) {
-                if (rfPtr->nullable()) {
-                  currentAccStartSet.insert_range(rfPtr->first_set_);
-                  objFollowSet.insert_range(currentAccStartSet);
-                } else {
-                  objFollowSet.insert_range(rfPtr->first_set_);
-                  currentAccStartSet.clear();
-                }
-                objFollowSet.erase(epsilon);
-              }
-
-              myNewSize = objFollowSet.size();
-              if (myNewSize != myOldSize)
-                changed = true;
-
-            } else {
-              currentAccStartSet.clear();
-            }
-          }
+        } else {
+          accumulatedStartSet.clear();
         }
       }
+
+      return changed;
+    };
+
+    const auto hasNonTerminal = [&isNonTerminal](auto &&rhsElem) {
+      return sr::any_of(rhsElem, isNonTerminal);
+    };
+
+    for (auto changed = true; changed;) {
+      changed = false;
+      sr::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
+        sr::for_each(piece.rhs_ | rv::filter(hasNonTerminal) //
+                         | rv::transform(rv::reverse | rv::as_const),
+                     [&](auto &&reversedView) {
+                       if (computeFollowSet(reversedView, piece.follow_set_))
+                         changed = true;
+                     });
+      });
     }
   }
-  auto _compute_select_set() {}
 
 public:
   auto to_string(FormatPolicy = FormatPolicy::kDefault) const {
@@ -1329,13 +1386,13 @@ public:
         _indirect_left_recursion(A, B);
       }
 
-      if (auto status = _analyze_left_recursion(A); !status)
-        return status;
+      if (!_analyze_left_recursion(A))
+        return ResourceExhaustedError("infinite loop");
     }
     return OkStatus();
   }
 
-  auto apply_left_factorization() -> decltype(auto) {
+  decltype(auto) apply_left_factorization() {
 
     for (auto changed = true; changed;) {
       changed = false;
@@ -1357,7 +1414,6 @@ public:
   decltype(auto) calculate_set() {
     _compute_first_set();
     _compute_follow_set();
-    _compute_select_set();
 
     return *this;
   }
@@ -1371,7 +1427,9 @@ public:
     if (auto status = grammar->eliminate_left_recursion(); !status)
       return {std::move(status)};
 
-    return {std::move(grammar->apply_left_factorization())};
+    grammar->apply_left_factorization();
+    return {std::move(grammar->calculate_set())};
   }
 };
 } // namespace accat::auxilia
+#pragma endregion Grammar

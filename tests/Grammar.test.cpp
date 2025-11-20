@@ -3,6 +3,7 @@
 #include "./test.env.inl.hpp"
 
 #include <accat/auxilia/details/Grammar.hpp>
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -97,7 +98,7 @@ auto getStr(auto &&str) -> std::string {
 }
 #include <accat/auxilia/details/views.hpp>
 using ranges::views::trim;
-TEST(EBNF, LeftRecursive) {
+TEST(Grammar, LeftRecursive) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(arithmetic)), trim(arithmetic_expected));
@@ -113,7 +114,7 @@ A -> A -> B | B
 constexpr auto multipleLeftArrow_expected = R"~~(
 line 2: Unexpected LeftArrow in rhs.
 )~~";
-TEST(EBNF, LeftRecursiveErrorHandling) {
+TEST(Grammar, LeftRecursiveErrorHandling) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(multipleLeftArrow)), trim(multipleLeftArrow_expected));
@@ -165,7 +166,7 @@ A' -> B C A' | C B A' | ε
 B' -> A C B' | C A B' | ε
 C' -> A B C' | B A C' | ε
 )~~";
-TEST(EBNF, ComplexLeftRecursive) {
+TEST(Grammar, ComplexLeftRecursive) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getStr(nested_left_recursion)),
@@ -178,12 +179,12 @@ TEST(EBNF, ComplexLeftRecursive) {
 }
 
 constexpr auto simple = R"~~(
-A -> b c D | b c E | b F
+A -> b c d | b c e | b f
 )~~";
 constexpr auto simple_expected = R"~~(
 A -> b A@@
-A@ -> D | E
-A@@ -> F | c A@
+A@ -> d | e
+A@@ -> f | c A@
 )~~";
 constexpr auto multi = R"~~(
 A -> b c D 
@@ -230,11 +231,53 @@ auto getLL1Str(auto &&str) {
                       .to_string(FormatPolicy::kBrief)
                 : tokens.error();
 }
-TEST(EBNF, LeftFactoring) {
+TEST(Grammar, LeftFactoring) {
   set_console_output_cp_utf8();
 
   EXPECT_EQ(trim(getLL1Str(simple)), trim(simple_expected));
   EXPECT_EQ(trim(getLL1Str(multi)), trim(multi_expected));
   EXPECT_EQ(trim(getLL1Str(complex)), trim(complex_expected));
   EXPECT_EQ(trim(getLL1Str(cond)), trim(cond_expected));
+}
+constexpr auto simple_nullable = R"~~(
+S -> A B
+A -> a | ε
+B -> b
+)~~";
+constexpr auto simple_nullable_first_expected = R"~~(
+[{"a", "b"}, {"a", "ε"}, {"b"}]
+)~~";
+auto getFirstSet(auto &&str) {
+  auto tokens = Lexer(str).lexAll_or_error();
+  if (!tokens) {
+    return tokens.error();
+  }
+  auto grammar = Grammar::ContextFree(*std::move(tokens));
+  auto pieces = grammar->non_terminals();
+  return Format("{}",
+                std::move(pieces) | std::ranges::views::transform(
+                                        &Grammar::NonTerminal::first_set));
+}
+TEST(Grammar, FirstSet) {
+  EXPECT_EQ(trim(getFirstSet(simple_nullable)),
+            trim(simple_nullable_first_expected));
+}
+
+constexpr auto simple_nullable_follow_expected = R"~~(
+[{"$"}, {"b"}, {"$"}]
+)~~";
+auto getFollowSet(auto &&str) {
+  auto tokens = Lexer(str).lexAll_or_error();
+  if (!tokens) {
+    return tokens.error();
+  }
+  auto grammar = Grammar::ContextFree(*std::move(tokens));
+  auto pieces = grammar->non_terminals();
+  return Format("{}",
+                std::move(pieces) | std::ranges::views::transform(
+                                        &Grammar::NonTerminal::follow_set));
+}
+TEST(Grammar, FollowSet) {
+  EXPECT_EQ(trim(getFollowSet(simple_nullable)),
+            trim(simple_nullable_follow_expected));
 }
