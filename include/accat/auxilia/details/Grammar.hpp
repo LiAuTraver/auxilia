@@ -804,47 +804,6 @@ public:
   using NonTerminal = Piece;
   using Terminal = elem_t;
 
-private:
-  /// @note I named thie struct `Piece` at first but it turned out to be
-  /// `NonTerminal` at the end.
-  struct Piece : Printable {
-    friend class Grammar;
-    using lhs_t = elem_t;
-    using rhs_elem_t = std::vector<elem_t>;
-    using rhs_t = std::vector<rhs_elem_t>;
-    using set_t = std::unordered_set<string_type>;
-    auto nullable() const {
-      return std::ranges::any_of(rhs_, [this](auto &&rhsElem) {
-        return rhsElem.size() == 1 && rhsElem.front() == epsilon;
-      });
-    }
-    auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
-      return (lhs_ + (" -> "))
-          .append_range(
-              rhs_ //
-              | std::ranges::views::transform([](auto &&alt) {
-                  return alt | std::ranges::views::join_with(' ');
-                })                                                     //
-              | std::ranges::views::join_with(std::string_view(" | ")) //
-              // ^^^ workaround, pass const char* seems cause issue
-          );
-    }
-    auto &lhs() const noexcept { return lhs_; }
-    auto &rhs() const noexcept { return rhs_; }
-    auto &first_set() const noexcept { return first_set_; }
-    auto &follow_set() const noexcept { return follow_set_; }
-    auto &select_set() const noexcept { return select_set_; }
-
-  private:
-    lhs_t lhs_;
-    rhs_t rhs_;
-    set_t first_set_;
-    set_t follow_set_;
-    set_t select_set_;
-  };
-  std::vector<Piece> pieces_;
-  std::unordered_set<string_type> terminals_;
-
 public:
   decltype(auto) non_terminals_view(this auto &&self) {
     return self.pieces_ | std::ranges::views::transform(&Piece::lhs_);
@@ -866,6 +825,42 @@ public:
     }
     return &*nonT;
   }
+
+private:
+  /// @note I named thie struct `Piece` at first but it turned out to be
+  /// `NonTerminal` at the end.
+  struct Piece : Printable {
+    friend class Grammar;
+    using lhs_t = elem_t;
+    using rhs_elem_t = std::vector<elem_t>;
+    using rhs_t = std::vector<rhs_elem_t>;
+    using set_t = std::unordered_set<string_type>;
+    bool nullable(Grammar *);
+    auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const {
+      return (lhs_ + (" -> "))
+          .append_range(
+              rhs_ //
+              | std::ranges::views::transform([](auto &&alt) {
+                  return alt | std::ranges::views::join_with(' ');
+                })                                                     //
+              | std::ranges::views::join_with(std::string_view(" | ")) //
+              // ^^^ workaround, pass const char* seems cause issue
+          );
+    }
+    auto &lhs() const noexcept { return lhs_; }
+    auto &rhs() const noexcept { return rhs_; }
+    auto &first_set() const noexcept { return first_set_; }
+    auto &follow_set() const noexcept { return follow_set_; }
+
+  private:
+    lhs_t lhs_;
+    rhs_t rhs_;
+    set_t first_set_;
+    set_t follow_set_;
+    std::optional<bool> nullable_;
+  };
+  std::vector<Piece> pieces_;
+  std::unordered_set<string_type> terminals_;
 
 private:
   /// ensure uniqueness of the name.
@@ -1202,70 +1197,81 @@ private:
     newPiece.rhs_.append_range(std::move(APrimeRhs) |
                                std::ranges::views::as_rvalue);
   }
-  // IMPORTANT: only Piece::first_set should be modified, other shall as_const
-  auto _compute_first_set() {
 
-    const auto computeFirstSet = [this](this auto &&self, Piece &A) -> void {
-      for (const auto &rhsElem : A.rhs_) {
-        AC_RUNTIME_ASSERT(!rhsElem.empty())
+  Piece::set_t _first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
+    namespace sr = std::ranges;
 
-        auto f = rhsElem.cbegin();
+    AC_RUNTIME_ASSERT(!rhsElem.empty())
 
-        // A -> ε
-        if (*f == epsilon) {
-          A.first_set_.emplace(*f);
-          // else, continue search?
-          AC_RUNTIME_ASSERT(std::ranges::next(f) == rhsElem.cend(),
-                            "epsilon should be alone in production")
-          continue;
-        }
+    Piece::set_t partialFirstSet;
 
-        if (terminal(*f)) {
-          A.first_set_.emplace(*f);
-          AC_RUNTIME_ASSERT(*f != epsilon,
-                            "epsilon should have been handled earlier")
-          continue;
-        }
+    auto f = rhsElem.cbegin();
 
-        for (; f != rhsElem.cend(); std::ranges::advance(f, 1L)) {
-          // terminal, add and stop
-          if (terminal(*f)) {
-            A.first_set_.emplace(*f);
-            AC_RUNTIME_ASSERT(*f != epsilon,
-                              "epsilon should have been handled earlier")
-            break;
-          }
+    // A -> ε
+    if (*f == epsilon) {
+      partialFirstSet.emplace(*f);
+      // else, continue search?
+      AC_RUNTIME_ASSERT(sr::next(f) == rhsElem.cend(),
+                        "epsilon should be alone in production")
+      return partialFirstSet;
+    }
 
-          // non-terminal, recursively compute its first set if needed
-          auto piecePtr = non_terminal(*f);
-          AC_RUNTIME_ASSERT(piecePtr != nullptr,
-                            "symbol must be terminal or non-terminal")
+    if (terminal(*f)) {
+      partialFirstSet.emplace(*f);
+      AC_RUNTIME_ASSERT(*f != epsilon,
+                        "epsilon should have been handled earlier")
+      return partialFirstSet;
+    }
 
-          if (piecePtr->first_set_.empty())
-            // if not empty it's calculated before
-            self(*piecePtr);
-
-          // add non-terminal's first set, excluding epsilon
-          Piece::set_t setCopy = piecePtr->first_set_;
-          setCopy.erase(epsilon);
-          A.first_set_.insert_range(std::move(setCopy));
-
-          if (!piecePtr->nullable())
-            // not nullable, stop
-            break;
-
-          // nullable and the last symbol, add epsilon
-          if (std::ranges::next(f) == rhsElem.cend()) {
-            A.first_set_.emplace(epsilon);
-          }
-        }
+    for (; f != rhsElem.cend(); sr::advance(f, 1L)) {
+      // terminal, add and stop
+      if (terminal(*f)) {
+        partialFirstSet.emplace(*f);
+        AC_RUNTIME_ASSERT(*f != epsilon,
+                          "epsilon should have been handled earlier")
+        break;
       }
-    };
 
-    std::ranges::for_each(pieces_, computeFirstSet);
+      // non-terminal, recursively compute its first set if needed
+      auto piecePtr = non_terminal(*f);
+      AC_RUNTIME_ASSERT(piecePtr != nullptr,
+                        "symbol must be terminal or non-terminal")
+
+      if (piecePtr->first_set_.empty())
+        // if not empty it's calculated before
+        _first_set_from_piece(*piecePtr);
+
+      // add non-terminal's first set, excluding epsilon
+      Piece::set_t setCopy = piecePtr->first_set_;
+      setCopy.erase(epsilon);
+      partialFirstSet.insert_range(std::move(setCopy));
+
+      if (!piecePtr->nullable(this))
+        // not nullable, stop
+        break;
+
+      // nullable and the last symbol, add epsilon
+      if (sr::next(f) == rhsElem.cend()) {
+        partialFirstSet.emplace(epsilon);
+      }
+    }
+    return partialFirstSet;
+  }
+
+  void _first_set_from_piece(Piece &A) {
+    std::ranges::for_each(
+        A.rhs_ | std::ranges::views::as_const, [&](auto &&rhsElem) {
+          A.first_set_.insert_range(_first_set_from_rhs_elem(rhsElem));
+        });
+  }
+  // IMPORTANT: only Piece::first_set should be modified, other shall as_const
+  void _compute_first_set() {
+    // both lambda and bind_front is _Ugly :(
+    std::ranges::for_each(
+        pieces_, std::bind_front(&Grammar::_first_set_from_piece, this));
   }
   // ditto: follow_set
-  auto _compute_follow_set() {
+  void _compute_follow_set() {
     // default: the first added non-terminal as start of the grammar
     constexpr static auto dollar = "$";
     pieces_.front().follow_set_.emplace(dollar);
@@ -1316,7 +1322,7 @@ private:
           myOldSize = objFollowSet.size();
 
           if (auto rfPtr = non_terminal(*symbolIt)) {
-            if (rfPtr->nullable()) {
+            if (rfPtr->nullable(this)) {
               accumulatedStartSet.insert_range(rfPtr->first_set_);
               objFollowSet.insert_range(accumulatedStartSet);
             } else {
@@ -1418,6 +1424,8 @@ public:
     return *this;
   }
 
+  bool isLL1() const;
+
   static StatusOr<Grammar> ContextFree(auto &&tokens) {
     auto grammar = parse(std::forward<decltype(tokens)>(tokens));
 
@@ -1431,5 +1439,42 @@ public:
     return {std::move(grammar->calculate_set())};
   }
 };
+inline bool Grammar::Piece::nullable(Grammar *myGrammar) {
+  // Only Piece::nullable_ should be modifiable
+  if (nullable_)
+    return *nullable_;
+
+  namespace sr = std::ranges;
+  namespace rv = std::ranges::views;
+
+  const auto &immutableRhs = rhs_ | rv::as_const;
+
+  const auto isEpsilonElem = [this](auto &&rhsElem) {
+    const auto isEpsilonOrNot = rhsElem.front() == epsilon;
+    AC_DEFER {
+      if (isEpsilonOrNot)
+        AC_RUNTIME_ASSERT(rhsElem.size() == 1, "shall not happen")
+    };
+    return isEpsilonOrNot;
+  };
+
+  if (sr::any_of(immutableRhs, isEpsilonElem))
+    return true;
+
+  const auto isSymbolNullable = [&](auto &&sym) {
+    auto &&ptrPiece = myGrammar->non_terminal(sym);
+    AC_RUNTIME_ASSERT(ptrPiece != this, "infinite loop?")
+    return ptrPiece && ptrPiece->nullable(myGrammar);
+  };
+
+  const auto isRhsElemNullable = [&](auto &&rhsElem) {
+    return sr::all_of(rhsElem | rv::as_const, isSymbolNullable);
+  };
+  return nullable_.emplace(sr::any_of(immutableRhs, isRhsElemNullable));
+}
+inline bool Grammar::isLL1() const {
+  AC_TODO_()
+  return true;
+}
 } // namespace accat::auxilia
 #pragma endregion Grammar

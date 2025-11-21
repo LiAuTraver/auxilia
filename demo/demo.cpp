@@ -36,7 +36,7 @@ extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(sysc);
+  Lexer lexer(factors);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {
