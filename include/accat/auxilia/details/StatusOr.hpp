@@ -11,11 +11,11 @@
 #  include <type_traits>
 #  include <utility>
 
-#  include "./config.hpp"
-#  include "./format.hpp"
-#  include "./Status.hpp"
-#  include "./Monostate.hpp"
-#  include "./type_traits.hpp"
+#  include "config.hpp"
+#  include "format.hpp"
+#  include "Status.hpp"
+#  include "Monostate.hpp"
+#  include "type_traits.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {

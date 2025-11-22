@@ -2,11 +2,16 @@
 
 #include "./test.env.inl.hpp"
 
-#include <accat/auxilia/details/Grammar.hpp>
 #include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
+
+#include "Grammar.hpp"
+#include "Lexing.hpp"
+
+using namespace accat::auxilia;
+using namespace accat::cp;
 
 constexpr auto arithmetic = R"~~(
 E -> E+T | T

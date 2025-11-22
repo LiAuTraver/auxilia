@@ -44,4 +44,4 @@
 #include "./details/bitset.hpp"          // IWYU pragma: export
 #include "./details/type_traits.hpp"     // IWYU pragma: export
 #include "./details/chars.hpp"           // IWYU pragma: export
-#include "./details/automaton.hpp"       // IWYU pragma: export
+#include "./details/Trie.hpp"            // IWYU pragma: export

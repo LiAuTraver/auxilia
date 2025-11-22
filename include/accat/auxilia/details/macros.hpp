@@ -1,5 +1,5 @@
 #pragma once
-#include "./variadic-inl.h"
+#include "variadic-inl.h"
 
 #if __cplusplus < 202002L && not defined(AC_SILENCE_CPP_STANDARD_CHECK)
 #  if defined(_MSC_VER) && !defined(__clang__)
@@ -59,6 +59,7 @@
 #include <source_location>
 
 #if !AC_USE_STD_FMT
+#  include <fmt/base.h>
 #  include <fmt/format.h>
 #  include <fmt/ostream.h>
 #  include <fmt/color.h>
@@ -324,7 +325,7 @@ extern "C" __declspec(dllimport) int SetConsoleOutputCP(unsigned int);
 #endif
 
 namespace accat::auxilia::details {
-AC_FLATTEN inline bool _is_debugger_present() noexcept {
+AC_FLATTEN AC_FORCEINLINE inline bool _is_debugger_present() noexcept {
 #ifdef _WIN32
   return ::IsDebuggerPresent();
 #elif defined(__linux__)
@@ -490,6 +491,9 @@ template <class Fun_>
 inline AC_CONSTEXPR20 auto operator*(_deferer_helper_struct_, Fun_ f_) noexcept
     -> _deferrer_<Fun_> {
   return {f_};
+}
+AC_FORCEINLINE AC_FLATTEN static inline void _debugbreak() noexcept {
+  AC_DEBUG_BREAK_IMPL_
 }
 } // namespace accat::auxilia::details
 

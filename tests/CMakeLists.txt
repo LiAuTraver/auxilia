@@ -1,13 +1,3 @@
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-if((NOT DEFINED ${CMAKE_CXX_STANDARD}) OR("${${CMAKE_CXX_STANDARD}}" STREQUAL ""))
-  set(CMAKE_CXX_STANDARD 23)
-endif()
-
-if((NOT DEFINED ${CMAKE_C_STANDARD}) OR("${${CMAKE_C_STANDARD}}" STREQUAL ""))
-  set(CMAKE_C_STANDARD 17)
-endif()
-
 find_package(GTest CONFIG QUIET)
 
 # if not found GTest, download it
@@ -28,8 +18,6 @@ add_executable(auxilia.test
   Options.test.cpp
   Bitset.test.cpp
   Chars.test.cpp
-  Automata.test.cpp
-    Grammar.test.cpp
 )
 
 target_compile_options(auxilia.test PRIVATE -DAC_USE_STD_FMT=1)
@@ -46,3 +34,5 @@ include(CTest)
 include(GoogleTest)
 
 gtest_discover_tests(auxilia.test)
+
+add_folder_if_auxilia_top_level("Tests")

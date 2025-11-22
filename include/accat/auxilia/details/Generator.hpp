@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <memory>
 
-#include "./config.hpp"
+#include "config.hpp"
 
 namespace accat::auxilia {
 /// @brief A generator class that can be used to generate values
@@ -26,7 +26,9 @@ namespace accat::auxilia {
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class [[using clang: coro_return_type, coro_lifetimebound]] Generator
+class [[using clang:
+        // coro_return_type,
+        coro_lifetimebound]] Generator
     : public std::ranges::view_interface<
           Generator<YieldType, ReturnType, AllocatorType>> {
   static_assert(
@@ -161,7 +163,7 @@ public:
     void operator++(int) { ++*this; }
 
     reference operator*() AC_NOEXCEPT {
-      return *handle_.promise().current_value;
+      return *const_cast<YieldType *>(handle_.promise().current_value);
     }
     pointer operator->() AC_NOEXCEPT { return handle_.promise().current_value; }
     const_reference operator*() const AC_NOEXCEPT {

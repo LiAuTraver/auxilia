@@ -14,11 +14,13 @@
 #include <vector>
 #include <optional>
 
-#include "accat/auxilia/details/Grammar.hpp"
+#include <accat/auxilia/defines.hpp>
 
-#include "accat/auxilia/defines.hpp"
+#include "Lexing.hpp"
+#include "Grammar.hpp"
 
 using namespace accat::auxilia;
+using namespace accat::cp;
 
 constexpr auto flight = R"~~(
 E -> E+T | T
@@ -36,7 +38,7 @@ extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(factors);
+  Lexer lexer(sysc);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {
@@ -71,6 +73,7 @@ int main() {
   Println("FOLLOW: {}",
           pieces |
               std::ranges::views::transform(&Grammar::NonTerminal::follow_set));
+  Println("{}", grammar->isLL1());
   fflush(stdout);
   return 0;
 }

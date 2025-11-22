@@ -2,10 +2,9 @@
 
 #include <cstdint>
 #include <limits>
-#include <type_traits>
 #include <random>
 
-#include "./config.hpp"
+#include "config.hpp"
 namespace accat::auxilia {
 #ifdef __SIZEOF_INT128__
 using uint128_t = __uint128_t;

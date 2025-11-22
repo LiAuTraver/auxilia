@@ -1,21 +1,25 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdlib>
 #include <format>
+#include <iostream>
+#include <ostream>
+#include <span>
 #include <string>
 #include <string_view>
-#include <span>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <type_traits>
-#include <ranges>
-#include <iostream>
 #include <vector>
+#include <ranges>
 
-#include "./format.hpp"
-#include "./StatusOr.hpp"
+#include "macros.hpp"
+#include "config.hpp"
+#include "format.hpp"
 #include "Status.hpp"
+#include "StatusOr.hpp"
 
 namespace accat::auxilia::program_options {
 
@@ -400,12 +404,13 @@ inline auto get(std::string_view program_name) -> Parser & {
 }
 inline auto erase(std::string_view program_name) -> bool {
   auto &parsers = details::_get_global_parsers();
-  auto it = std::ranges::find_if(
-      parsers, [&](const Parser &p) { return p.program_name() == program_name; });
+  auto it = std::ranges::find_if(parsers, [&](const Parser &p) {
+    return p.program_name() == program_name;
+  });
   if (it != parsers.end()) {
     parsers.erase(it);
     return true;
   }
   return false;
-  }
+}
 } // namespace accat::auxilia::program_options

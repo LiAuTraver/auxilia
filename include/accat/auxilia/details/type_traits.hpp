@@ -1,6 +1,6 @@
 #pragma once
 
-namespace accat::auxilia::details {
+namespace accat::auxilia {
 /// @brief helper aggregate struct for NTTP
 template <typename CharT, size_t N> struct basic_chars_storage {
   using value_type = CharT;
@@ -14,22 +14,17 @@ template <typename CharT, size_t N> struct basic_chars_storage {
 // CTAD
 template <typename CharT, size_t N>
 basic_chars_storage(const CharT (&)[N]) -> basic_chars_storage<CharT, N>;
-} // namespace accat::auxilia::details
 
-namespace accat::auxilia {
 // NTTP helper
-template <const details::basic_chars_storage MyChars>
+template <const basic_chars_storage MyChars>
 consteval auto as_basic_chars_storage() noexcept {
   return MyChars;
 }
-} // namespace accat::auxilia
 
 /// You may ask why I re-implemented some of the type traits in std.
 /// Just as proof of some false claims my colleagues made like
 /// "it's compiler intrinsics and cannot be implemented in pure C++".
 /// Well, this proves most of them wrong, isn't it? ;)
-namespace accat::auxilia {
-
 template <typename Ty, Ty Val> struct integral_constant {
   static constexpr Ty value = Val;
   using value_type = Ty;

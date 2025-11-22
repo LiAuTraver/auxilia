@@ -15,8 +15,6 @@
 #include <string_view>
 #include <utility>
 
-#include "./macros.hpp"
-
 // NOTE:
 // The contents of this header are derived in part from Googles' Abseil library under the following license:
 /////////////////////////////////////// Apache License 2.0 ////////////////////////////////////////////////
@@ -77,8 +75,9 @@
 ///////////////////////////////// END OF ABSEIL COPYRIGHT ///////////////////////////////////////////
 
 // clang-format on
-#  include "./config.hpp"
-#  include "./format.hpp"
+#  include "macros.hpp"
+#  include "config.hpp"
+#  include "format.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {

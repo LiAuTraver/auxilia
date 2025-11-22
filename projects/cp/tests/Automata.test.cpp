@@ -1,8 +1,9 @@
 #include "./test.env.inl.hpp"
 
-#include <accat/auxilia/details/automaton.hpp>
+#include "Automaton.hpp"
 
 using namespace accat::auxilia;
+using namespace accat::cp;
 
 TEST(NFA, EmptyRegex) {
   auto nfa = *NFA::FromRegex("");

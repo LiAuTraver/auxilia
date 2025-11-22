@@ -1,21 +1,19 @@
 #pragma once
 
-#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <functional>
 #include <optional>
-#include <ranges>
 #include <string>
-#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
+#include <ranges>
 
-#include "./config.hpp"
-#include "./format.hpp"
+#include "config.hpp"
+#include "format.hpp"
 
 namespace accat::auxilia {
 template <typename KeyT = std::string,

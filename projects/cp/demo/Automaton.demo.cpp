@@ -7,7 +7,10 @@
 #include <accat/auxilia/auxilia.hpp>
 #include <accat/auxilia/defines.hpp>
 
+#include "Automaton.hpp"
+
 using namespace accat::auxilia;
+using namespace accat::cp;
 
 int main() {
   auto dfa = NFA::FromRegex("a|ba").and_then(&DFA::FromNFA).rvalue().value();

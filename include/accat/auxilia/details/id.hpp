@@ -7,7 +7,7 @@
 #include <limits>
 #include <array>
 
-#include "./config.hpp"
+#include "config.hpp"
 
 namespace accat::auxilia::id::details {
 inline auto &_current_id() {

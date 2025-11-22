@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <memory_resource>
 
-#include "./macros.hpp"
+#include "macros.hpp"
 
 namespace accat::auxilia {
 [[noreturn]] [[gnu::cold]] inline void *OnMemAllocFailed() {

@@ -10,9 +10,9 @@
 #include <string_view>
 #include <type_traits>
 
-#include "./config.hpp"
-#include "./format.hpp"
-#include "./type_traits.hpp"
+#include "type_traits.hpp"
+#include "config.hpp"
+#include "format.hpp"
 
 #if defined(_MSC_VER) && !defined(__clang__)
 // cl.exe encountered internal compiler error when compiling this file
@@ -479,7 +479,7 @@ std::basic_istream<char> &operator>>(std::basic_istream<char> &is,
 }
 } // namespace accat::auxilia
 namespace accat::auxilia::literals {
-template <const details::basic_chars_storage MyChars>
+template <const basic_chars_storage MyChars>
 consteval auto operator""_bs() noexcept {
   return bitset<array_size_v<MyChars.arr> - 1>(
       static_cast<decltype((MyChars.arr)) &&>(MyChars.arr));

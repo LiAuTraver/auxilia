@@ -2,8 +2,8 @@
 
 #include <compare>
 
-#include "./config.hpp"
-#include "./format.hpp"
+#include "config.hpp"
+#include "format.hpp"
 
 namespace accat::auxilia {
 /// @brief Represents a stateless type that can be used as a

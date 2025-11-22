@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./config.hpp"
+#include "config.hpp"
 
 namespace accat::auxilia {
 /// @brief (almost) zero-cost fancy wrapper around

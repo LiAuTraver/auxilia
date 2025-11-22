@@ -8,8 +8,8 @@
 #include <type_traits>
 #include <concepts>
 
-#include "./variadic-inl.h" // IWYU pragma: export
-#include "./macros.hpp"     // IWYU pragma: export
+#include "variadic-inl.h" // IWYU pragma: export
+#include "macros.hpp"     // IWYU pragma: export
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
@@ -98,12 +98,24 @@ inline constexpr auto is_epsilon = [](const char *ptr) constexpr noexcept {
          static_cast<unsigned char>(*(ptr + 1)) == 0xB5;
 };
 
-AC_FLATTEN AC_NODISCARD inline bool is_debugger_present() noexcept {
-  return details::_is_debugger_present();
-}
 AC_FLATTEN inline auto set_console_output_cp_utf8() noexcept {
   return details::_set_console_output_cp_utf8();
 }
+AC_FLATTEN AC_NODISCARD inline bool is_debugger_present() noexcept {
+  return details::_is_debugger_present();
+}
+AC_FLATTEN AC_FORCEINLINE inline void breakpoint() noexcept {
+  details::_debugbreak();
+}
+AC_FLATTEN AC_FORCEINLINE inline void break_if_debugging() noexcept {
+  if (details::_is_debugger_present())
+    details::_debugbreak();
+}
+template <typename To, typename From>
+AC_FLATTEN AC_FORCEINLINE inline To as(From &&f) noexcept {
+  return static_cast<To>(f);
+}
+
 // from MSVC STL:
 // converts from a fancy pointer to a plain pointer
 template <class FancyPtrTy>

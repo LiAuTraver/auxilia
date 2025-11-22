@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <iterator>
 #include <ranges>
 #include <concepts>
 #include <type_traits>
@@ -8,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-#include "./config.hpp"
+#include "config.hpp"
 
 namespace accat::auxilia::ranges::views::details {
 struct _swap_endian_fn {

@@ -10,11 +10,11 @@ project(auxilia
 option(AUXILIA_INSTALL "Include an install target" ${PROJECT_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_DEMO "Build demo" ${PROJECT_IS_TOP_LEVEL})
+option(AUXILIA_BUILD_PROJECTS "Build demo" ${PROJECT_IS_TOP_LEVEL})
 
 add_library(auxilia INTERFACE)
 add_library(auxilia::auxilia ALIAS auxilia)
 
-target_compile_features(auxilia INTERFACE cxx_std_20)
 target_include_directories(auxilia INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
@@ -28,8 +28,22 @@ if(DEFINED ENV{AC_CPP_DEBUG} AND "$ENV{AC_CPP_DEBUG}" STREQUAL "ON" AND CMAKE_BU
   target_link_libraries(auxilia INTERFACE spdlog::spdlog)
 endif()
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+include(cmake/folders.cmake)
+
 if(PROJECT_IS_TOP_LEVEL)
+  if((NOT DEFINED ${CMAKE_CXX_STANDARD}) OR("${${CMAKE_CXX_STANDARD}}" STREQUAL ""))
+    set(CMAKE_CXX_STANDARD 23)
+  endif()
+
+  if((NOT DEFINED ${CMAKE_C_STANDARD}) OR("${${CMAKE_C_STANDARD}}" STREQUAL ""))
+    set(CMAKE_C_STANDARD 17)
+  endif()
+
   include(cmake/prelude.cmake)
+  target_compile_features(auxilia INTERFACE cxx_std_23)
+else()
+  target_compile_features(auxilia INTERFACE cxx_std_20)
 endif()
 
 if(AUXILIA_BUILD_TESTS)
@@ -40,8 +54,14 @@ if(AUXILIA_BUILD_DEMO)
   add_subdirectory(demo)
 endif()
 
+if(AUXILIA_BUILD_PROJECTS)
+  add_subdirectory(projects)
+endif()
+
 if(AUXILIA_INSTALL)
   include(cmake/install.cmake)
 endif()
 
 include(CPack)
+
+add_folder_if_auxilia_top_level("Library")

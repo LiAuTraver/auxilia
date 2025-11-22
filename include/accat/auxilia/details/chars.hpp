@@ -3,7 +3,7 @@
 #include <iterator>
 #include <utility>
 
-#include "./type_traits.hpp"
+#include "type_traits.hpp"
 
 namespace
 #if defined(__GLIBCXX__) && !defined(_WIN32)
@@ -444,7 +444,7 @@ template <typename CharT> constexpr auto widen(const CharT ch) noexcept {
 
 namespace literals {
 // NTTP magic
-template <const details::basic_chars_storage MyChars>
+template <const basic_chars_storage MyChars>
 consteval auto operator""_c() noexcept {
   return basic_chars<typename decltype(MyChars)::value_type,
                      sizeof(MyChars.arr)>(

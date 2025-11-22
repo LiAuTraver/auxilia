@@ -8,8 +8,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "./macros.hpp"
-#include "./config.hpp"
+#include "macros.hpp"
+#include "config.hpp"
 #if !AC_USE_STD_FMT
 #  include <fmt/color.h>
 #  include <fmt/xchar.h>
@@ -27,7 +27,7 @@ Format(fmt::text_style ts, fmt::wformat_string<T...> fmt, T &&...args) {
 template <typename... T>
 inline auto
 Print(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return ::fmt::print(
+  return ::fmt::print(
       ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
@@ -35,26 +35,28 @@ inline auto Print(::std::FILE *f,
                   fmt::text_style ts,
                   fmt::format_string<T...> fmt,
                   T &&...args) {
-  [[clang::musttail]] return ::fmt::print(f,
-                                          ::std::forward<fmt::text_style>(ts),
-                                          (fmt),
-                                          ::std::forward<T>(args)...);
+  return ::fmt::print(f,
+                      ::std::forward<fmt::text_style>(ts),
+                      (fmt),
+                      ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return ::fmt::println(
+  ::fmt::print(
       ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
+  ::puts("\n");
 }
 template <typename... T>
 inline auto Println(::std::FILE *f,
                     fmt::text_style ts,
                     fmt::format_string<T...> fmt,
                     T &&...args) {
-  [[clang::musttail]] return ::fmt::println(f,
-                                            ::std::forward<fmt::text_style>(ts),
-                                            (fmt),
-                                            ::std::forward<T>(args)...);
+  ::fmt::print(f,
+               ::std::forward<fmt::text_style>(ts),
+               (fmt),
+               ::std::forward<T>(args)...);
+  ::puts("\n");
 }
 } // namespace accat::auxilia
 #endif
@@ -75,73 +77,61 @@ inline auto Format(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
 template <typename... T>
 inline auto
 Print(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print(
-      f, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Print(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print((fmt),
-                                                 ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Print(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print(
-      f, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Print(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print((fmt),
-                                                 ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Print(::std::ostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print(
-      os, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT print(
-      os, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::ostream &os,
                     AC_STD_OR_FMT format_string<T...> fmt,
                     T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println(
-      os, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::wostream &os,
                     AC_STD_OR_FMT format_string<T...> fmt,
                     T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println(
-      os, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println(os, (fmt), ::std::forward<T>(args)...);
 }
 
 template <typename... T>
 inline auto
 Println(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println(
-      f, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println((fmt),
-                                                   ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
 Println(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println(
-      f, (fmt), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
-  [[clang::musttail]] return AC_STD_OR_FMT println((fmt),
-                                                   ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT println((fmt), ::std::forward<T>(args)...);
 }
 inline auto Println(void) { return AC_STD_OR_FMT println(""); }
 } // namespace accat::auxilia
