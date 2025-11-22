@@ -16,11 +16,12 @@
 
 #include <accat/auxilia/auxilia.hpp>
 
-#pragma region Lexing
-
 namespace accat::cp {
 
+using auxilia::npos;
 using auxilia::npos32;
+
+#pragma region Token
 class Token : public auxilia::Printable {
 
 public:
@@ -200,7 +201,9 @@ private:
   auto _do_format(auxilia::FormatPolicy format_policy) const -> string_type;
   static constexpr auto token_type_str(Type type) -> std::string_view;
 } inline AC_CONSTEXPR20 nulltok{};
+#pragma endregion Token
 
+#pragma region Lexer
 class Lexer {
   static inline size_t utf8_cp_len(unsigned char lead) {
     if (lead < 0x80)
@@ -282,15 +285,6 @@ private:
   /// advanced, false otherwise
   bool advance_if_is(char_t expected);
 
-  /// @brief advance the cursor if the predicate is true
-  /// @tparam Predicate the predicate to check
-  /// @param predicate the predicate to check
-  /// @return true if the predicate is true and the cursor is advanced, false
-  template <typename Predicate> bool advance_if(Predicate &&predicate);
-
-  static constexpr bool is_valid_base(char c) noexcept;
-  static constexpr bool is_valid_digit_of_base(char c, int base) noexcept;
-
 private:
   /// @brief head of a token
   size_type head = 0;
@@ -303,15 +297,8 @@ private:
   /// @brief error count
   uint_least32_t error_count = 0;
 };
-template <typename Predicate> bool Lexer::advance_if(Predicate &&predicate) {
-  static_assert(std::invocable<Predicate, char_t> &&
-                std::convertible_to<Predicate, bool>);
-  if (is_at_end() ||
-      !std::invoke(std::forward<Predicate>(predicate), contents[cursor]))
-    return false;
-  cursor++;
-  return true;
-}
+#pragma endregion Enums
+#pragma region Enums
 constexpr auto Token::token_type_str(const Type type) -> std::string_view {
   using namespace std::string_view_literals;
   switch (type) {
@@ -382,5 +369,5 @@ constexpr auto Token::token_type_str(const Type type) -> std::string_view {
   }
   return "Unknown"sv;
 }
+#pragma endregion Enums
 } // namespace accat::cp
-#pragma endregion Lexing

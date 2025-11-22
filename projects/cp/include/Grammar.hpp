@@ -11,10 +11,12 @@
 
 #include <accat/auxilia/auxilia.hpp>
 
-#pragma region Grammar
 namespace accat::cp {
 class Token;
+}
 
+#pragma region Grammar
+namespace accat::cp {
 class Grammar : public auxilia::Printable {
   using elem_t = string_type;
   struct Piece;

@@ -15,74 +15,9 @@
 #include "Lexing.hpp"
 
 namespace accat::cp {
-constexpr auto Token::token_type_operator() const -> std::string_view {
-  using namespace std::string_view_literals;
-  switch (type_) {
-  case Type::kLeftParen:
-    return "("sv;
-  case Type::kRightParen:
-    return ")"sv;
-  case Type::kLeftBrace:
-    return "{"sv;
-  case Type::kRightBrace:
-    return "}"sv;
-  case Type::kComma:
-    return ","sv;
-  case Type::kDot:
-    return "."sv;
-  case Type::kMinus:
-    return "-"sv;
-  case Type::kPlus:
-    return "+"sv;
-  case Type::kSemicolon:
-    return "sv;"sv;
-  case Type::kSlash:
-    return "/"sv;
-  case Type::kAmpersand:
-    return "&"sv;
-  case Type::kStar:
-    return "*"sv;
-  case Type::kBang:
-    return "!"sv;
-  case Type::kBangEqual:
-    return "!="sv;
-  case Type::kEqual:
-    return "="sv;
-  case Type::kEqualEqual:
-    return "=="sv;
-  case Type::kGreater:
-    return ">"sv;
-  case Type::kGreaterEqual:
-    return ">="sv;
-  case Type::kLess:
-    return "<"sv;
-  case Type::kLessEqual:
-    return "<="sv;
-  case Type::kLeftArrow:
-    return "->"sv;
-  case Type::kBitwiseOr:
-    return "|"sv;
-  case Type::kSquareBracketOpen:
-    return "["sv;
-  case Type::kSquareBracketClose:
-    return "]"sv;
-  case Type::kCaret:
-    return "^"sv;
-  case Type::kMonostate:
-    [[fallthrough]];
-  case Type::kIdentifier:
-    [[fallthrough]];
-  case Type::kString:
-    [[fallthrough]];
-  case Type::kNumber:
-    [[fallthrough]];
-  case Type::kLexError:
-    [[fallthrough]];
-  case Type::kEndOfFile:
-    break;
-  }
-  return lexeme_;
-}
+static constexpr bool is_valid_base(const char) noexcept;
+static constexpr bool is_valid_digit_of_base(const char, const int) noexcept;
+#pragma region Token
 auto Token::to_string(const auxilia::FormatPolicy &format_policy) const
     -> string_type {
   auto str = string_type{};
@@ -144,6 +79,8 @@ auto Token::_do_format(const auxilia::FormatPolicy format_policy) const
   }
   return str;
 }
+#pragma endregion Lexer
+#pragma region Lexer
 auto Lexer::lexAll_or_error()
     -> std::expected<std::vector<token_t>, string_type> {
   std::vector<token_t> result;
@@ -401,12 +338,12 @@ bool Lexer::advance_if_is(const char_t expected) {
   cursor++;
   return true;
 }
-constexpr auto Lexer::is_valid_base(const char c) noexcept -> bool {
+static constexpr bool is_valid_base(const char c) noexcept {
   return c == 'x' || c == 'X' || c == 'b' || c == 'B' || c == 'o' || c == 'O' ||
          c == 'd' || c == 'D';
 }
-constexpr auto Lexer::is_valid_digit_of_base(const char c,
-                                             const int base) noexcept -> bool {
+static constexpr bool is_valid_digit_of_base(const char c,
+                                             const int base) noexcept {
   switch (base) {
   case 2:
     return c == '0' || c == '1';
@@ -419,5 +356,74 @@ constexpr auto Lexer::is_valid_digit_of_base(const char c,
   default:
     return false;
   }
+}
+#pragma endregion Lexer
+constexpr auto Token::token_type_operator() const -> std::string_view {
+  using namespace std::string_view_literals;
+  switch (type_) {
+  case Type::kLeftParen:
+    return "("sv;
+  case Type::kRightParen:
+    return ")"sv;
+  case Type::kLeftBrace:
+    return "{"sv;
+  case Type::kRightBrace:
+    return "}"sv;
+  case Type::kComma:
+    return ","sv;
+  case Type::kDot:
+    return "."sv;
+  case Type::kMinus:
+    return "-"sv;
+  case Type::kPlus:
+    return "+"sv;
+  case Type::kSemicolon:
+    return "sv;"sv;
+  case Type::kSlash:
+    return "/"sv;
+  case Type::kAmpersand:
+    return "&"sv;
+  case Type::kStar:
+    return "*"sv;
+  case Type::kBang:
+    return "!"sv;
+  case Type::kBangEqual:
+    return "!="sv;
+  case Type::kEqual:
+    return "="sv;
+  case Type::kEqualEqual:
+    return "=="sv;
+  case Type::kGreater:
+    return ">"sv;
+  case Type::kGreaterEqual:
+    return ">="sv;
+  case Type::kLess:
+    return "<"sv;
+  case Type::kLessEqual:
+    return "<="sv;
+  case Type::kLeftArrow:
+    return "->"sv;
+  case Type::kBitwiseOr:
+    return "|"sv;
+  case Type::kSquareBracketOpen:
+    return "["sv;
+  case Type::kSquareBracketClose:
+    return "]"sv;
+  case Type::kCaret:
+    return "^"sv;
+  case Type::kMonostate:
+    [[fallthrough]];
+  case Type::kIdentifier:
+    [[fallthrough]];
+  case Type::kString:
+    [[fallthrough]];
+  case Type::kNumber:
+    [[fallthrough]];
+  case Type::kLexError:
+    [[fallthrough]];
+  case Type::kEndOfFile:
+    break;
+  }
+  return lexeme_;
 }
 } // namespace accat::cp

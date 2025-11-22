@@ -17,6 +17,37 @@
 
 using namespace accat::auxilia;
 namespace accat::cp {
+#pragma region Common
+static constexpr auto operators = as_chars("|*.+?()");
+static constexpr auto unformatted_header = raw(R"(
+digraph {} {{
+  rankdir=LR;
+  node [shape=circle, fontsize=12];
+  node [shape=point]; start;
+  start -> {};
+)");
+static constexpr bool is_operator(const char c) {
+  return operators.find(c) != npos;
+}
+static constexpr bool is_regex_operator(const char c) {
+  return c != '(' && c != ')' && is_operator(c);
+}
+constexpr size_t precedence(const char op) {
+  switch (op) {
+  case '*':
+  case '+':
+  case '?':
+    return 3;
+  case '.':
+    return 2; // explicit concat
+  case '|':
+    return 1;
+  default:
+    return 0;
+  }
+}
+#pragma endregion Common
+#pragma region Automaton
 auto details::AutomatonMixin::Transition::to_string(
     const FormatPolicy policy) const -> string_type {
   if (policy == FormatPolicy::kDefault)
@@ -41,8 +72,10 @@ const char *details::AutomatonMixin::State::type_string() const {
   case Type::kStartAndAccept:
     return "Start & Accept";
   default:
-    AC_UNREACHABLE("Unknown State Type: {}", (type))
+    break;
   }
+  AC_UNREACHABLE("Unknown State Type: {}", (type))
+  return nullptr;
 }
 Printable::string_type
 details::AutomatonMixin::State::to_string(const FormatPolicy policy) const {
@@ -193,6 +226,8 @@ auto details::AutomatonMixin::to_string(const FormatPolicy policy) const
   result += "\n";
   return result;
 }
+#pragma endregion Automaton
+#pragma region NFA
 std::string NFA::preprocess_regex(const std::string_view regex) {
   std::string result;
   // insert `.` for concatenation between
@@ -383,6 +418,14 @@ NFA::build_graph(const std::string_view postfix) {
   }
   return {top_and_pop_stack()};
 }
+void NFA::finalize(Fragment &&frag) {
+  const auto &[sid, eid] = frag;
+  start_id = sid;
+  accept_ids.emplace(eid);
+  states[sid].type = State::Type::kStart;
+  // only one accept state in this algo
+  states[eid].type = State::Type::kAccept;
+}
 auto NFA::construxt_from_regex(const std::string_view sv) {
   init_input_alphabet(sv);
 
@@ -411,6 +454,8 @@ StatusOr<NFA> NFA::FromRegex(const std::string_view sv) {
     return s;
   return {std::move(nfa)};
 }
+#pragma endregion NFA
+#pragma region DFA
 auto DFA::_dot_transition_details() const {
   std::string dot;
   for (const auto &[dfa_id, nfa_states] : mapping) {
@@ -685,4 +730,78 @@ void DFA::hopcroft(PartitionsTy &partitions) const {
     }
   }
 }
+DFA::IndexSetTy DFA::get_transition_signature(const PartitionsTy &partitions,
+                                              const State &s) const {
+  // signature of the state sid based on its transitions
+  IndexSetTy dest_set;
+  dest_set.reserve(s.edges.size());
+
+  for (const auto symbol : input_alphabet) {
+
+    // find the transition for the current symbol
+    const auto edge_it =
+        std::ranges::find(s.edges, symbol, &Transition::symbol);
+
+    if (edge_it == s.edges.end())
+      // no transition exists for this symbol, skip to the next symbol
+      continue;
+
+    // we found a transition from states[sid] to states[target_id]
+    const auto destination_id = edge_it->target_id;
+
+    // this variable denotes which partition states[target_id] belongs to.
+    const auto dest_pid =
+        std::ranges::find_if(partitions, [destination_id](const auto &p) {
+          return p.contains(destination_id);
+        });
+
+    AC_RUNTIME_ASSERT(dest_pid != partitions.end(), "should not happen")
+
+    // add the partition index to the signature of the current state.
+    dest_set.emplace(std::ranges::distance(partitions.begin(), dest_pid));
+  }
+
+  return dest_set;
+}
+auto DFA::split(const PartitionsTy &partitions, const PartitionTy &part) const {
+  // map to group states by their transition signatures
+  std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
+
+  // add the current state to the group corresponding to its signature.
+  std::ranges::for_each(part, [&](auto &&sid) {
+    const auto &s = states.at(sid);
+    auto sig = get_transition_signature(partitions, s);
+    groups[std::move(sig)].emplace(sid);
+  });
+
+  return groups;
+}
+void DFA::moore(PartitionsTy &partitions) const {
+  bool changed;
+  do {
+    changed = false;
+    PartitionsTy new_partitions;
+
+    for (const auto &part : partitions) {
+      if (part.size() == 1) {
+        // can't split an atom set
+        new_partitions.emplace_back(part);
+        continue;
+      }
+
+      // mapping: states -> partition
+      auto groups = split(partitions, part);
+
+      // a part was splited, so it's changed
+      if (groups.size() > 1)
+        changed = true;
+
+      // this part -> several parts or unchanged
+      new_partitions.append_range(std::move(groups) | std::views::values);
+    }
+
+    partitions = std::move(new_partitions);
+  } while (changed);
+}
+#pragma endregion DFA
 } // namespace accat::cp

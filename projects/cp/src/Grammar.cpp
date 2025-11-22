@@ -19,6 +19,10 @@ using auxilia::epsilon;
 using auxilia::FormatPolicy;
 using auxilia::Status;
 using auxilia::StatusOr;
+} // namespace accat::cp
+
+namespace accat::cp {
+#pragma region Piece
 bool Grammar::Piece::nullable(Grammar *myGrammar) {
   // Only Piece::nullable_ should be modifiable
   if (nullable_)
@@ -57,6 +61,8 @@ auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
                     // ^^^ workaround, pass const char* seems cause issue
       );
 }
+#pragma endregion Piece
+#pragma region Halper
 auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
                                             const char *prime) const
     -> string_type {
@@ -66,6 +72,8 @@ auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
   } while (non_terminal(newName));
   return newName;
 }
+#pragma endregion Helper
+#pragma region Recurse
 void Grammar::_immediate_left_recursion(Piece &A,
                                         Piece::rhs_t &&recRhsElems,
                                         Piece::rhs_t &&nonRecRhsElems) {
@@ -162,6 +170,8 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
   }
   A.rhs_ = std::move(new_rhs);
 }
+#pragma endregion Recurse
+#pragma region Parse
 Status Grammar::preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
     AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
@@ -331,6 +341,8 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
 
   return auxilia::OkStatus();
 }
+#pragma endregion Parse
+#pragma region Factor
 void Grammar::do_factoring(const size_t index) {
   auto &piece = pieces_[index];
   using rhs_elem_t = Piece::rhs_elem_t;
@@ -380,6 +392,8 @@ void Grammar::do_factoring(const size_t index) {
   newPiece.rhs_.append_range(std::move(APrimeRhs) |
                              std::ranges::views::as_rvalue);
 }
+#pragma endregion Factor
+#pragma region FirstSet
 Grammar::Piece::set_t
 Grammar::_first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
   namespace sr = std::ranges;
@@ -452,6 +466,8 @@ void Grammar::_compute_first_set() {
   std::ranges::for_each(pieces_,
                         std::bind_front(&Grammar::_first_set_from_piece, this));
 }
+#pragma endregion FirstSet
+#pragma region FollowSet
 void Grammar::_compute_follow_set() {
   // default: the first added non-terminal as start of the grammar
   constexpr static auto dollar = "$";
@@ -540,6 +556,8 @@ void Grammar::_compute_follow_set() {
     });
   }
 }
+#pragma endregion FollowSet
+#pragma region Interface
 auxilia::Printable::string_type Grammar::to_string(FormatPolicy) const {
   return pieces_                                                      //
          | std::ranges::views::transform(auxilia::Printable::Default) //
@@ -622,4 +640,5 @@ bool Grammar::isLL1() {
   }
   return true;
 }
+#pragma endregion Interface
 } // namespace accat::cp
