@@ -16,9 +16,15 @@
 
 namespace accat::cp {
 using auxilia::epsilon;
+using auxilia::Format;
 using auxilia::FormatPolicy;
+using auxilia::InvalidArgumentError;
+using auxilia::OkStatus;
+using auxilia::Println;
+using auxilia::ResourceExhaustedError;
 using auxilia::Status;
 using auxilia::StatusOr;
+using auxilia::UnimplementedError;
 } // namespace accat::cp
 
 namespace accat::cp {
@@ -175,8 +181,8 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
 Status Grammar::preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
     AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
-    auxilia::Println("nothing to do");
-    return auxilia::OkStatus();
+    Println("nothing to do");
+    return OkStatus();
   }
   if (string_type str; std::ranges::any_of(tokens, [&](const Token &token) {
         // allowed type in this Left Recursion Grammar.
@@ -187,15 +193,15 @@ Status Grammar::preprocess(const std::vector<Token> &tokens) {
                                     //   return !token.is_type(type);
                                     // });
         if (invalid)
-          str.append(auxilia::Format(R"('{1}' Contains non-allowed type '{0}')",
-                                     token.type_str(),
-                                     token.to_string(FormatPolicy::kBrief)));
+          str.append(Format(R"('{1}' Contains non-allowed type '{0}')",
+                            token.type_str(),
+                            token.to_string(FormatPolicy::kBrief)));
         return invalid;
       })) {
-    return auxilia::UnimplementedError(std::move(str).append(
+    return UnimplementedError(std::move(str).append(
         "Grammar contains non-allowed token types; Validation failure."));
   }
-  return auxilia::OkStatus();
+  return OkStatus();
 }
 void Grammar::postprocess(std::ranges::common_range auto &&lines) {
 
@@ -241,16 +247,16 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
   // first should be a single Identifier.
   const auto is_first_chunk_valid = [&](auto &&chunk) -> bool {
     if (chunk.size() != 1) {
-      errorMsg_lazy += auxilia::Format(
+      errorMsg_lazy += Format(
           "line {}: First chunk should only contain a single Identifier\n",
           chunk.front().line());
       return false;
     }
     if (chunk.front().is_type(kLeftArrow)) {
-      errorMsg_lazy += auxilia::Format(
-          "line {}: First chunk should be an Identifier"
-          "(special characters as non-terminal is not accepted).\n",
-          chunk.front().line());
+      errorMsg_lazy +=
+          Format("line {}: First chunk should be an Identifier"
+                 "(special characters as non-terminal is not accepted).\n",
+                 chunk.front().line());
       return false;
     }
     return true;
@@ -261,7 +267,7 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
   // Only append an error if it's malformed.
   const auto is_second_chunk_valid = [&](auto &&chunk) -> bool {
     if (chunk.size() != 1 || !chunk.front().is_type(kLeftArrow)) {
-      errorMsg_lazy += auxilia::Format(
+      errorMsg_lazy += Format(
           "line {}: Second chunk should only contain a single LeftArrow.\n",
           chunk.front().line());
     }
@@ -272,8 +278,8 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
   const auto is_following_chunk_valid = [&](auto &&chunk) -> bool {
     if (std::ranges::any_of(chunk,
                             [](auto &&t) { return t.is_type(kLeftArrow); })) {
-      errorMsg_lazy += auxilia::Format(
-          "line {}: Unexpected LeftArrow in rhs.\n", chunk.front().line());
+      errorMsg_lazy += Format("line {}: Unexpected LeftArrow in rhs.\n",
+                              chunk.front().line());
       return false;
     }
     // BitwiseOr indicates an alternative separator;
@@ -281,8 +287,8 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
     if (std::ranges::any_of(chunk,
                             [](auto &&t) { return t.is_type(kBitwiseOr); })) {
       if (chunk.size() != 1) {
-        errorMsg_lazy += auxilia::Format(
-            "line {}: Unexpected BitwiseOr in rhs.\n", chunk.front().line());
+        errorMsg_lazy += Format("line {}: Unexpected BitwiseOr in rhs.\n",
+                                chunk.front().line());
         return false;
       }
       // valid BitwiseOr, but we don't need it as a chunk to keep.
@@ -336,10 +342,10 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
   // Thus we should check errorMsg after that;
   // otherwise errorMsg will always be empty here.
   if (!errorMsg_lazy.empty()) {
-    return auxilia::InvalidArgumentError(std::move(errorMsg_lazy));
+    return InvalidArgumentError(std::move(errorMsg_lazy));
   }
 
-  return auxilia::OkStatus();
+  return OkStatus();
 }
 #pragma endregion Parse
 #pragma region Factor
@@ -589,9 +595,9 @@ Status Grammar::eliminate_left_recursion() {
     }
 
     if (!_analyze_left_recursion(A))
-      return auxilia::ResourceExhaustedError("infinite loop");
+      return ResourceExhaustedError("infinite loop");
   }
-  return auxilia::OkStatus();
+  return OkStatus();
 }
 Grammar &Grammar::apply_left_factorization() {
 

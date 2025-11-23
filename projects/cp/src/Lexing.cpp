@@ -15,29 +15,36 @@
 #include "Lexing.hpp"
 
 namespace accat::cp {
+using auxilia::Format;
+using auxilia::FormatPolicy;
+using auxilia::InvalidArgumentError;
+using auxilia::Println;
+using enum Token::Type;
+} // namespace accat::cp
+
+namespace accat::cp {
 static constexpr bool is_valid_base(const char) noexcept;
 static constexpr bool is_valid_digit_of_base(const char, const int) noexcept;
 #pragma region Token
-auto Token::to_string(const auxilia::FormatPolicy &format_policy) const
-    -> string_type {
+auto Token::to_string(const FormatPolicy &format_policy) const -> string_type {
   auto str = string_type{};
-  if (format_policy == auxilia::FormatPolicy::kBrief)
+  if (format_policy == FormatPolicy::kBrief)
     str = _do_format(format_policy);
   else
-    str = auxilia::Format(
+    str = Format(
         "type: {}, {}, line: {}", type_str(), _do_format(format_policy), line_);
 
   return str;
 }
 void Token::_do_move(Token &&that) noexcept {
   // Destroy old active member
-  if (type_ != Type::kNumber && type_ != Type::kMonostate)
+  if (type_ != kNumber && type_ != kMonostate)
     lexeme_.~string_type();
 
   type_ = that.type_;
   line_ = that.line_;
 
-  if (that.type_ == Type::kNumber) {
+  if (that.type_ == kNumber) {
     if (that.number_is_integer_) {
       num_ll_ = that.num_ll_;
       number_is_integer_ = true;
@@ -49,33 +56,32 @@ void Token::_do_move(Token &&that) noexcept {
     ::new (std::addressof(lexeme_)) std::string(std::move(that.lexeme_));
   }
 
-  that.type_ = Type::kMonostate;
+  that.type_ = kMonostate;
 }
-auto Token::_do_format(const auxilia::FormatPolicy format_policy) const
-    -> string_type {
+auto Token::_do_format(const FormatPolicy format_policy) const -> string_type {
   auto str = string_type{};
   const auto format_number = [this]() -> long double {
     return number_is_integer_ ? static_cast<long double>(num_ll_) : num_ld_;
   };
   using namespace std::string_literals;
-  if (format_policy == auxilia::FormatPolicy::kBrief) {
-    if (type_ == Type::kNumber)
-      str = auxilia::Format("{}", format_number());
-    else if (type_ == Type::kLexError)
+  if (format_policy == FormatPolicy::kBrief) {
+    if (type_ == kNumber)
+      str = Format("{}", format_number());
+    else if (type_ == kLexError)
       str = lexeme_;
-    else if (type_ == Type::kMonostate)
+    else if (type_ == kMonostate)
       str = "monostate"s;
     else
       str = token_type_operator();
   } else {
-    if (type_ == Type::kNumber)
-      str = auxilia::Format("number: '{}'", format_number());
-    else if (type_ == Type::kLexError)
-      str = auxilia::Format("error: '{}'", lexeme_);
-    else if (type_ == Type::kMonostate)
+    if (type_ == kNumber)
+      str = Format("number: '{}'", format_number());
+    else if (type_ == kLexError)
+      str = Format("error: '{}'", lexeme_);
+    else if (type_ == kMonostate)
       str = "monostate"s;
     else
-      str = auxilia::Format("lexeme: '{}'", token_type_operator());
+      str = Format("lexeme: '{}'", token_type_operator());
   }
   return str;
 }
@@ -96,7 +102,7 @@ auto Lexer::lexAll_or_error()
 
   return std::unexpected(result //
                          | std::ranges::views::filter([](const token_t &t) {
-                             return t.is_type(Token::Type::kLexError);
+                             return t.is_type(kLexError);
                            }) //
                          | std::ranges::views::transform([](const token_t &t) {
                              return std::string(t.error_message());
@@ -206,8 +212,8 @@ Lexer::token_t Lexer::next_token() {
     if (std::isalpha(c, std::locale()) or tolerable_chars.contains(c)) {
       return add_identifier_or_keyword();
     }
-    return add_error_token(auxilia::Format(
-        "Unexpected character: '{}' at line {}", c, current_line));
+    return add_error_token(
+        Format("Unexpected character: '{}' at line {}", c, current_line));
   }
 }
 auto Lexer::add_token(const Token::Type type) -> token_t {
@@ -236,8 +242,8 @@ auto Lexer::lex_string() -> auxilia::Status {
     get();
   }
   if (is_at_end() && peek() != '"') {
-    return auxilia::InvalidArgumentError("Unterminated string: " +
-                                         contents.substr(head, cursor - head));
+    return InvalidArgumentError("Unterminated string: " +
+                                contents.substr(head, cursor - head));
   }
   // "i am a string..."
   // 						      ^ cursor position
@@ -298,7 +304,7 @@ auto Lexer::to_number(const string_view_type value,
   std::from_chars_result res;
   if (isFloating) {
     if (Base != 10) {
-      auxilia::Println("Only base 10 is supported for floating point");
+      Println("Only base 10 is supported for floating point");
       return {};
     }
     long double number;
@@ -313,11 +319,11 @@ auto Lexer::to_number(const string_view_type value,
     if (res.ec == std::errc())
       return {{number}};
   }
-  auxilia::Println("Unable to convert string '{0}' to number: at {1}, "
-                   "error: {2}",
-                   realValStr,
-                   res.ptr,
-                   std::make_error_code(res.ec).message());
+  Println("Unable to convert string '{0}' to number: at {1}, "
+          "error: {2}",
+          realValStr,
+          res.ptr,
+          std::make_error_code(res.ec).message());
   return {};
 }
 Lexer::char_t Lexer::peek(const size_t offset) const {
@@ -361,67 +367,67 @@ static constexpr bool is_valid_digit_of_base(const char c,
 constexpr auto Token::token_type_operator() const -> std::string_view {
   using namespace std::string_view_literals;
   switch (type_) {
-  case Type::kLeftParen:
+  case kLeftParen:
     return "("sv;
-  case Type::kRightParen:
+  case kRightParen:
     return ")"sv;
-  case Type::kLeftBrace:
+  case kLeftBrace:
     return "{"sv;
-  case Type::kRightBrace:
+  case kRightBrace:
     return "}"sv;
-  case Type::kComma:
+  case kComma:
     return ","sv;
-  case Type::kDot:
+  case kDot:
     return "."sv;
-  case Type::kMinus:
+  case kMinus:
     return "-"sv;
-  case Type::kPlus:
+  case kPlus:
     return "+"sv;
-  case Type::kSemicolon:
+  case kSemicolon:
     return "sv;"sv;
-  case Type::kSlash:
+  case kSlash:
     return "/"sv;
-  case Type::kAmpersand:
+  case kAmpersand:
     return "&"sv;
-  case Type::kStar:
+  case kStar:
     return "*"sv;
-  case Type::kBang:
+  case kBang:
     return "!"sv;
-  case Type::kBangEqual:
+  case kBangEqual:
     return "!="sv;
-  case Type::kEqual:
+  case kEqual:
     return "="sv;
-  case Type::kEqualEqual:
+  case kEqualEqual:
     return "=="sv;
-  case Type::kGreater:
+  case kGreater:
     return ">"sv;
-  case Type::kGreaterEqual:
+  case kGreaterEqual:
     return ">="sv;
-  case Type::kLess:
+  case kLess:
     return "<"sv;
-  case Type::kLessEqual:
+  case kLessEqual:
     return "<="sv;
-  case Type::kLeftArrow:
+  case kLeftArrow:
     return "->"sv;
-  case Type::kBitwiseOr:
+  case kBitwiseOr:
     return "|"sv;
-  case Type::kSquareBracketOpen:
+  case kSquareBracketOpen:
     return "["sv;
-  case Type::kSquareBracketClose:
+  case kSquareBracketClose:
     return "]"sv;
-  case Type::kCaret:
+  case kCaret:
     return "^"sv;
-  case Type::kMonostate:
+  case kMonostate:
     [[fallthrough]];
-  case Type::kIdentifier:
+  case kIdentifier:
     [[fallthrough]];
-  case Type::kString:
+  case kString:
     [[fallthrough]];
-  case Type::kNumber:
+  case kNumber:
     [[fallthrough]];
-  case Type::kLexError:
+  case kLexError:
     [[fallthrough]];
-  case Type::kEndOfFile:
+  case kEndOfFile:
     break;
   }
   return lexeme_;
