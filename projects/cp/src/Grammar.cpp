@@ -25,6 +25,8 @@ using auxilia::ResourceExhaustedError;
 using auxilia::Status;
 using auxilia::StatusOr;
 using auxilia::UnimplementedError;
+namespace sr = std::ranges;
+namespace rv = std::ranges::views;
 } // namespace accat::cp
 
 namespace accat::cp {
@@ -33,9 +35,6 @@ bool Grammar::Piece::nullable(Grammar *myGrammar) {
   // Only Piece::nullable_ should be modifiable
   if (nullable_)
     return *nullable_;
-
-  namespace sr = std::ranges;
-  namespace rv = std::ranges::views;
 
   cache_rhsElemNullable.reserve(rhs_.size());
 
@@ -83,28 +82,25 @@ auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
 void Grammar::_immediate_left_recursion(Piece &A,
                                         Piece::rhs_t &&recRhsElems,
                                         Piece::rhs_t &&nonRecRhsElems) {
-  auto prime = _new_unique_non_terminal_name(A.lhs_, "'");
-  // nonTerminals_[prime] = pieces.size();
-
   // create new piece for A'
   Piece newPiece;
-  newPiece.lhs_ = (prime);
+  newPiece.lhs_ = _new_unique_non_terminal_name(A.lhs_, "'");
 
   // A -> beta A'
   Piece::rhs_t new_A_rhs;
-  for (auto &&beta : nonRecRhsElems | std::ranges::views::as_rvalue) {
+  for (auto &&beta : nonRecRhsElems | rv::as_rvalue) {
     auto &betaAprime = new_A_rhs.emplace_back();
     betaAprime.reserve(beta.size() + 1);
-    betaAprime.append_range(beta | std::ranges::views::as_rvalue);
+    betaAprime.append_range(beta | rv::as_rvalue);
     betaAprime.emplace_back(newPiece.lhs_);
   }
   A.rhs_ = std::move(new_A_rhs);
 
   // A' -> alpha A' | epsilion
-  for (auto &&alpha : recRhsElems | std::ranges::views::as_rvalue) {
+  for (auto &&alpha : recRhsElems | rv::as_rvalue) {
     auto &alphaAprime = newPiece.rhs_.emplace_back();
     alphaAprime.reserve(alpha.size() + 1);
-    alphaAprime.assign_range(alpha | std::ranges::views::as_rvalue);
+    alphaAprime.assign_range(alpha | rv::as_rvalue);
     alphaAprime.emplace_back(newPiece.lhs_);
   }
   newPiece.rhs_.emplace_back().emplace_back(epsilon);
@@ -117,23 +113,21 @@ bool Grammar::_analyze_left_recursion(Piece &A) {
   Piece::rhs_t recRhsElems; // store alpha (without leading A)
   // for readability I choose not to remove braces and got alpha and beta as
   // aliases (, though I really want to write them one line).
-  for (auto &&rhsElem : std::move(A.rhs_) | std::ranges::views::as_rvalue) {
+  for (auto &&rhsElem : std::move(A.rhs_) | rv::as_rvalue) {
     if (rhsElem.front() == A.lhs_) {
       // has left recursion
       auto &alpha = recRhsElems.emplace_back();
-      alpha.assign_range(rhsElem | std::ranges::views::drop(1) |
-                         std::ranges::views::as_rvalue);
+      alpha.assign_range(rhsElem | std::ranges::views::drop(1) | rv::as_rvalue);
     } else {
       auto &beta = nonRecRhsElems.emplace_back();
-      beta.assign_range(rhsElem | std::ranges::views::as_rvalue);
+      beta.assign_range(rhsElem | rv::as_rvalue);
     }
   }
   if (recRhsElems.empty()) {
     // no direct left recursion
     // note: A.rhs invalid for we marked it as xvalue previously,
     // so we shall move it back here.
-    A.rhs_.assign_range(std::move(nonRecRhsElems) |
-                        std::ranges::views::as_rvalue);
+    A.rhs_.assign_range(std::move(nonRecRhsElems) | rv::as_rvalue);
     return true;
   }
 
@@ -148,7 +142,7 @@ bool Grammar::_analyze_left_recursion(Piece &A) {
 }
 void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
   Piece::rhs_t new_rhs;
-  for (auto &&rhsElem : std::move(A.rhs_) | std::ranges::views::as_rvalue) {
+  for (auto &&rhsElem : std::move(A.rhs_) | rv::as_rvalue) {
     AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen")
     AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
 
@@ -177,8 +171,8 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
   A.rhs_ = std::move(new_rhs);
 }
 #pragma endregion Recurse
-#pragma region Parse
-Status Grammar::preprocess(const std::vector<Token> &tokens) {
+#pragma region Process
+Status Grammar::_preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
     AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
     Println("nothing to do");
@@ -203,7 +197,7 @@ Status Grammar::preprocess(const std::vector<Token> &tokens) {
   }
   return OkStatus();
 }
-void Grammar::postprocess(std::ranges::common_range auto &&lines) {
+void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
 
   for (auto &&l : lines) {
     AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(l)>);
@@ -212,7 +206,7 @@ void Grammar::postprocess(std::ranges::common_range auto &&lines) {
 
     for (auto &&chunk_view : l                                 // already rvalue
                                  | std::ranges::views::drop(1) //
-                                 | std::ranges::views::as_rvalue) {
+                                 | rv::as_rvalue) {
       piece.rhs_.emplace_back().assign_range(
           chunk_view | std::ranges::views::transform(
                            [](auto &&token) { return token.lexeme().data(); }));
@@ -229,7 +223,7 @@ void Grammar::postprocess(std::ranges::common_range auto &&lines) {
     });
   });
 }
-auto Grammar::do_parse(std::vector<Token> &&tokens) {
+auto Grammar::_do_parse(std::vector<Token> &&tokens) {
   using enum Token::Type;
 
   // I admit it's a bit messy here, but as the saying goes:
@@ -320,8 +314,8 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
   // transform_view<chunk_by_view<take_view<as_rvalue_view<owning_view<vector<Token>>>>,(l)>,(l)>
   auto lines =
       std::move(tokens) // xvalue to form a owning view rather than a ref view
-      | std::ranges::views::as_rvalue     // mark token in tokens as rvalue
-      | std::ranges::views::take(tokSize) // drop that kEndOfFile
+      | rv::as_rvalue   // mark token in tokens as rvalue
+      | std::ranges::views::take(tokSize)           // drop that kEndOfFile
       | std::ranges::views::chunk_by(stmtSeperator) // split by line
       | std::ranges::views::transform([&](auto &&line) {
           return line // now: lhs kLeftArrow rhs_elem1 kBitwiseOr rhs_elem2 ...
@@ -335,7 +329,7 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
       | std::ranges::views::common // ditto
       ;
 
-  postprocess(std::move(lines));
+  _postprocess(std::move(lines));
 
   // IMPORTANT: ranges::views are lazy-evaluated, so the validation is done
   // during the post_parse call(where we actually iterate through the views).
@@ -347,9 +341,9 @@ auto Grammar::do_parse(std::vector<Token> &&tokens) {
 
   return OkStatus();
 }
-#pragma endregion Parse
+#pragma endregion Process
 #pragma region Factor
-void Grammar::do_factoring(const size_t index) {
+void Grammar::_do_factoring(const size_t index) {
   auto &piece = pieces_[index];
   using rhs_elem_t = Piece::rhs_elem_t;
   using rhs_t = Piece::rhs_t;
@@ -368,7 +362,7 @@ void Grammar::do_factoring(const size_t index) {
 
   // filter original rhs: keep those not starting with bestPrefix.
   rhs_t newARhs;
-  for (auto &&rhsElem : std::move(piece.rhs_) | std::ranges::views::as_rvalue) {
+  for (auto &&rhsElem : std::move(piece.rhs_) | rv::as_rvalue) {
     AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
     if (!std::ranges::equal(
             lcpPath, rhsElem | std::ranges::views::take(lcpPath.size()))) {
@@ -395,14 +389,12 @@ void Grammar::do_factoring(const size_t index) {
   // else just the sequence.
   // Remove standalone epsilon marker if prefer empty production;
   // here we just keep it.
-  newPiece.rhs_.append_range(std::move(APrimeRhs) |
-                             std::ranges::views::as_rvalue);
+  newPiece.rhs_.append_range(std::move(APrimeRhs) | rv::as_rvalue);
 }
 #pragma endregion Factor
 #pragma region FirstSet
 Grammar::Piece::set_t
 Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
-  namespace sr = std::ranges;
 
   AC_RUNTIME_ASSERT(!sr::empty(rhsElem))
 
@@ -467,19 +459,16 @@ void Grammar::_first_set_from_piece(Piece &A) {
         A.first_set_.insert_range(std::move(rhsElemFirstSet));
       });
 }
-void Grammar::_compute_first_set() {
+void Grammar::compute_first_set() {
   // both lambda and bind_front is _Ugly :(
   std::ranges::for_each(pieces_,
                         std::bind_front(&Grammar::_first_set_from_piece, this));
 }
 #pragma endregion FirstSet
 #pragma region FollowSet
-void Grammar::_compute_follow_set() {
+void Grammar::compute_follow_set() {
   // the first added non-terminal as start of the grammar
   pieces_.front().follow_set_.emplace("$");
-
-  namespace rv = std::ranges::views;
-  namespace sr = std::ranges;
 
   for (auto changed = true; changed;) {
     changed = false;
@@ -530,38 +519,57 @@ void Grammar::_compute_follow_set() {
 #pragma endregion FollowSet
 #pragma region LL1
 bool Grammar::parse(const std::string_view str) {
-  AC_PRECONDITION(isLL1(), "Not implemented")
-  AC_TODO_()
+  if (!isLL1()) {
+    Println(fg(fmt::color::yellow),
+            "Not implemented if the grammar is not LL1, default return false.");
+  }
+
+  return false;
 }
 
 #pragma endregion LL1
 #pragma region Interface
-auxilia::Printable::string_type Grammar::to_string(FormatPolicy) const {
+auto Grammar::to_string(FormatPolicy) const -> string_type {
   return pieces_                                                      //
          | std::ranges::views::transform(auxilia::Printable::Default) //
          | std::ranges::views::join_with('\n')                        //
          | std::ranges::to<string_type>()                             //
       ;
 }
-StatusOr<Grammar> Grammar::FromTokens(std::vector<Token> &&tokens) {
-  if (auto status = preprocess(tokens); !status)
+auxilia::StatusOr<Grammar> Grammar::Process(string_type &&str) {
+  auto maybeGrammar = Grammar::FromStr(std::forward<string_type>(str));
+  if (!maybeGrammar)
+    return {std::move(maybeGrammar).as_status()};
+
+  auto grammar = *std::move(maybeGrammar);
+
+  if (auto status = grammar.eliminate_left_recursion(); !status)
+    return {std::move(status)};
+
+  grammar.apply_left_factorization();
+  grammar.compute_first_set();
+  grammar.compute_follow_set();
+
+  return {std::move(grammar)};
+}
+auxilia::StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
+  auto maybeTokens = Lexer{std::forward<string_type>(str)}.lexAll_or_error();
+  if (!maybeTokens)
+    return InvalidArgumentError(std::move(maybeTokens).error());
+
+  auto tokens = *std::move(maybeTokens);
+
+  if (auto status = _preprocess(tokens); !status)
     return {status};
 
   Grammar grammar;
 
-  if (auto status = grammar.do_parse(std::move(tokens)); !status) {
+  if (auto status = grammar._do_parse(std::move(tokens)); !status)
     return {status};
-  }
 
   return {std::move(grammar)};
 }
-auxilia::StatusOr<Grammar> FromStr(const std::string_view str) {
-  auto tokens = Lexer{{str.data(), str.size()}}.lexAll_or_error();
-  if (!tokens) {
-    return InvalidArgumentError(std::move(tokens).error());
-  }
-  return Grammar::FromTokens(*std::move(tokens));
-}
+
 Status Grammar::eliminate_left_recursion() {
   // only need to examine the original grammar, no need to inspect newly
   // generated one; newly generated is appended after the originals.
@@ -577,7 +585,7 @@ Status Grammar::eliminate_left_recursion() {
   }
   return OkStatus();
 }
-Grammar &Grammar::apply_left_factorization() {
+void Grammar::apply_left_factorization() {
 
   for (auto changed = true; changed;) {
     changed = false;
@@ -586,20 +594,12 @@ Grammar &Grammar::apply_left_factorization() {
     // did not use range-based for loop.
     for (auto index = 0ull; index < pieces_.size(); ++index) {
       const auto before = pieces_[index].rhs_.size();
-      do_factoring(index);
+      _do_factoring(index);
       if (pieces_[index].rhs_.size() != before) {
         changed = true;
       }
     }
   }
-
-  return *this;
-}
-Grammar &Grammar::calculate_set() {
-  _compute_first_set();
-  _compute_follow_set();
-
-  return *this;
 }
 bool Grammar::isLL1() {
   if (is_ll1_.has_value())

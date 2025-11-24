@@ -3,6 +3,7 @@
 #include "./test.env.inl.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <ostream>
@@ -11,51 +12,65 @@
 #include <utility>
 
 #include "Grammar.hpp"
-#include "Lexing.hpp"
 
 using namespace accat::auxilia;
 using namespace accat::cp;
 
-constexpr auto arithmetic = R"~~(
+using ranges::views::trim;
+
+namespace rv = std::ranges::views;
+using NonTerminal = Grammar::NonTerminal;
+
+#define EXPECT_TRIMMED_STR_EQ(str1, str2) EXPECT_EQ(trim(str1), trim(str2))
+struct Results {
+  const char *const str;
+  const char *const answer;
+};
+
+constexpr auto arithmetic = Results{
+    .str = R"(
 E -> E+T | T
 T -> T*F | F
 F -> (E) | id
-)~~";
-
-constexpr auto arithmetic_expected = R"~~(
+)",
+    .answer = R"(
 E -> T E'
 T -> F T'
 F -> ( E ) | id
 E' -> + T E' | ε
 T' -> * F T' | ε
-)~~";
+)",
+};
 
-constexpr auto complex_expr = R"~~(
+constexpr auto complex_expr = Results{
+    .str = R"(
 Expr -> Expr + Term | Expr - Term | Term
 Term -> Term * Factor | Term / Factor | Factor
 Factor -> (Expr) | num | id
-)~~";
-
-constexpr auto complex_expr_expected = R"~~(
+)",
+    .answer = R"(
 Expr -> Term Expr'
 Term -> Factor Term'
 Factor -> ( Expr ) | num | id
 Expr' -> + Term Expr' | - Term Expr' | ε
 Term' -> * Factor Term' | / Factor Term' | ε
-)~~";
+)",
+};
 
-constexpr auto list_grammar = R"~~(
+constexpr auto list_grammar = Results{
+    .str = R"(
 List -> List , Element | Element
 Element -> a | b | c
-)~~";
-
-constexpr auto list_grammar_expected = R"~~(
+)",
+    .answer = R"(
 List -> Element List'
 Element -> a | b | c
 List' -> , Element List' | ε
-)~~";
-// also test different line here!
-constexpr auto mixed_ops = R"~~(
+)",
+};
+
+constexpr auto mixed_ops = Results{
+    .str = R"(
 E -> 
 E == T | 
 E != T | 
@@ -70,70 +85,64 @@ F ->
 id 
 | 
 num
-)~~";
-
-constexpr auto mixed_ops_expected = R"~~(
+)",
+    .answer = R"(
 E -> T E'
 T -> F T'
 F -> ( E ) | id | num
 E' -> == T E' | != T E' | ε
 T' -> < F T' | > F T' | ε
-)~~";
+)",
+};
 
-constexpr auto multiple_recursion = R"~~(
+constexpr auto multiple_recursion = Results{
+    .str = R"(
 S -> S a | S b | c | d
-)~~";
-
-constexpr auto multiple_recursion_expected = R"~~(
+)",
+    .answer = R"(
 S -> c S' | d S'
 S' -> a S' | b S' | ε
-)~~";
+)",
+};
 
 using namespace accat::auxilia;
 auto getStr(auto &&str) -> std::string {
-  auto tokens = Lexer(str).lexAll_or_error();
-  if (!tokens)
-    return tokens.error();
 
-  auto grammar = Grammar::FromTokens(*std::move(tokens));
+  auto grammar = Grammar::Process(str);
   if (!grammar)
     return grammar.raw_message();
 
-  if (auto ok = grammar->eliminate_left_recursion(); !ok)
-    return ok.raw_message();
-
   return grammar->to_string();
 }
-#include <accat/auxilia/details/views.hpp>
-using ranges::views::trim;
-TEST(Grammar, LeftRecursive) {
+TEST(Grammar, LeftRecursion) {
   set_console_output_cp_utf8();
 
-  EXPECT_EQ(trim(getStr(arithmetic)), trim(arithmetic_expected));
-  EXPECT_EQ(trim(getStr(complex_expr)), trim(complex_expr_expected));
-  EXPECT_EQ(trim(getStr(list_grammar)), trim(list_grammar_expected));
-  EXPECT_EQ(trim(getStr(mixed_ops)), trim(mixed_ops_expected));
-  EXPECT_EQ(trim(getStr(multiple_recursion)),
-            trim(multiple_recursion_expected));
+  EXPECT_TRIMMED_STR_EQ(getStr(arithmetic.str), arithmetic.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(complex_expr.str), complex_expr.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(list_grammar.str), list_grammar.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(mixed_ops.str), mixed_ops.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(multiple_recursion.str),
+                        multiple_recursion.answer);
 }
-constexpr auto multipleLeftArrow = R"~~(
+constexpr auto multipleLeftArrow = R"(
 A -> A -> B | B
-)~~";
-constexpr auto multipleLeftArrow_expected = R"~~(
+)";
+constexpr auto multipleLeftArrow_expected = R"(
 line 2: Unexpected LeftArrow in rhs.
-)~~";
-TEST(Grammar, LeftRecursiveErrorHandling) {
+)";
+TEST(Grammar, LeftRecursionErrorHandling) {
   set_console_output_cp_utf8();
 
-  EXPECT_EQ(trim(getStr(multipleLeftArrow)), trim(multipleLeftArrow_expected));
+  EXPECT_TRIMMED_STR_EQ(getStr(multipleLeftArrow), multipleLeftArrow_expected);
 }
-constexpr auto nested_left_recursion = R"~~(
+constexpr auto nested_left_recursion = Results{
+    .str = R"(
 S -> A | B
 A -> A a B | A b C | d
 B -> B c A | B d B | e  
 C -> C f A | C g B | h
-)~~";
-constexpr auto nested_left_recursion_expected = R"~~(
+)",
+    .answer = R"(
 S -> A | B
 A -> d A'
 B -> e B'
@@ -141,16 +150,18 @@ C -> h C'
 A' -> a B A' | b C A' | ε
 B' -> c A B' | d B B' | ε
 C' -> f A C' | g B C' | ε
-)~~";
+)",
+};
 
-constexpr auto multi_level_recursion = R"~~(
+constexpr auto multi_level_recursion = Results{
+    .str = R"(
 Expr -> Expr + Term | Expr - Term | Term
 Term -> Term * Factor | Term / Factor | Factor  
 Factor -> Factor Pow Primary | Primary
 Pow -> ^
 Primary -> ( Expr ) | id | num
-)~~";
-constexpr auto multi_level_recursion_expected = R"~~(
+)",
+    .answer = R"(
 Expr -> Term Expr'
 Term -> Factor Term'
 Factor -> Primary Factor'
@@ -159,49 +170,57 @@ Primary -> ( Expr ) | id | num
 Expr' -> + Term Expr' | - Term Expr' | ε
 Term' -> * Factor Term' | / Factor Term' | ε
 Factor' -> Pow Primary Factor' | ε
-)~~";
+)",
+};
 
-constexpr auto crazy = R"~~(
+constexpr auto crazy = Results{
+    .str = R"(
 A -> A B C | A C B | a
 B -> B A C | B C A | b  
 C -> C A B | C B A | c
-)~~";
-constexpr auto crazy_doomed = R"~~(
+)",
+    .answer = R"(
 A -> a A'
 B -> b B'
 C -> c C'
 A' -> B C A' | C B A' | ε
 B' -> A C B' | C A B' | ε
 C' -> A B C' | B A C' | ε
-)~~";
-TEST(Grammar, ComplexLeftRecursive) {
+)",
+};
+
+TEST(Grammar, ComplexLeftRecursion) {
   set_console_output_cp_utf8();
 
-  EXPECT_EQ(trim(getStr(nested_left_recursion)),
-            trim(nested_left_recursion_expected));
-  EXPECT_EQ(trim(getStr(multi_level_recursion)),
-            trim(multi_level_recursion_expected));
-  // failed: substitues too eagerly
+  EXPECT_TRIMMED_STR_EQ(getStr(nested_left_recursion.str),
+                        nested_left_recursion.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(multi_level_recursion.str),
+                        multi_level_recursion.answer);
+  // failed: substitutes too eagerly
   // A' -> b B' C A' | c C' B A' | ε
-  EXPECT_EQ(trim(getStr(crazy)), trim(crazy_doomed));
+  EXPECT_TRIMMED_STR_EQ(getStr(crazy.str), crazy.answer);
 }
 
-constexpr auto simple = R"~~(
+constexpr auto simple = Results{
+    .str = R"(
 A -> b c d | b c e | b f
-)~~";
-constexpr auto simple_expected = R"~~(
+)",
+    .answer = R"(
 A -> b A@@
 A@ -> d | e
 A@@ -> f | c A@
-)~~";
-constexpr auto multi = R"~~(
+)",
+};
+
+constexpr auto multi = Results{
+    .str = R"(
 A -> b c D 
    | b c E 
    | b F
 B -> x Y z | x Z
 C -> p Q | p R | s T
-)~~";
-constexpr auto multi_expected = R"~~(
+)",
+    .answer = R"(
 A -> b A@@
 B -> x B@
 C -> s T | p C@
@@ -209,186 +228,197 @@ A@ -> D | E
 B@ -> Y z | Z
 C@ -> Q | R
 A@@ -> F | c A@
-)~~";
-constexpr auto complex = R"~~(
+)",
+};
+
+constexpr auto complex = Results{
+    .str = R"(
 Expression -> Term + Expression | Term - Expression | Term
 Term -> Factor * Term | Factor / Term | Factor
 Factor -> ( Expression ) | Number | Identifier
-)~~";
-constexpr auto complex_expected = R"~~(
+)",
+    .answer = R"(
 Expression -> Term Expression@
 Term -> Factor Term@
 Factor -> ( Expression ) | Number | Identifier
 Expression@ -> ε | + Expression | - Expression
 Term@ -> ε | * Term | / Term
-)~~";
-constexpr auto cond = R"~~(
+)",
+};
+
+constexpr auto cond = Results{
+    .str = R"(
 Statement -> if ( Condition ) Statement | if ( Condition ) Statement else Statement
 Condition -> ID == NUM | ID != NUM
-)~~";
-constexpr auto cond_expected = R"~~(
+)",
+    .answer = R"(
 Statement -> if ( Condition ) Statement Statement@
 Condition -> ID Condition@
 Statement@ -> ε | else Statement
 Condition@ -> == NUM | != NUM
-)~~";
-auto getLL1Str(auto &&str) {
-  auto tokens = Lexer(str).lexAll_or_error();
+)",
+};
 
-  return tokens ? Grammar::Process(*std::move(tokens))
-                      .to_string(FormatPolicy::kBrief)
-                : tokens.error();
-}
 TEST(Grammar, LeftFactoring) {
   set_console_output_cp_utf8();
 
-  EXPECT_EQ(trim(getLL1Str(simple)), trim(simple_expected));
-  EXPECT_EQ(trim(getLL1Str(multi)), trim(multi_expected));
-  EXPECT_EQ(trim(getLL1Str(complex)), trim(complex_expected));
-  EXPECT_EQ(trim(getLL1Str(cond)), trim(cond_expected));
+  EXPECT_TRIMMED_STR_EQ(getStr(simple.str), simple.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(multi.str), multi.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(complex.str), complex.answer);
+  EXPECT_TRIMMED_STR_EQ(getStr(cond.str), cond.answer);
 }
-constexpr auto simple_nullable = R"~~(
+struct Answer {
+  const char *const str;
+  const char *const first_set;
+  const char *const follow_set;
+  const char *const nullability;
+};
+constexpr auto simple2 = Answer{
+    .str = R"(
 S -> A B
 A -> a | ε
 B -> b
-)~~";
-constexpr auto simple_nullable_first_expected = R"~~(
+)",
+    .first_set = R"(
 [{"a", "b"}, {"a", "ε"}, {"b"}]
-)~~";
-
-constexpr auto simple_nullable_follow_expected = R"~~(
+)",
+    .follow_set = R"(
 [{"$"}, {"b"}, {"$"}]
-)~~";
-
-constexpr auto trivial = R"~~(
+)",
+    .nullability = R"([false, true, false])",
+};
+constexpr auto trivial = Answer{
+    .str = R"(
 S -> id
    | V assign E
 V -> id
 E -> V
    | num
-)~~";
-
-constexpr auto trivial_first_expected = R"~~(
+)",
+    .first_set = R"(
 [{"id"}, {"id"}, {"id", "num"}]
-)~~";
-
-constexpr auto trivial_follow_expected = R"~~(
+)",
+    .follow_set = R"(
 [{"$"}, {"assign"}, {"$"}]
-)~~";
+)",
+    .nullability = R"([false, false, false])",
+};
 
 auto getFirstSet(auto &&str) {
-  auto tokens = Lexer(str).lexAll_or_error();
-  if (!tokens) {
-    return tokens.error();
-  }
-  auto grammar = Grammar::Process(*std::move(tokens));
+  auto grammar = Grammar::Process(str);
   auto pieces = grammar->non_terminals();
   return Format("{}",
-                std::move(pieces) | std::ranges::views::transform(
-                                        &Grammar::NonTerminal::first_set));
+                std::move(pieces) |
+                    rv::transform(&Grammar::NonTerminal::first_set));
 }
 TEST(Grammar, FirstSet) {
-  EXPECT_EQ(trim(getFirstSet(simple_nullable)),
-            trim(simple_nullable_first_expected));
+  EXPECT_TRIMMED_STR_EQ(getFirstSet(simple2.str), simple2.first_set);
 
-  EXPECT_EQ(trim(getFirstSet(trivial)), trim(trivial_first_expected));
+  EXPECT_TRIMMED_STR_EQ(getFirstSet(trivial.str), trivial.first_set);
 }
 auto getFollowSet(auto &&str) {
-  auto tokens = Lexer(str).lexAll_or_error();
-  if (!tokens) {
-    return tokens.error();
-  }
-  auto grammar = Grammar::Process(*std::move(tokens));
+  auto grammar = Grammar::Process(str);
   auto pieces = grammar->non_terminals();
   return Format("{}",
-                std::move(pieces) | std::ranges::views::transform(
-                                        &Grammar::NonTerminal::follow_set));
+                std::move(pieces) |
+                    rv::transform(&Grammar::NonTerminal::follow_set));
 }
 TEST(Grammar, FollowSet) {
-  EXPECT_EQ(trim(getFollowSet(simple_nullable)),
-            trim(simple_nullable_follow_expected));
+  EXPECT_TRIMMED_STR_EQ(getFollowSet(simple2.str), simple2.follow_set);
 
-  EXPECT_EQ(trim(getFollowSet(trivial)), trim(trivial_follow_expected));
+  EXPECT_TRIMMED_STR_EQ(getFollowSet(trivial.str), trivial.follow_set);
 }
-
-constexpr auto ll0_lr0_0 = std::array{R"(
+constexpr auto ll0_lr0_0 = Answer{
+    .str = R"(
 S -> b A i B
 A -> ε
 B -> r C
 C -> d
 )",
-                                      R"([{"b"}, {"ε"}, {"r"}, {"d"}])",
-                                      R"([{"$"}, {"i"}, {"$"}, {"$"}])",
-                                      R"([false, true, false, false])"};
+    .first_set = R"([{"b"}, {"ε"}, {"r"}, {"d"}])",
+    .follow_set = R"([{"$"}, {"i"}, {"$"}, {"$"}])",
+    .nullability = R"([false, true, false, false])",
+};
 
-namespace rv = std::ranges::views;
-using NonTerminal = Grammar::NonTerminal;
 TEST(Grammar, LL0_LR0) {
-  auto grammar = *Grammar::Process(*Lexer{ll0_lr0_0[0]}.lexAll_or_error());
+  auto grammar = *Grammar::Process(ll0_lr0_0.str);
   EXPECT_TRUE(grammar.isLL1());
   auto pieces = grammar.non_terminals();
-  EXPECT_EQ(ll0_lr0_0[1],
-            Format(pieces | rv::transform(&NonTerminal::first_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll0_lr0_0.first_set,
+      Format(pieces | rv::transform(&NonTerminal::first_set)));
 
-  EXPECT_EQ(ll0_lr0_0[2],
-            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll0_lr0_0.follow_set,
+      Format(pieces | rv::transform(&NonTerminal::follow_set)));
 
-  EXPECT_EQ(ll0_lr0_0[3],
-            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
-                                                         &grammar))));
+  EXPECT_TRIMMED_STR_EQ(
+      ll0_lr0_0.nullability,
+      Format(pieces |
+             rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 }
-constexpr auto ll1_lr0_0 = std::array{R"(
+constexpr auto ll1_lr0_0 = Answer{
+    .str = R"(
 A -> B
 | x C
 | y A
 B -> C B
 C -> r
 )",
-                                      R"([{"r", "x", "y"}, {"r"}, {"r"}])",
-                                      R"([{"$"}, {"$"}, {"$", "r"}])",
-                                      R"([false, false, false])"};
+    .first_set = R"([{"r", "x", "y"}, {"r"}, {"r"}])",
+    .follow_set = R"([{"$"}, {"$"}, {"$", "r"}])",
+    .nullability = R"([false, false, false])",
+};
 
 TEST(Grammar, LL1_LR0) {
-  auto grammar = *Grammar::Process(*Lexer{ll1_lr0_0[0]}.lexAll_or_error());
+  auto grammar = *Grammar::Process(ll1_lr0_0.str);
   EXPECT_TRUE(grammar.isLL1());
   auto pieces = grammar.non_terminals();
-  EXPECT_EQ(ll1_lr0_0[1],
-            Format(pieces | rv::transform(&NonTerminal::first_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr0_0.first_set,
+      Format(pieces | rv::transform(&NonTerminal::first_set)));
 
-  EXPECT_EQ(ll1_lr0_0[2],
-            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr0_0.follow_set,
+      Format(pieces | rv::transform(&NonTerminal::follow_set)));
 
-  EXPECT_EQ(ll1_lr0_0[3],
-            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
-                                                         &grammar))));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr0_0.nullability,
+      Format(pieces |
+             rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 }
-constexpr auto ll1_slr1_0 = std::array{R"(
+constexpr auto ll1_slr1_0 = Answer{
+    .str = R"(
 A -> B c
 | d n A B fo
 B -> r
 | ε
 )",
-                                       R"([{"r", "c", "d"}, {"r", "ε"}])",
-                                       R"([{"$", "r", "fo"}, {"c", "fo"}])",
-                                       R"([false, true])"};
+    .first_set = R"([{"r", "c", "d"}, {"r", "ε"}])",
+    .follow_set = R"([{"$", "r", "fo"}, {"c", "fo"}])",
+    .nullability = R"([false, true])",
+};
 
 TEST(Grammar, LL1_SLR1) {
-  auto grammar = *Grammar::Process(*Lexer{ll1_slr1_0[0]}.lexAll_or_error());
+  auto grammar = *Grammar::Process(ll1_slr1_0.str);
   EXPECT_TRUE(grammar.isLL1());
   auto pieces = grammar.non_terminals();
-  EXPECT_EQ(ll1_slr1_0[1],
-            Format(pieces | rv::transform(&NonTerminal::first_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_slr1_0.first_set,
+      Format(pieces | rv::transform(&NonTerminal::first_set)));
 
-  EXPECT_EQ(ll1_slr1_0[2],
-            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_slr1_0.follow_set,
+      Format(pieces | rv::transform(&NonTerminal::follow_set)));
 
-  EXPECT_EQ(ll1_slr1_0[3],
-            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
-                                                         &grammar))));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_slr1_0.nullability,
+      Format(pieces |
+             rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 }
 
-constexpr auto ll1_lalr1_0 =
-    std::array{R"(
+constexpr auto ll1_lalr1_0 = Answer{
+    .str = R"(
 S -> id Sp
 Sp -> V assign E
 | ε
@@ -396,26 +426,30 @@ V -> ε
 E -> id V
 | num
 )",
-               R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
-               R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
-               R"([false, true, true, false])"};
+    .first_set = R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
+    .follow_set = R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
+    .nullability = R"([false, true, true, false])",
+};
 
 TEST(Grammar, LL1_LALR1) {
-  auto grammar = *Grammar::Process(*Lexer{ll1_lalr1_0[0]}.lexAll_or_error());
+  auto grammar = *Grammar::Process(ll1_lalr1_0.str);
   EXPECT_TRUE(grammar.isLL1());
   auto pieces = grammar.non_terminals();
-  EXPECT_EQ(ll1_lalr1_0[1],
-            Format(pieces | rv::transform(&NonTerminal::first_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lalr1_0.first_set,
+      Format(pieces | rv::transform(&NonTerminal::first_set)));
 
-  EXPECT_EQ(ll1_lalr1_0[2],
-            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lalr1_0.follow_set,
+      Format(pieces | rv::transform(&NonTerminal::follow_set)));
 
-  EXPECT_EQ(ll1_lalr1_0[3],
-            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
-                                                         &grammar))));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lalr1_0.nullability,
+      Format(pieces |
+             rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 }
-constexpr auto ll1_lr1_0 =
-    std::array{R"(
+constexpr auto ll1_lr1_0 = Answer{
+    .str = R"(
 S -> a A
 | b B
 A -> C a
@@ -426,21 +460,26 @@ C -> E
 D -> E
 E -> ε
 )",
-               R"([{"a", "b"}, {"a", "b"}, {"b", "a"}, {"ε"}, {"ε"}, {"ε"}])",
-               R"([{"$"}, {"$"}, {"$"}, {"a", "b"}, {"b", "a"}, {"a", "b"}])",
-               R"([false, false, false, true, true, true])"};
+    .first_set = R"([{"a", "b"}, {"a", "b"}, {"b", "a"}, {"ε"}, {"ε"}, {"ε"}])",
+    .follow_set =
+        R"([{"$"}, {"$"}, {"$"}, {"a", "b"}, {"b", "a"}, {"a", "b"}])",
+    .nullability = R"([false, false, false, true, true, true])",
+};
 
 TEST(Grammar, LL1_LR1) {
-  auto grammar = *Grammar::Process(*Lexer{ll1_lr1_0[0]}.lexAll_or_error());
+  auto grammar = *Grammar::Process(ll1_lr1_0.str);
   EXPECT_TRUE(grammar.isLL1());
   auto pieces = grammar.non_terminals();
-  EXPECT_EQ(ll1_lr1_0[1],
-            Format(pieces | rv::transform(&NonTerminal::first_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr1_0.first_set,
+      Format(pieces | rv::transform(&NonTerminal::first_set)));
 
-  EXPECT_EQ(ll1_lr1_0[2],
-            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr1_0.follow_set,
+      Format(pieces | rv::transform(&NonTerminal::follow_set)));
 
-  EXPECT_EQ(ll1_lr1_0[3],
-            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
-                                                         &grammar))));
+  EXPECT_TRIMMED_STR_EQ(
+      ll1_lr1_0.nullability,
+      Format(pieces |
+             rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 }

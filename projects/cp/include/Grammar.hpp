@@ -9,8 +9,12 @@
 #include <vector>
 #include <unordered_set>
 
-#include <accat/auxilia/auxilia.hpp>
+#include <accat/auxilia/details/format.hpp>
 
+namespace accat::auxilia {
+class Status;
+template <typename> class StatusOr;
+} // namespace accat::auxilia
 namespace accat::cp {
 class Token;
 }
@@ -59,13 +63,13 @@ private:
   struct Piece : Printable {
     friend class Grammar;
     using lhs_t = elem_t;
-    using rhs_elem_t = std::vector<elem_t>;
     template <class Ty> using rhs_container_t = std::vector<Ty>;
+    using rhs_elem_t = rhs_container_t<elem_t>;
     using rhs_t = rhs_container_t<rhs_elem_t>;
     using set_t = std::unordered_set<string_type>;
-    bool nullable(Grammar *myGrammar);
+    bool nullable(Grammar *);
     string_type to_string(
-        auxilia::FormatPolicy policy = auxilia::FormatPolicy::kDefault) const;
+        auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const;
     auto &lhs() const noexcept { return lhs_; }
     auto &rhs() const noexcept { return rhs_; }
     auto &first_set() const noexcept { return first_set_; }
@@ -99,46 +103,38 @@ private:
 
   // eliminate indirect left recursion
   void _indirect_left_recursion(Piece &A, const Piece &B) const;
-  void postprocess(std::ranges::common_range auto &&lines);
-  auto do_parse(std::vector<Token> &&tokens);
-  void do_factoring(size_t index);
-  static auxilia::Status preprocess(const std::vector<Token> &tokens);
+
+  static auto _preprocess(const std::vector<Token> &tokens) -> auxilia::Status;
+  void _postprocess(std::ranges::common_range auto &&lines);
+  auto _do_parse(std::vector<Token> &&tokens);
+
+  void _do_factoring(size_t index);
 
   auto _first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
       -> Piece::set_t;
 
   void _first_set_from_piece(Piece &A);
+
+public:
+  auto eliminate_left_recursion() -> auxilia::Status;
+  void apply_left_factorization();
   // IMPORTANT: only Piece::first_set should be modified, other shall as_const
-  void _compute_first_set();
+  void compute_first_set();
   // ditto: follow_set
-  void _compute_follow_set();
+  void compute_follow_set();
 
-public:
-  string_type
-      to_string(auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const;
-  auxilia::Status eliminate_left_recursion();
-  Grammar &apply_left_factorization();
-  Grammar &calculate_set();
   bool isLL1();
-  bool parse(std::string_view str);
+  bool parse(std::string_view);
+  auto to_string(auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const
+      -> string_type;
 
 public:
-  static auxilia::StatusOr<Grammar> FromTokens(std::vector<Token> &&tokens);
-  static auxilia::StatusOr<Grammar> FromStr(std::string_view str);
-  static auxilia::StatusOr<Grammar> Process(auto &&tokens);
+  /// parse the string, eliminate left recursion, extract the common left
+  /// factor, and compute it's FIRST/FOLLOW set.
+  static auxilia::StatusOr<Grammar> Process(string_type &&str);
+  /// Only parse the string and get the unprocessed grammar.
+  static auxilia::StatusOr<Grammar> FromStr(string_type &&str);
 };
 
-auxilia::StatusOr<Grammar> Grammar::Process(auto &&tokens) {
-  auto grammar = FromTokens(std::forward<decltype(tokens)>(tokens));
-
-  if (!grammar)
-    return {std::move(grammar).as_status()};
-
-  if (auto status = grammar->eliminate_left_recursion(); !status)
-    return {std::move(status)};
-
-  grammar->apply_left_factorization();
-  return {std::move(grammar->calculate_set())};
-}
 } // namespace accat::cp
 #pragma endregion Grammar

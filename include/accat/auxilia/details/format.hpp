@@ -148,11 +148,46 @@ inline auto Println(T &&...args) {
 }
 } // namespace accat::auxilia
 
+namespace accat::auxilia::details {
+class _out_fn {
+public:
+  AC_FLATTEN
+  AC_FORCEINLINE AC_STATIC_CALL_OPERATOR inline AC_CONSTEXPR20 decltype(auto)
+  operator()(auto &&...args) AC_CONST_CALL_OPERATOR {
+    return Println(std::forward<decltype(args)>(args)...);
+  }
+};
+AC_FLATTEN AC_FORCEINLINE static inline AC_CONSTEXPR20 decltype(auto)
+operator<<(const _out_fn &out, auto &&arg) {
+  Println(std::forward<decltype(arg)>(arg));
+  return out;
+}
+class _err_fn {
+public:
+  AC_FLATTEN
+  AC_FORCEINLINE AC_STATIC_CALL_OPERATOR inline AC_CONSTEXPR20 decltype(auto)
+  operator()(auto &&...args) AC_CONST_CALL_OPERATOR {
+    return Println(stderr, std::forward<decltype(args)>(args)...);
+  }
+};
+AC_FLATTEN AC_FORCEINLINE static inline AC_CONSTEXPR20 decltype(auto)
+operator<<(const _err_fn &err, auto &&arg) {
+  Println(stderr, std::forward<decltype(arg)>(arg));
+  return err;
+}
+} // namespace accat::auxilia::details
+
 namespace accat::auxilia {
+inline constexpr details::_out_fn Out;
+inline constexpr details::_err_fn Err;
 template <typename... Ts> class Variant;
 enum class FormatPolicy : uint8_t;
 struct Printable;
 struct Viewable;
+template <typename Ty>
+concept is_printable = requires { std::is_base_of_v<Printable, Ty>; };
+template <typename Ty>
+concept is_viewable = requires { std::is_base_of_v<Viewable, Ty>; };
 template <typename Ty>
   requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
 inline bool is_integer(Ty &&value) noexcept {
@@ -200,15 +235,15 @@ protected:
   }
 
 public:
-  static constexpr auto Brief = [](const auto &p)
-    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
-  { return p.to_string(FormatPolicy::kBrief); };
-  static constexpr auto Detailed = [](const auto &p)
-    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
-  { return p.to_string(FormatPolicy::kDetailed); };
-  static constexpr auto Default = [](const auto &p)
-    requires std::is_base_of_v<Printable, std::decay_t<decltype(p)>>
-  { return p.to_string(FormatPolicy::kDefault); };
+  static constexpr auto Brief = [](is_printable auto &&p) {
+    return p.to_string(FormatPolicy::kBrief);
+  };
+  static constexpr auto Detailed = [](is_printable auto &&p) {
+    return p.to_string(FormatPolicy::kDetailed);
+  };
+  static constexpr auto Default = [](is_printable auto &&p) {
+    return p.to_string(FormatPolicy::kDefault);
+  };
 };
 
 /// @interface Viewable
@@ -236,15 +271,15 @@ protected:
   }
 
 public:
-  static constexpr auto Brief = [](const auto &v)
-    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
-  { return v.to_string_view(FormatPolicy::kBrief); };
-  static constexpr auto Detailed = [](const auto &v)
-    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
-  { return v.to_string_view(FormatPolicy::kDetailed); };
-  static constexpr auto Default = [](const auto &v)
-    requires std::is_base_of_v<Viewable, std::decay_t<decltype(v)>>
-  { return v.to_string_view(FormatPolicy::kDefault); };
+  static constexpr auto Brief = [](is_viewable auto &&v) {
+    return v.to_string_view(FormatPolicy::kBrief);
+  };
+  static constexpr auto Detailed = [](is_viewable auto &&v) {
+    return v.to_string_view(FormatPolicy::kDetailed);
+  };
+  static constexpr auto Default = [](is_viewable auto &&v) {
+    return v.to_string_view(FormatPolicy::kDefault);
+  };
 };
 } // namespace accat::auxilia
 

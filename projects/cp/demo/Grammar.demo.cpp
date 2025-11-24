@@ -43,16 +43,8 @@ extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(flight2);
-  auto tokens = lexer.lexAll_or_error();
 
-  if (!tokens) {
-    Println(stderr, "Error: {}", tokens.error());
-    Println(stderr, "Lex process finished with {} error(s).", lexer.error());
-    exit(1);
-  }
-
-  auto grammar = Grammar::FromTokens(*std::move(tokens));
+  auto grammar = Grammar::FromStr(sysc);
   if (!grammar) {
     Println(stderr, "Error: {}", grammar.message());
     exit(1);
@@ -70,7 +62,8 @@ int main() {
 
   Println("TERMINALS: \n{}", fmt::join(grammar->terminals(), "\n"));
 
-  grammar->calculate_set();
+  grammar->compute_first_set();
+  grammar->compute_follow_set();
   auto pieces = grammar->non_terminals();
   Println("FIRST: {}",
           pieces |

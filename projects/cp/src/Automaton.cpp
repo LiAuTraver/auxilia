@@ -724,11 +724,8 @@ void DFA::hopcroft(PartitionsTy &partitions) const {
         if (const auto it_w = std::ranges::find(worklist, Y_idx);
             it_w != worklist.end()) {
           // replace the first occurrence of i with i (already) and add
-          // new_index (this emulates removing Y from W and adding Y1 and Y2).
-          // (If Y occurs multiple times in worklist, we only need to ensure
-          // both parts are present; keeping duplicates is harmless but
-          // uncommon in practice.) remove that occurrence and push both
-          // indices to keep behavior explicit:
+          // new_index (Y should be unique, currently it is, but not sure in the
+          // future.)
           AC_DEBUG_BLOCK {
             const auto it_last =
                 std::ranges::find_last(worklist, Y_idx).begin();
@@ -763,7 +760,7 @@ DFA::IndexSetTy DFA::get_transition_signature(const PartitionsTy &partitions,
       // no transition exists for this symbol, skip to the next symbol
       continue;
 
-    // we found a transition from states[sid] to states[target_id]
+    // found a transition from states[sid] to states[target_id]
     const auto destination_id = edge_it->target_id;
 
     // this variable denotes which partition states[target_id] belongs to.

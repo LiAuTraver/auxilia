@@ -256,7 +256,7 @@ public:
 #    ifdef AC_STD_COMPLIANT_BITSET
   AC_NODISCARD constexpr auto to_string(const char zero = '0',
                                         const char one = '1') const {
-    return string(zero, one);
+    return do_to_string(zero, one);
   }
 #    else
   AC_NODISCARD constexpr auto
@@ -267,7 +267,7 @@ public:
     if (policy == FormatPolicy::kDefault or policy == FormatPolicy::kBrief)
       return str;
 
-    return std::string("0b").append(str);
+    return "0b" + (str);
   }
 #    endif
   /// @}
