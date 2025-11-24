@@ -144,7 +144,7 @@ inline auto Println(void) { return AC_STD_OR_FMT println(""); }
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
 inline auto Println(T &&...args) {
-  return AC_STD_OR_FMT format(("{}\n"), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(("{}\n"), ::std::forward<T>(args)...);
 }
 } // namespace accat::auxilia
 
