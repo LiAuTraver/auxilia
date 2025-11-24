@@ -62,6 +62,9 @@ StatementMacros:
   - contract_check
   - precondition
   - postcondition
+  - AC_PRECONDITION
+  - AC_POSTCONDITION
+  - AC_RUNTIME_ASSERT
   - TODO
   - AC_DOLL_CHECK
 InsertNewlineAtEOF: true

@@ -12,7 +12,6 @@
 #include <accat/auxilia/auxilia.hpp>
 
 #include "Lexing.hpp"
-#include "accat/auxilia/details/config.hpp"
 #include "Grammar.hpp"
 
 namespace accat::cp {
@@ -529,6 +528,13 @@ void Grammar::_compute_follow_set() {
   }
 }
 #pragma endregion FollowSet
+#pragma region LL1
+bool Grammar::parse(const std::string_view str) {
+  AC_PRECONDITION(isLL1(), "Not implemented")
+  AC_TODO_()
+}
+
+#pragma endregion LL1
 #pragma region Interface
 auxilia::Printable::string_type Grammar::to_string(FormatPolicy) const {
   return pieces_                                                      //
@@ -537,7 +543,7 @@ auxilia::Printable::string_type Grammar::to_string(FormatPolicy) const {
          | std::ranges::to<string_type>()                             //
       ;
 }
-StatusOr<Grammar> Grammar::parse(std::vector<Token> &&tokens) {
+StatusOr<Grammar> Grammar::FromTokens(std::vector<Token> &&tokens) {
   if (auto status = preprocess(tokens); !status)
     return {status};
 
@@ -548,6 +554,13 @@ StatusOr<Grammar> Grammar::parse(std::vector<Token> &&tokens) {
   }
 
   return {std::move(grammar)};
+}
+auxilia::StatusOr<Grammar> FromStr(const std::string_view str) {
+  auto tokens = Lexer{{str.data(), str.size()}}.lexAll_or_error();
+  if (!tokens) {
+    return InvalidArgumentError(std::move(tokens).error());
+  }
+  return Grammar::FromTokens(*std::move(tokens));
 }
 Status Grammar::eliminate_left_recursion() {
   // only need to examine the original grammar, no need to inspect newly
@@ -589,6 +602,9 @@ Grammar &Grammar::calculate_set() {
   return *this;
 }
 bool Grammar::isLL1() {
+  if (is_ll1_.has_value())
+    return *is_ll1_;
+
   // only cache_rhsElemFirst2Select shall be edited
   for (auto &piece : pieces_) {
     if (piece.nullable_ == std::nullopt) {
@@ -604,12 +620,12 @@ bool Grammar::isLL1() {
       }
       if (std::ranges::any_of(select,
                               [&](auto &&sym) { return acc.contains(sym); }))
-        return false;
+        return is_ll1_.emplace(false);
       else
         acc.insert_range(select);
     }
   }
-  return true;
+  return is_ll1_.emplace(true);
 }
 #pragma endregion Interface
 } // namespace accat::cp

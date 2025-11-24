@@ -82,6 +82,7 @@ private:
   };
   std::vector<Piece> pieces_;
   std::unordered_set<string_type> terminals_;
+  std::optional<bool> is_ll1_;
 
 private:
   /// ensure uniqueness of the name.
@@ -115,16 +116,20 @@ private:
 public:
   string_type
       to_string(auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const;
-  static auxilia::StatusOr<Grammar> parse(std::vector<Token> &&tokens);
   auxilia::Status eliminate_left_recursion();
   Grammar &apply_left_factorization();
   Grammar &calculate_set();
   bool isLL1();
-  static auxilia::StatusOr<Grammar> ContextFree(auto &&tokens);
+  bool parse(std::string_view str);
+
+public:
+  static auxilia::StatusOr<Grammar> FromTokens(std::vector<Token> &&tokens);
+  static auxilia::StatusOr<Grammar> FromStr(std::string_view str);
+  static auxilia::StatusOr<Grammar> Process(auto &&tokens);
 };
 
-auxilia::StatusOr<Grammar> Grammar::ContextFree(auto &&tokens) {
-  auto grammar = parse(std::forward<decltype(tokens)>(tokens));
+auxilia::StatusOr<Grammar> Grammar::Process(auto &&tokens) {
+  auto grammar = FromTokens(std::forward<decltype(tokens)>(tokens));
 
   if (!grammar)
     return {std::move(grammar).as_status()};

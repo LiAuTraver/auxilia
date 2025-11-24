@@ -52,7 +52,7 @@ int main() {
     exit(1);
   }
 
-  auto grammar = Grammar::parse(*std::move(tokens));
+  auto grammar = Grammar::FromTokens(*std::move(tokens));
   if (!grammar) {
     Println(stderr, "Error: {}", grammar.message());
     exit(1);
