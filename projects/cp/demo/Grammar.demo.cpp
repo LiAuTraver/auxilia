@@ -33,12 +33,17 @@ A -> A B C | A C B | a
 B -> B A C | B C A | b  
 C -> C A B | C B A | c
 )~~";
+constexpr auto flight2 = R"~~(
+E -> E+T | T
+T -> T*F | F
+F -> E+F | id
+)~~";
 
 extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
-  Lexer lexer(sysc);
+  Lexer lexer(flight2);
   auto tokens = lexer.lexAll_or_error();
 
   if (!tokens) {

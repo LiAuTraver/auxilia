@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "name": "demo1",
+      "name": "Current Target",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",

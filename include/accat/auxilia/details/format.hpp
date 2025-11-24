@@ -70,8 +70,9 @@ inline auto Format(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Format(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
-  return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
+  requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
+inline auto Format(T &&...args) {
+  return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
 }
 
 template <typename... T>
@@ -101,6 +102,11 @@ template <typename... T>
 inline auto
 Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print(os, (fmt), ::std::forward<T>(args)...);
+}
+template <typename... T>
+  requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
+inline auto Print(T &&...args) {
+  return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::ostream &os,
@@ -134,6 +140,12 @@ inline auto Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println((fmt), ::std::forward<T>(args)...);
 }
 inline auto Println(void) { return AC_STD_OR_FMT println(""); }
+
+template <typename... T>
+  requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
+inline auto Println(T &&...args) {
+  return AC_STD_OR_FMT format(("{}\n"), ::std::forward<T>(args)...);
+}
 } // namespace accat::auxilia
 
 namespace accat::auxilia {

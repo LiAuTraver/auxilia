@@ -76,8 +76,8 @@ private:
     rhs_t rhs_;
     set_t first_set_;
     set_t follow_set_;
-    rhs_container_t<set_t> rhsElemFirst2SelectCache;
-    rhs_container_t<bool> rhsElemNullableCache_;
+    rhs_container_t<set_t> cache_rhsElemFirst2Select;
+    rhs_container_t<bool> cache_rhsElemNullable;
     std::optional<bool> nullable_;
   };
   std::vector<Piece> pieces_;
@@ -87,10 +87,9 @@ private:
   /// ensure uniqueness of the name.
   /// @note this function only returns a unique name, and does NOT add it into
   /// the `index_map`.
-  string_type _new_unique_non_terminal_name(std::string_view origName,
-                                            const char *prime) const;
+  auto _new_unique_non_terminal_name(std::string_view origName,
+                                     const char *prime) const -> string_type;
 
-private:
   void _immediate_left_recursion(Piece &A,
                                  Piece::rhs_t &&recRhsElems,
                                  Piece::rhs_t &&nonRecRhsElems);
@@ -99,12 +98,13 @@ private:
 
   // eliminate indirect left recursion
   void _indirect_left_recursion(Piece &A, const Piece &B) const;
-  static auxilia::Status preprocess(const std::vector<Token> &tokens);
   void postprocess(std::ranges::common_range auto &&lines);
   auto do_parse(std::vector<Token> &&tokens);
   void do_factoring(size_t index);
+  static auxilia::Status preprocess(const std::vector<Token> &tokens);
 
-  Piece::set_t _first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem);
+  auto _first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
+      -> Piece::set_t;
 
   void _first_set_from_piece(Piece &A);
   // IMPORTANT: only Piece::first_set should be modified, other shall as_const

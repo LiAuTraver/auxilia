@@ -3,7 +3,10 @@
 #include "./test.env.inl.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
+#include <ostream>
+#include <ranges>
 #include <string>
 #include <utility>
 
@@ -252,6 +255,27 @@ B -> b
 constexpr auto simple_nullable_first_expected = R"~~(
 [{"a", "b"}, {"a", "ε"}, {"b"}]
 )~~";
+
+constexpr auto simple_nullable_follow_expected = R"~~(
+[{"$"}, {"b"}, {"$"}]
+)~~";
+
+constexpr auto trivial = R"~~(
+S -> id
+   | V assign E
+V -> id
+E -> V
+   | num
+)~~";
+
+constexpr auto trivial_first_expected = R"~~(
+[{"id"}, {"id"}, {"id", "num"}]
+)~~";
+
+constexpr auto trivial_follow_expected = R"~~(
+[{"$"}, {"assign"}, {"$"}]
+)~~";
+
 auto getFirstSet(auto &&str) {
   auto tokens = Lexer(str).lexAll_or_error();
   if (!tokens) {
@@ -266,11 +290,9 @@ auto getFirstSet(auto &&str) {
 TEST(Grammar, FirstSet) {
   EXPECT_EQ(trim(getFirstSet(simple_nullable)),
             trim(simple_nullable_first_expected));
-}
 
-constexpr auto simple_nullable_follow_expected = R"~~(
-[{"$"}, {"b"}, {"$"}]
-)~~";
+  EXPECT_EQ(trim(getFirstSet(trivial)), trim(trivial_first_expected));
+}
 auto getFollowSet(auto &&str) {
   auto tokens = Lexer(str).lexAll_or_error();
   if (!tokens) {
@@ -285,4 +307,143 @@ auto getFollowSet(auto &&str) {
 TEST(Grammar, FollowSet) {
   EXPECT_EQ(trim(getFollowSet(simple_nullable)),
             trim(simple_nullable_follow_expected));
+
+  EXPECT_EQ(trim(getFollowSet(trivial)), trim(trivial_follow_expected));
+}
+
+constexpr auto ll0_lr0_0 = std::array{R"(
+S -> b A i B
+A -> ε
+B -> r C
+C -> d
+)",
+                                      R"([{"b"}, {"ε"}, {"r"}, {"d"}])",
+                                      R"([{"$"}, {"i"}, {"$"}, {"$"}])",
+                                      R"([false, true, false, false])"};
+
+constexpr auto ll1_lr0_0 = std::array{R"(
+A -> B
+| x C
+| y A
+B -> C B
+C -> r
+)",
+                                      R"([{"r", "x", "y"}, {"r"}, {"r"}])",
+                                      R"([{"$"}, {"$"}, {"$", "r"}])",
+                                      R"([false, false, false])"};
+
+constexpr auto ll1_slr1_0 = std::array{R"(
+A -> B c
+| d n A B fo
+B -> r
+| ε
+)",
+                                       R"([{"r", "c", "d"}, {"r", "ε"}])",
+                                       R"([{"$", "r", "fo"}, {"c", "fo"}])",
+                                       R"([false, true])"};
+
+constexpr auto ll1_lalr1_0 =
+    std::array{R"(
+S -> id Sp
+Sp -> V assign E
+| ε
+V -> ε
+E -> id V
+| num
+)",
+               R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
+               R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
+               R"([false, true, true, false])"};
+
+constexpr auto ll1_lr1_0 =
+    std::array{R"(
+S -> a A
+| b B
+A -> C a
+| D b
+B -> C b
+| D a
+C -> E
+D -> E
+E -> ε
+)",
+               R"([{"a", "b"}, {"a", "b"}, {"b", "a"}, {"ε"}, {"ε"}, {"ε"}])",
+               R"([{"$"}, {"$"}, {"$"}, {"a", "b"}, {"b", "a"}, {"a", "b"}])",
+               R"([false, false, false, true, true, true])"};
+
+namespace rv = std::ranges::views;
+using NonTerminal = Grammar::NonTerminal;
+TEST(Grammar, LL0_LR0) {
+  auto grammar = *Grammar::ContextFree(*Lexer{ll0_lr0_0[0]}.lexAll_or_error());
+  EXPECT_TRUE(grammar.isLL1());
+  auto pieces = grammar.non_terminals();
+  EXPECT_EQ(ll0_lr0_0[1],
+            Format(pieces | rv::transform(&NonTerminal::first_set)));
+
+  EXPECT_EQ(ll0_lr0_0[2],
+            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+
+  EXPECT_EQ(ll0_lr0_0[3],
+            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
+                                                         &grammar))));
+}
+TEST(Grammar, LL1_LR0) {
+  auto grammar = *Grammar::ContextFree(*Lexer{ll1_lr0_0[0]}.lexAll_or_error());
+  EXPECT_TRUE(grammar.isLL1());
+  auto pieces = grammar.non_terminals();
+  EXPECT_EQ(ll1_lr0_0[1],
+            Format(pieces | rv::transform(&NonTerminal::first_set)));
+
+  EXPECT_EQ(ll1_lr0_0[2],
+            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+
+  EXPECT_EQ(ll1_lr0_0[3],
+            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
+                                                         &grammar))));
+}
+
+TEST(Grammar, LL1_SLR1) {
+  auto grammar = *Grammar::ContextFree(*Lexer{ll1_slr1_0[0]}.lexAll_or_error());
+  EXPECT_TRUE(grammar.isLL1());
+  auto pieces = grammar.non_terminals();
+  EXPECT_EQ(ll1_slr1_0[1],
+            Format(pieces | rv::transform(&NonTerminal::first_set)));
+
+  EXPECT_EQ(ll1_slr1_0[2],
+            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+
+  EXPECT_EQ(ll1_slr1_0[3],
+            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
+                                                         &grammar))));
+}
+
+TEST(Grammar, LL1_LALR1) {
+  auto grammar =
+      *Grammar::ContextFree(*Lexer{ll1_lalr1_0[0]}.lexAll_or_error());
+  EXPECT_TRUE(grammar.isLL1());
+  auto pieces = grammar.non_terminals();
+  EXPECT_EQ(ll1_lalr1_0[1],
+            Format(pieces | rv::transform(&NonTerminal::first_set)));
+
+  EXPECT_EQ(ll1_lalr1_0[2],
+            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+
+  EXPECT_EQ(ll1_lalr1_0[3],
+            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
+                                                         &grammar))));
+}
+
+TEST(Grammar, LL1_LR1) {
+  auto grammar = *Grammar::ContextFree(*Lexer{ll1_lr1_0[0]}.lexAll_or_error());
+  EXPECT_TRUE(grammar.isLL1());
+  auto pieces = grammar.non_terminals();
+  EXPECT_EQ(ll1_lr1_0[1],
+            Format(pieces | rv::transform(&NonTerminal::first_set)));
+
+  EXPECT_EQ(ll1_lr1_0[2],
+            Format(pieces | rv::transform(&NonTerminal::follow_set)));
+
+  EXPECT_EQ(ll1_lr1_0[3],
+            Format(pieces | rv::transform(std::bind_back(&NonTerminal::nullable,
+                                                         &grammar))));
 }

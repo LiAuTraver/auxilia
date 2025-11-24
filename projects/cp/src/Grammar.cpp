@@ -12,6 +12,7 @@
 #include <accat/auxilia/auxilia.hpp>
 
 #include "Lexing.hpp"
+#include "accat/auxilia/details/config.hpp"
 #include "Grammar.hpp"
 
 namespace accat::cp {
@@ -37,20 +38,20 @@ bool Grammar::Piece::nullable(Grammar *myGrammar) {
   namespace sr = std::ranges;
   namespace rv = std::ranges::views;
 
-  rhsElemNullableCache_.reserve(rhs_.size());
+  cache_rhsElemNullable.reserve(rhs_.size());
 
   const auto isSymbolNullable = [&](auto &&sym) {
     auto &&ptrPiece = myGrammar->non_terminal(sym);
     AC_RUNTIME_ASSERT(ptrPiece != this, "infinite loop?")
     const auto res = ptrPiece && ptrPiece->nullable(myGrammar);
-    rhsElemNullableCache_.emplace_back(res);
+    cache_rhsElemNullable.emplace_back(res);
     return res;
   };
 
   const auto isRhsElemNullable = [&](auto &&rhsElem) {
     if (rhsElem.front() == epsilon) {
       AC_RUNTIME_ASSERT(rhsElem.size() == 1, "shall not happen")
-      rhsElemNullableCache_.emplace_back(true);
+      cache_rhsElemNullable.emplace_back(true);
       return true;
     }
     return sr::all_of(rhsElem | rv::as_const, isSymbolNullable);
@@ -68,7 +69,7 @@ auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
       );
 }
 #pragma endregion Piece
-#pragma region Halper
+#pragma region Helper
 auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
                                             const char *prime) const
     -> string_type {
@@ -401,20 +402,20 @@ void Grammar::do_factoring(const size_t index) {
 #pragma endregion Factor
 #pragma region FirstSet
 Grammar::Piece::set_t
-Grammar::_first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
+Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
   namespace sr = std::ranges;
 
-  AC_RUNTIME_ASSERT(!rhsElem.empty())
+  AC_RUNTIME_ASSERT(!sr::empty(rhsElem))
 
   Piece::set_t partialFirstSet;
 
-  auto f = rhsElem.cbegin();
+  auto f = sr::cbegin(rhsElem);
 
   // A -> ε
   if (*f == epsilon) {
     partialFirstSet.emplace(*f);
     // else, continue search?
-    AC_RUNTIME_ASSERT(sr::next(f) == rhsElem.cend(),
+    AC_RUNTIME_ASSERT(sr::next(f) == sr::cend(rhsElem),
                       "epsilon should be alone in production")
     return partialFirstSet;
   }
@@ -425,7 +426,7 @@ Grammar::_first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
     return partialFirstSet;
   }
 
-  for (; f != rhsElem.cend(); sr::advance(f, 1L)) {
+  for (; f != sr::cend(rhsElem); sr::advance(f, 1L)) {
     // terminal, add and stop
     if (terminal(*f)) {
       partialFirstSet.emplace(*f);
@@ -445,7 +446,7 @@ Grammar::_first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
 
     // add non-terminal's first set, excluding epsilon
     Piece::set_t setCopy = piecePtr->first_set_;
-    setCopy.erase(epsilon);
+    setCopy.erase(auxilia::epsilon);
     partialFirstSet.insert_range(std::move(setCopy));
 
     if (!piecePtr->nullable(this))
@@ -453,7 +454,7 @@ Grammar::_first_set_from_rhs_elem(const Piece::rhs_elem_t &rhsElem) {
       break;
 
     // nullable and the last symbol, add epsilon
-    if (sr::next(f) == rhsElem.cend()) {
+    if (sr::next(f) == sr::cend(rhsElem)) {
       partialFirstSet.emplace(epsilon);
     }
   }
@@ -463,7 +464,7 @@ void Grammar::_first_set_from_piece(Piece &A) {
   std::ranges::for_each(
       A.rhs_ | std::ranges::views::as_const, [&](auto &&rhsElem) {
         auto rhsElemFirstSet = _first_set_from_rhs_elem(rhsElem);
-        A.rhsElemFirst2SelectCache.emplace_back(rhsElemFirstSet);
+        A.cache_rhsElemFirst2Select.emplace_back(rhsElemFirstSet);
         A.first_set_.insert_range(std::move(rhsElemFirstSet));
       });
 }
@@ -475,91 +476,56 @@ void Grammar::_compute_first_set() {
 #pragma endregion FirstSet
 #pragma region FollowSet
 void Grammar::_compute_follow_set() {
-  // default: the first added non-terminal as start of the grammar
-  constexpr static auto dollar = "$";
-  pieces_.front().follow_set_.emplace(dollar);
+  // the first added non-terminal as start of the grammar
+  pieces_.front().follow_set_.emplace("$");
 
   namespace rv = std::ranges::views;
   namespace sr = std::ranges;
 
-  // helper (non-static member function cannot be used directly)
-  const auto isNonTerminal = [this](auto &&str) { return non_terminal(str); };
-
-  const auto computeFollowSet = [&](auto &&reversedView,
-                                    auto &&prevFollowSet) -> bool {
-    bool changed = false;
-    // used to accumulate start set in a reverse order, add start set
-    // into it when the symbol is nullable, clear it when it's not
-    Piece::set_t accumulatedStartSet;
-
-    const auto myrfNonTermIt = sr::find_if(reversedView, isNonTerminal);
-    // guranteed not to pass end
-    const auto myrlNonTermIt =
-        sr::find_last_if(reversedView, isNonTerminal).begin();
-
-    auto &&myrfFollowSet = non_terminal(*myrfNonTermIt)->follow_set_;
-
-    auto myOldSize = myrfFollowSet.size();
-
-    if (myrfNonTermIt == sr::cbegin(reversedView)) {
-      accumulatedStartSet.insert_range(prevFollowSet);
-      myrfFollowSet.insert_range(accumulatedStartSet);
-    } else {
-      // guranteed not to before begin
-      auto &&rbeforeTerm = *sr::prev(myrfNonTermIt);
-      myrfFollowSet.emplace(rbeforeTerm);
-    }
-
-    auto myNewSize = myrfFollowSet.size();
-    if (myNewSize != myOldSize)
-      changed = true;
-
-    for (auto symbolIt = myrfNonTermIt; symbolIt != myrlNonTermIt;
-         sr::advance(symbolIt, 1L)) {
-      // guranteed not to be end or pass end
-
-      if (auto objIt = sr::next(symbolIt); auto objPtr = non_terminal(*objIt)) {
-        auto &&objFollowSet = objPtr->follow_set_;
-
-        myOldSize = objFollowSet.size();
-
-        if (auto rfPtr = non_terminal(*symbolIt)) {
-          if (rfPtr->nullable(this)) {
-            accumulatedStartSet.insert_range(rfPtr->first_set_);
-            objFollowSet.insert_range(accumulatedStartSet);
-          } else {
-            objFollowSet.insert_range(rfPtr->first_set_);
-            accumulatedStartSet.clear();
-          }
-          objFollowSet.erase(epsilon);
-        }
-
-        myNewSize = objFollowSet.size();
-        if (myNewSize != myOldSize)
-          changed = true;
-
-      } else {
-        accumulatedStartSet.clear();
-      }
-    }
-
-    return changed;
-  };
-
-  const auto hasNonTerminal = [&isNonTerminal](auto &&rhsElem) {
-    return sr::any_of(rhsElem, isNonTerminal);
-  };
-
   for (auto changed = true; changed;) {
     changed = false;
-    sr::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
-      sr::for_each(piece.rhs_ | rv::filter(hasNonTerminal) //
-                       | rv::transform(rv::reverse | rv::as_const),
-                   [&](auto &&reversedView) {
-                     if (computeFollowSet(reversedView, piece.follow_set_))
-                       changed = true;
-                   });
-    });
+
+    for (auto &A : pieces_) {
+      for (const auto &rhsElem : A.rhs_) {
+        for (auto it = sr::begin(rhsElem); it != sr::end(rhsElem);
+             sr::advance(it, 1L)) {
+          const auto Bptr = non_terminal(*it);
+
+          if (!Bptr)
+            continue;
+
+          Piece::set_t toAdd;
+
+          if (sr::next(it) == sr::end(rhsElem)) {
+            // no suffix, add follow(A) to follow(B)
+            toAdd.insert_range(A.follow_set_ | rv::as_const);
+          } else {
+
+            // FIXME: do we really need to calculate it again?
+            // build the suffix vector
+            auto firstSuffix = _first_set_from_rhs_elem(
+                sr::subrange(sr::next(it), sr::end(rhsElem)));
+
+            if (auto maybeEpsilonIt = sr::find(firstSuffix, auxilia::epsilon);
+                maybeEpsilonIt != sr::end(firstSuffix)) {
+              // has epsilon, add follow(A)
+              toAdd.insert_range(A.follow_set_ | rv::as_const);
+              // add first(suffix) \ {epsilon}
+              firstSuffix.erase(std::move(maybeEpsilonIt));
+            }
+
+            toAdd.insert_range(std::move(firstSuffix));
+          }
+
+          const auto oldSize = Bptr->follow_set_.size();
+          Bptr->follow_set_.insert_range(std::move(toAdd));
+          const auto newSize = Bptr->follow_set_.size();
+
+          if (newSize != oldSize)
+            changed = true;
+        }
+      }
+    }
   }
 }
 #pragma endregion FollowSet
@@ -593,7 +559,6 @@ Status Grammar::eliminate_left_recursion() {
       auto &B = pieces_[j];
       _indirect_left_recursion(A, B);
     }
-
     if (!_analyze_left_recursion(A))
       return ResourceExhaustedError("infinite loop");
   }
@@ -624,7 +589,7 @@ Grammar &Grammar::calculate_set() {
   return *this;
 }
 bool Grammar::isLL1() {
-  // only rhsElemFirst2SelectCache shall be edited
+  // only cache_rhsElemFirst2Select shall be edited
   for (auto &piece : pieces_) {
     if (piece.nullable_ == std::nullopt) {
       // not calculated
@@ -632,9 +597,9 @@ bool Grammar::isLL1() {
     }
     Piece::set_t acc;
     for (auto index = 0ull; index < piece.rhs_.size(); ++index) {
-      auto &select = piece.rhsElemFirst2SelectCache[index];
+      auto &select = piece.cache_rhsElemFirst2Select[index];
       select.erase(epsilon);
-      if (piece.rhsElemNullableCache_[index] == true) {
+      if (piece.cache_rhsElemNullable[index] == true) {
         select.insert_range(piece.follow_set_);
       }
       if (std::ranges::any_of(select,

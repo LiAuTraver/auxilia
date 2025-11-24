@@ -364,6 +364,7 @@ static constexpr bool is_valid_digit_of_base(const char c,
   }
 }
 #pragma endregion Lexer
+#pragma region Enums
 constexpr auto Token::token_type_operator() const -> std::string_view {
   using namespace std::string_view_literals;
   switch (type_) {
@@ -432,4 +433,5 @@ constexpr auto Token::token_type_operator() const -> std::string_view {
   }
   return lexeme_;
 }
+#pragma endregion Enums
 } // namespace accat::cp
