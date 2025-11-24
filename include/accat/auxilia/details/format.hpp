@@ -180,17 +180,19 @@ operator<<(const _err_fn &err, auto &&arg) {
 namespace accat::auxilia {
 inline constexpr details::_out_fn Out;
 inline constexpr details::_err_fn Err;
+
 template <typename... Ts> class Variant;
 enum class FormatPolicy : uint8_t;
+
 struct Printable;
 struct Viewable;
 template <typename Ty>
 concept is_printable = requires { std::is_base_of_v<Printable, Ty>; };
 template <typename Ty>
 concept is_viewable = requires { std::is_base_of_v<Viewable, Ty>; };
-template <typename Ty>
-  requires std::is_arithmetic_v<std::remove_cvref_t<Ty>>
-inline bool is_integer(Ty &&value) noexcept {
+
+template <typename Ty> inline bool is_integer(Ty &&value) noexcept {
+  static_assert(std::is_arithmetic_v<std::remove_cvref_t<Ty>>);
   return std::trunc(::std::forward<Ty>(value)) == value;
 }
 template <typename... Ts> struct match : Ts... {
