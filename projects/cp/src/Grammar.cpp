@@ -4,6 +4,7 @@
 #include <iterator>
 #include <optional>
 #include <ranges>
+#include <stack>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -15,15 +16,16 @@
 #include "Grammar.hpp"
 
 namespace accat::cp {
-using auxilia::epsilon;
 using auxilia::Format;
 using auxilia::FormatPolicy;
 using auxilia::InvalidArgumentError;
+using auxilia::LexError;
 using auxilia::OkStatus;
 using auxilia::Println;
 using auxilia::ResourceExhaustedError;
 using auxilia::Status;
 using auxilia::StatusOr;
+using auxilia::UnavailableError;
 using auxilia::UnimplementedError;
 namespace sr = std::ranges;
 namespace rv = std::ranges::views;
@@ -41,19 +43,21 @@ bool Grammar::Piece::nullable(Grammar *myGrammar) {
   const auto isSymbolNullable = [&](auto &&sym) {
     auto &&ptrPiece = myGrammar->non_terminal(sym);
     AC_RUNTIME_ASSERT(ptrPiece != this, "infinite loop?")
-    const auto res = ptrPiece && ptrPiece->nullable(myGrammar);
-    cache_rhsElemNullable.emplace_back(res);
-    return res;
+    return ptrPiece && ptrPiece->nullable(myGrammar);
   };
 
   const auto isRhsElemNullable = [&](auto &&rhsElem) {
-    if (rhsElem.front() == epsilon) {
+    if (rhsElem.front() == NilMarker) {
       AC_RUNTIME_ASSERT(rhsElem.size() == 1, "shall not happen")
       cache_rhsElemNullable.emplace_back(true);
       return true;
     }
-    return sr::all_of(rhsElem | rv::as_const, isSymbolNullable);
+    // bitref -> bool
+    return static_cast<bool>(cache_rhsElemNullable.emplace_back(
+        sr::all_of(rhsElem | rv::as_const, isSymbolNullable)));
   };
+  // not sure, subtle bug? any_of would eagerly return once one of the elem
+  // satisfies the cond
   return nullable_.emplace(sr::any_of(rhs_ | rv::as_const, isRhsElemNullable));
 }
 auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
@@ -103,8 +107,8 @@ void Grammar::_immediate_left_recursion(Piece &A,
     alphaAprime.assign_range(alpha | rv::as_rvalue);
     alphaAprime.emplace_back(newPiece.lhs_);
   }
-  newPiece.rhs_.emplace_back().emplace_back(epsilon);
-  terminals_.emplace(epsilon);
+  newPiece.rhs_.emplace_back().emplace_back(NilMarker);
+  terminals_.emplace(NilMarker);
 
   pieces_.emplace_back(std::move(newPiece));
 }
@@ -175,8 +179,7 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
 Status Grammar::_preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
     AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
-    Println("nothing to do");
-    return OkStatus();
+    return auxilia::UnavailableError("nothing to do");
   }
   if (string_type str; std::ranges::any_of(tokens, [&](const Token &token) {
         // allowed type in this Left Recursion Grammar.
@@ -208,8 +211,9 @@ void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
                                  | std::ranges::views::drop(1) //
                                  | rv::as_rvalue) {
       piece.rhs_.emplace_back().assign_range(
-          chunk_view | std::ranges::views::transform(
-                           [](auto &&token) { return token.lexeme().data(); }));
+          chunk_view                                          //
+          | std::ranges::views::transform(&Token::lexeme_str) //
+      );
     }
   }
   // 1. use for_each to enable possible vectorization(not really in this case)
@@ -358,7 +362,7 @@ void Grammar::_do_factoring(const size_t index) {
     return;
 
   // collect suffixes of all productions sharing bestPrefix.
-  auto APrimeRhs = trie.collect(lcpNode, epsilon);
+  auto APrimeRhs = trie.collect(lcpNode, NilMarker);
 
   // filter original rhs: keep those not starting with bestPrefix.
   rhs_t newARhs;
@@ -403,7 +407,7 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
   auto f = sr::cbegin(rhsElem);
 
   // A -> ε
-  if (*f == epsilon) {
+  if (*f == NilMarker) {
     partialFirstSet.emplace(*f);
     // else, continue search?
     AC_RUNTIME_ASSERT(sr::next(f) == sr::cend(rhsElem),
@@ -413,7 +417,8 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
 
   if (terminal(*f)) {
     partialFirstSet.emplace(*f);
-    AC_RUNTIME_ASSERT(*f != epsilon, "epsilon should have been handled earlier")
+    AC_RUNTIME_ASSERT(*f != NilMarker,
+                      "epsilon should have been handled earlier")
     return partialFirstSet;
   }
 
@@ -421,7 +426,7 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
     // terminal, add and stop
     if (terminal(*f)) {
       partialFirstSet.emplace(*f);
-      AC_RUNTIME_ASSERT(*f != epsilon,
+      AC_RUNTIME_ASSERT(*f != NilMarker,
                         "epsilon should have been handled earlier")
       break;
     }
@@ -431,9 +436,8 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
     AC_RUNTIME_ASSERT(piecePtr != nullptr,
                       "symbol must be terminal or non-terminal")
 
-    if (piecePtr->first_set_.empty())
-      // if not empty it's calculated before
-      _first_set_from_piece(*piecePtr);
+    // if not empty it's calculated before, handled in the function already
+    _first_set_from_piece(*piecePtr);
 
     // add non-terminal's first set, excluding epsilon
     Piece::set_t setCopy = piecePtr->first_set_;
@@ -446,18 +450,21 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
 
     // nullable and the last symbol, add epsilon
     if (sr::next(f) == sr::cend(rhsElem)) {
-      partialFirstSet.emplace(epsilon);
+      partialFirstSet.emplace(NilMarker);
     }
   }
   return partialFirstSet;
 }
 void Grammar::_first_set_from_piece(Piece &A) {
-  std::ranges::for_each(
-      A.rhs_ | std::ranges::views::as_const, [&](auto &&rhsElem) {
-        auto rhsElemFirstSet = _first_set_from_rhs_elem(rhsElem);
-        A.cache_rhsElemFirst2Select.emplace_back(rhsElemFirstSet);
-        A.first_set_.insert_range(std::move(rhsElemFirstSet));
-      });
+  // if already computed (select_set_ has entries), skip
+  if (!A.first_set_.empty())
+    return;
+
+  std::ranges::for_each(A.rhs_ | rv::as_const, [&](auto &&rhsElem) {
+    auto rhsElemFirstSet = _first_set_from_rhs_elem(rhsElem);
+    A.select_set_.emplace_back(rhsElemFirstSet);
+    A.first_set_.insert_range(std::move(rhsElemFirstSet));
+  });
 }
 void Grammar::compute_first_set() {
   // both lambda and bind_front is _Ugly :(
@@ -466,68 +473,69 @@ void Grammar::compute_first_set() {
 }
 #pragma endregion FirstSet
 #pragma region FollowSet
+bool Grammar::_follow_set_from_rhs_elem(
+    const Piece &A, std::ranges::common_range auto &&rhsElem) {
+  auto changed = false;
+
+  // use `std::ranges::meow` instead of member function is just for
+  // consistency with `next`, `advance`, `subrange` etc.
+  for (auto it = sr::begin(rhsElem); it != sr::end(rhsElem);
+       sr::advance(it, 1L)) {
+
+    const auto Bptr = non_terminal(*it);
+
+    if (!Bptr)
+      continue;
+
+    Piece::set_t newBFollowSet;
+
+    if (sr::next(it) == sr::end(rhsElem)) {
+      // no suffix, add follow(A) to follow(B)
+      newBFollowSet.insert_range(A.follow_set_ | rv::as_const);
+    } else {
+
+      // FIXME: do we really need to calculate it again?
+      // build the suffix vector
+      auto firstSuffix = _first_set_from_rhs_elem(
+          sr::subrange(sr::next(it), sr::end(rhsElem)));
+
+      if (auto maybeEpsilonIt = sr::find(firstSuffix, NilMarker);
+          maybeEpsilonIt != sr::end(firstSuffix)) {
+        // has epsilon, add follow(A)
+        newBFollowSet.insert_range(A.follow_set_ | rv::as_const);
+        // add first(suffix) \ {epsilon}
+        firstSuffix.erase(std::move(maybeEpsilonIt));
+      }
+
+      newBFollowSet.insert_range(std::move(firstSuffix));
+    }
+
+    const auto oldSize = Bptr->follow_set_.size();
+    Bptr->follow_set_.insert_range(std::move(newBFollowSet));
+    const auto newSize = Bptr->follow_set_.size();
+
+    if (newSize != oldSize)
+      changed = true;
+  }
+  return changed;
+}
+
 void Grammar::compute_follow_set() {
   // the first added non-terminal as start of the grammar
-  pieces_.front().follow_set_.emplace("$");
+  pieces_.front().follow_set_.emplace(EndMarker);
 
   for (auto changed = true; changed;) {
     changed = false;
 
-    for (auto &A : pieces_) {
-      for (const auto &rhsElem : A.rhs_) {
-        for (auto it = sr::begin(rhsElem); it != sr::end(rhsElem);
-             sr::advance(it, 1L)) {
-          const auto Bptr = non_terminal(*it);
-
-          if (!Bptr)
-            continue;
-
-          Piece::set_t toAdd;
-
-          if (sr::next(it) == sr::end(rhsElem)) {
-            // no suffix, add follow(A) to follow(B)
-            toAdd.insert_range(A.follow_set_ | rv::as_const);
-          } else {
-
-            // FIXME: do we really need to calculate it again?
-            // build the suffix vector
-            auto firstSuffix = _first_set_from_rhs_elem(
-                sr::subrange(sr::next(it), sr::end(rhsElem)));
-
-            if (auto maybeEpsilonIt = sr::find(firstSuffix, auxilia::epsilon);
-                maybeEpsilonIt != sr::end(firstSuffix)) {
-              // has epsilon, add follow(A)
-              toAdd.insert_range(A.follow_set_ | rv::as_const);
-              // add first(suffix) \ {epsilon}
-              firstSuffix.erase(std::move(maybeEpsilonIt));
-            }
-
-            toAdd.insert_range(std::move(firstSuffix));
-          }
-
-          const auto oldSize = Bptr->follow_set_.size();
-          Bptr->follow_set_.insert_range(std::move(toAdd));
-          const auto newSize = Bptr->follow_set_.size();
-
-          if (newSize != oldSize)
-            changed = true;
-        }
-      }
-    }
+    std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&A) {
+      std::ranges::for_each(A.rhs_ | rv::as_const, [&](auto &&rhsElem) {
+        if (_follow_set_from_rhs_elem(A, rhsElem))
+          changed = true;
+      });
+    });
   }
 }
 #pragma endregion FollowSet
-#pragma region LL1
-bool Grammar::parse(const std::string_view str) {
-  if (!isLL1()) {
-    Println(fg(fmt::color::yellow),
-            "Not implemented if the grammar is not LL1, default return false.");
-  }
-
-  return false;
-}
-
-#pragma endregion LL1
 #pragma region Interface
 auto Grammar::to_string(FormatPolicy) const -> string_type {
   return pieces_                                                      //
@@ -571,9 +579,9 @@ auxilia::StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
 }
 
 Status Grammar::eliminate_left_recursion() {
+  const auto mySize = pieces_.size();
   // only need to examine the original grammar, no need to inspect newly
   // generated one; newly generated is appended after the originals.
-  const auto mySize = pieces_.size();
   for (size_t i = 0; i < mySize; ++i) {
     auto &A = pieces_[i];
     for (size_t j = 0; j < i; ++j) {
@@ -586,7 +594,6 @@ Status Grammar::eliminate_left_recursion() {
   return OkStatus();
 }
 void Grammar::apply_left_factorization() {
-
   for (auto changed = true; changed;) {
     changed = false;
     // here I just append new piece, hence it's the same `piece` with
@@ -605,7 +612,7 @@ bool Grammar::isLL1() {
   if (is_ll1_.has_value())
     return *is_ll1_;
 
-  // only cache_rhsElemFirst2Select shall be edited
+  // only select_set_ shall be edited
   for (auto &piece : pieces_) {
     if (piece.nullable_ == std::nullopt) {
       // not calculated
@@ -613,11 +620,13 @@ bool Grammar::isLL1() {
     }
     Piece::set_t acc;
     for (auto index = 0ull; index < piece.rhs_.size(); ++index) {
-      auto &select = piece.cache_rhsElemFirst2Select[index];
-      select.erase(epsilon);
-      if (piece.cache_rhsElemNullable[index] == true) {
+      auto &select = piece.select_set_[index];
+
+      select.erase(NilMarker);
+
+      if (piece.cache_rhsElemNullable[index] == true)
         select.insert_range(piece.follow_set_);
-      }
+
       if (std::ranges::any_of(select,
                               [&](auto &&sym) { return acc.contains(sym); }))
         return is_ll1_.emplace(false);
@@ -626,6 +635,107 @@ bool Grammar::isLL1() {
     }
   }
   return is_ll1_.emplace(true);
+}
+
+auto Grammar::parse(string_type &&str) -> Status {
+  if (!isLL1())
+    return UnimplementedError(
+        "Not implemented for the grammar that is not LL1, "
+        "default to false.");
+
+  const auto coro = Lexer::LexAsync(std::forward<string_type>(str));
+
+  std::stack<string_type> myStack;
+  myStack.push(pieces_.front().lhs_);
+
+  AC_RUNTIME_ASSERT(pieces_.front().follow_set_.contains(EndMarker))
+
+  // construct a table for LL1 parsing
+  std::unordered_map<string_type,
+                     std::unordered_map<string_type, Piece::rhs_elem_t>>
+      table;
+
+  std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
+    for (auto index = 0ull; index < piece.rhs_.size(); ++index) {
+      for (const auto &terminalSym : piece.select_set_[index] | rv::as_const) {
+        table[piece.lhs_][terminalSym] = piece.rhs_[index];
+      }
+    }
+  });
+
+  for (const auto &token : coro) {
+    using enum Token::Type;
+    if (token.is_type(kLexError))
+      return LexError(token.error_message_str());
+
+    if (token.is_type(kNumber))
+      return UnavailableError(
+          "Number as identifier is not available: at line {}, number {}",
+          token.line(),
+          token.number());
+
+    if (token.is_type(kEndOfFile)) {
+      if (myStack.empty())
+        // parsed completely and successed.
+        return OkStatus();
+      else
+        return InvalidArgumentError("Unexpected end of input, expected '{}'",
+                                    myStack.top());
+    }
+
+    auto &&ident = token.lexeme_str();
+    if (non_terminal(ident))
+      return InvalidArgumentError(
+          "Non-terminal identifier {} "
+          "should not appear in the final input string.",
+          ident);
+
+    if (!terminal(ident)) {
+      return InvalidArgumentError(
+          "Unrecognized identifier '{}' at line {}", ident, token.line());
+    }
+
+    while (!myStack.empty()) {
+      auto top = myStack.top();
+      myStack.pop();
+
+      if (terminal(top)) {
+        if (top == ident)
+          // matched, continue with next token
+          break;
+        else
+          return InvalidArgumentError(
+              "Unexpected terminal symbol '{}', expected '{}'", ident, top);
+      }
+
+      // non-terminal
+      const auto rowIt = table.find(top);
+      if (rowIt == table.end())
+        return InvalidArgumentError(
+            "No production found for non-terminal symbol '{}'", top);
+
+      const auto &row = rowIt->second;
+
+      const auto colIt = row.find(ident);
+      if (colIt == row.end())
+        return InvalidArgumentError(
+            "No production found for non-terminal symbol '{}' "
+            "with terminal lookahead symbol '{}'",
+            top,
+            ident);
+
+      const auto &rhsElem = colIt->second;
+
+      // push rhsElem into stack in reverse order
+      myStack.push_range(rhsElem                       //
+                         | rv::reverse                 //
+                         | rv::filter([](auto &&sym) { //
+                             return sym != NilMarker;  //
+                           })                          //
+      );
+    }
+  }
+  AC_UNREACHABLE()
 }
 #pragma endregion Interface
 } // namespace accat::cp

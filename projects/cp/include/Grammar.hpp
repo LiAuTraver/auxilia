@@ -35,11 +35,14 @@ public:
   using NonTerminal = Piece;
   using Terminal = elem_t;
 
+  static constexpr auto EndMarker = "$";
+  static constexpr auto NilMarker = auxilia::epsilon;
+
 public:
   decltype(auto) non_terminals_view(this auto &&self) {
     return self.pieces_ | std::ranges::views::transform(&Piece::lhs_);
   }
-  decltype(auto) non_terminals(this auto &&self) { return self.pieces_; }
+  decltype(auto) non_terminals(this auto &&self) { return (self.pieces_); }
   decltype(auto) terminals(this auto &&self) {
     return self.terminals_ | std::ranges::views::common;
   }
@@ -74,13 +77,18 @@ private:
     auto &rhs() const noexcept { return rhs_; }
     auto &first_set() const noexcept { return first_set_; }
     auto &follow_set() const noexcept { return follow_set_; }
+    auto &select_set() const noexcept { return select_set_; }
 
   private:
     lhs_t lhs_;
     rhs_t rhs_;
     set_t first_set_;
     set_t follow_set_;
-    rhs_container_t<set_t> cache_rhsElemFirst2Select;
+    /// during the process, it would first store each elem's first set as a
+    /// temporary cache, and turns into select set for each elem when the
+    /// `is_LL1` function called.
+    rhs_container_t<set_t> select_set_;
+    /// ditto, store when `is_nullable` is called, used in `isLL1`.
     rhs_container_t<bool> cache_rhsElemNullable;
     std::optional<bool> nullable_;
   };
@@ -115,6 +123,9 @@ private:
 
   void _first_set_from_piece(Piece &A);
 
+  bool _follow_set_from_rhs_elem(const Piece &A,
+                                 std::ranges::common_range auto &&rhsElem);
+
 public:
   auto eliminate_left_recursion() -> auxilia::Status;
   void apply_left_factorization();
@@ -124,7 +135,7 @@ public:
   void compute_follow_set();
 
   bool isLL1();
-  bool parse(std::string_view);
+  auto parse(string_type &&) -> auxilia::Status;
   auto to_string(auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const
       -> string_type;
 

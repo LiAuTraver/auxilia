@@ -22,29 +22,40 @@
 using namespace accat::auxilia;
 using namespace accat::cp;
 
-constexpr auto flight = R"~~(
+constexpr auto flight = R"(
 E -> E+T | T
 T -> T*F | F
 F -> (E) | id
-)~~";
+)";
 
-constexpr auto factors = R"~~(
+constexpr auto factors = R"(
 A -> A B C | A C B | a
 B -> B A C | B C A | b  
 C -> C A B | C B A | c
-)~~";
-constexpr auto flight2 = R"~~(
+)";
+constexpr auto flight2 = R"(
 E -> E+T | T
 T -> T*F | F
 F -> E+F | id
-)~~";
+)";
+
+constexpr auto simple = R"(
+S -> ( X
+|	E sq)
+|	F )
+X -> E )
+|	F sq)
+E -> A
+F -> A
+A -> ε
+)";
 
 extern const char *const sysc;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
 
-  auto grammar = Grammar::FromStr(sysc);
+  auto grammar = Grammar::FromStr(simple);
   if (!grammar) {
     Println(stderr, "Error: {}", grammar.message());
     exit(1);
@@ -54,24 +65,31 @@ int main() {
     Println(stderr, "Error: {}", good.message());
     exit(1);
   }
-  std::cout << grammar << "\n\n\n\n\n\n";
+  // std::cout << grammar << "\n\n\n\n\n\n";
 
   grammar->apply_left_factorization();
 
-  std::cout << grammar << "\n\n\n\n\n\n";
+  std::cout << grammar << "\n\n\n";
 
-  Println("TERMINALS: \n{}", fmt::join(grammar->terminals(), "\n"));
+  Println("TERMINALS: \n{}", grammar->terminals());
+  Println("NON-TERMINALS: \n{}", grammar->non_terminals_view());
 
   grammar->compute_first_set();
   grammar->compute_follow_set();
-  auto pieces = grammar->non_terminals();
+  Println("{}", grammar->isLL1());
+  auto &pieces = grammar->non_terminals();
   Println("FIRST: {}",
           pieces |
               std::ranges::views::transform(&Grammar::NonTerminal::first_set));
   Println("FOLLOW: {}",
           pieces |
               std::ranges::views::transform(&Grammar::NonTerminal::follow_set));
-  Println("{}", grammar->isLL1());
+  Println("SELECT: {}",
+          pieces |
+              std::ranges::views::transform(&Grammar::NonTerminal::select_set));
+  auto res = grammar->parse(") ( ) sq) ( sq)");
+  Println(res ? "Parsing successful." : res.message());
+
   fflush(stdout);
   return 0;
 }

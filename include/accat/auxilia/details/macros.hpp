@@ -75,6 +75,7 @@
 #    include <print>
 #  endif
 #  define AC_STD_OR_FMT ::std::
+#  define fg(...) // nothing
 #endif
 
 // although C++ standard may be updated, the constexpr feature may not be
@@ -502,7 +503,8 @@ AC_FORCEINLINE AC_FLATTEN static inline void _debugbreak() noexcept {
       ::accat::auxilia::details::_deferer_helper_struct_{} *[&]()
 
 #ifdef AC_DEBUG_ENABLED
-#  define AC_POSTCONDITION(...) AC_DEFER{AC_RUNTIME_ASSERT(__VA_ARGS__)};
+#  define AC_POSTCONDITION(...)                                                \
+    AC_DEFER { AC_RUNTIME_ASSERT(__VA_ARGS__) };
 #else
 #  define AC_POSTCONDITION(...) (void)0;
 #endif

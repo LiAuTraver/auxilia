@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <compare>
 #include <concepts>
 #include <cstddef>
@@ -77,6 +78,11 @@ public:
                     "lexeme() called on a non-lexeme token")
     return lexeme_;
   }
+  decltype(auto) lexeme_str() const AC_NOEXCEPT [[clang::lifetimebound]] {
+    AC_PRECONDITION(type_ != Type::kNumber && type_ != Type::kLexError,
+                    "lexeme() called on a non-lexeme token")
+    return (lexeme_);
+  }
   auto number() const AC_NOEXCEPT {
     AC_PRECONDITION(type_ == Type::kNumber,
                     "number() called on a non-number token");
@@ -88,6 +94,12 @@ public:
     AC_PRECONDITION(type_ == Type::kLexError,
                     "error_message() called on a non-error token")
     return lexeme_;
+  }
+  decltype(auto) error_message_str() const AC_NOEXCEPT
+      [[clang::lifetimebound]] {
+    AC_PRECONDITION(type_ == Type::kLexError,
+                    "error_message() called on a non-error token")
+    return (lexeme_);
   }
   constexpr auto type() const noexcept { return type_; }
   constexpr auto type_str() const noexcept { return token_type_str(type_); }
@@ -204,7 +216,7 @@ private:
 #pragma endregion Token
 
 #pragma region Lexer
-class Lexer {
+class [[clang::coro_lifetimebound]] Lexer {
   static inline size_t utf8_cp_len(unsigned char lead) {
     if (lead < 0x80)
       return 1;
@@ -225,7 +237,9 @@ public:
   using token_t = Token;
   using token_type_t = Token::Type;
   using char_t = string_type::value_type;
-  using generator_t = auxilia::Generator<token_t, uint_least32_t>;
+  using generator_t = auxilia::Generator<token_t, uint_least32_t>
+      // std::generator<token_t>
+      ;
   using number_value_t = std::variant<long long, long double>;
   using enum token_type_t;
   static constexpr auto tolerable_chars = auxilia::as_chars("_`$@");
@@ -242,15 +256,30 @@ public:
   ~Lexer() = default;
 
 public:
-  auto lexAsync() -> generator_t {
+  /// @note when use this function, you need to ensure the lifetime of `this`
+  /// covers the coroutine, otherwise unexpected situation would happen. In my
+  /// own case, the coroutine finished and only produces a kEOF.
+  [[deprecated("use the static version to avoid the lifetime issue.")]]
+  auto lexAsync() [[clang::lifetimebound]] -> generator_t {
     while (not is_at_end()) {
       head = cursor;
       if (auto token = next_token(); token.type() != kMonostate) {
-        co_yield token;
+        co_yield std::move(token);
       }
     }
     co_yield add_token(kEndOfFile);
     co_return error_count;
+  }
+  static auto LexAsync(string_type &&str) -> generator_t {
+    Lexer lexer{std::forward<string_type>(str)};
+    while (not lexer.is_at_end()) {
+      lexer.head = lexer.cursor;
+      if (auto token = lexer.next_token(); token.type() != kMonostate) {
+        co_yield std::move(token);
+      }
+    }
+    co_yield lexer.add_token(kEndOfFile);
+    co_return lexer.error_count;
   }
   auto lexAll_or_error() -> std::expected<std::vector<token_t>, string_type>;
   /// @brief get the number of errors
