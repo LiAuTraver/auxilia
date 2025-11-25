@@ -1,5 +1,7 @@
+#include "accat/auxilia/container/chars.hpp"
+
 #include <gtest/gtest.h>
-#include <accat/auxilia/details/chars.hpp>
+
 
 using namespace accat::auxilia;
 

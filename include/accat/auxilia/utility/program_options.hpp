@@ -15,11 +15,11 @@
 #include <vector>
 #include <ranges>
 
-#include "macros.hpp"
-#include "config.hpp"
-#include "format.hpp"
-#include "Status.hpp"
-#include "StatusOr.hpp"
+#include "accat/auxilia/base/macros.hpp"
+#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/format.hpp"
+#include "accat/auxilia/status/Status.hpp"
+#include "accat/auxilia/status/StatusOr.hpp"
 
 namespace accat::auxilia::program_options {
 

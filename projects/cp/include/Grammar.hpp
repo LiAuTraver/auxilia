@@ -9,7 +9,7 @@
 #include <vector>
 #include <unordered_set>
 
-#include <accat/auxilia/details/format.hpp>
+#include <accat/auxilia/base/format.hpp>
 
 namespace accat::auxilia {
 class Status;

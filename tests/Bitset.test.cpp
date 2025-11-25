@@ -1,8 +1,7 @@
-#include <gtest/gtest.h>
-#include <bitset>
+#include "accat/auxilia/container/bitset.hpp"
+
 #include <iostream>
 
-#include <accat/auxilia/details/bitset.hpp>
 #if defined(_MSC_VER) && !defined(__clang__)
 // skip the tests on MSVC for now
 inline static const auto msg = []() {
@@ -11,6 +10,9 @@ inline static const auto msg = []() {
   return nullptr;
 }();
 #else
+#  include <gtest/gtest.h>
+#  include <bitset>
+
 using namespace accat::auxilia;
 
 TEST(Bitset, BasicOperations) {

@@ -1,6 +1,8 @@
 #include "./test.env.inl.hpp"
 
 #include "Automaton.hpp"
+#include "NFA.hpp"
+#include "DFA.hpp"
 
 using namespace accat::auxilia;
 using namespace accat::cp;

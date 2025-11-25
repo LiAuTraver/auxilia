@@ -1,7 +1,7 @@
+#include "accat/auxilia/container/Variant.hpp"
+
 #include <gtest/gtest.h>
 
-#include <accat/auxilia/details/Variant.hpp>
-#include <accat/auxilia/details/format.hpp>
 
 using namespace accat::auxilia;
 
@@ -38,7 +38,7 @@ TEST(Variant, MoveConstruction) {
   EXPECT_TRUE(v1.is_type<Monostate>());
   EXPECT_EQ(v1.get_if<int>(), nullptr);
 }
-#include <accat/auxilia/details/Status.hpp>
+#include <../include/accat/auxilia/status/Status.hpp>
 using namespace std::literals;
 TEST(Variant, PatternMatching) {
   Variant<Monostate, Status, std::string> v1 =

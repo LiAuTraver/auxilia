@@ -1,4 +1,5 @@
 #pragma once
+
 #include <algorithm>
 #include <compare>
 #include <concepts>
@@ -15,7 +16,10 @@
 #include <variant>
 #include <vector>
 
-#include <accat/auxilia/auxilia.hpp>
+#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/format.hpp"
+#include "accat/auxilia/container/Generator.hpp"
+#include "accat/auxilia/container/chars.hpp"
 
 namespace accat::cp {
 

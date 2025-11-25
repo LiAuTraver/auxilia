@@ -1,4 +1,9 @@
 #pragma once
+
+#if defined(_MSC_VER) && !defined(__clang__)
+// cl.exe encountered internal compiler error when compiling this file
+// skip the definition on MSVC for now
+#else
 #include <algorithm>
 #include <climits>
 #include <cstddef>
@@ -10,14 +15,10 @@
 #include <string_view>
 #include <type_traits>
 
-#include "type_traits.hpp"
-#include "config.hpp"
-#include "format.hpp"
+#include "accat/auxilia/meta/type_traits.hpp"
+#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/format.hpp"
 
-#if defined(_MSC_VER) && !defined(__clang__)
-// cl.exe encountered internal compiler error when compiling this file
-// skip the definition on MSVC for now
-#else
 // I'm too lazy to substitute those `constexpr` to provide compatibility for
 // older standards. So I just guard the whole file for C++23 and later.
 #  if __cplusplus >= 202302L

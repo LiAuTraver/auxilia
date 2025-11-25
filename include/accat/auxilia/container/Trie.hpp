@@ -12,8 +12,8 @@
 #include <vector>
 #include <ranges>
 
-#include "config.hpp"
-#include "format.hpp"
+#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/format.hpp"
 
 namespace accat::auxilia {
 template <typename KeyT = std::string,

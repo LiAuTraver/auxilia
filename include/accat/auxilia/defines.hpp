@@ -1,4 +1,4 @@
-﻿//===-------- auxilia.hpp - Auxilia Library Header -------*- C++ -*-===//
+﻿//===-------- defines.hpp - Auxilia Library Header -------*- C++ -*-===//
 //
 // Part of the auxilia project.
 // Licensed under the Apache License v2.0.
@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "./details/macros.hpp" // IWYU pragma: export
+#include "base/macros.hpp"
 
 #if (defined(_MSVC_TRADITIONAL) && _MSVC_TRADITIONAL) && !defined(__clang__)
 /// @brief MSVC traditional preprocessor

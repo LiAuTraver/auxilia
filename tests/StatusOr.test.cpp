@@ -1,6 +1,7 @@
+#include "accat/auxilia/status/StatusOr.hpp"
+
 #include <gtest/gtest.h>
 
-#include <accat/auxilia/details/StatusOr.hpp>
 
 using namespace accat::auxilia;
 

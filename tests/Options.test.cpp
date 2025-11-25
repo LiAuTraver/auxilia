@@ -1,7 +1,7 @@
+#include "accat/auxilia/utility/program_options.hpp"
+
 #include <gtest/gtest.h>
 
-#include "accat/auxilia/details/config.hpp"
-#include "accat/auxilia/details/program_options.hpp"
 
 using namespace accat::auxilia::program_options;
 

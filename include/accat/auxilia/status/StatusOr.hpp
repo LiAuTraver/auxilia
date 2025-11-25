@@ -11,11 +11,12 @@
 #  include <type_traits>
 #  include <utility>
 
-#  include "config.hpp"
-#  include "format.hpp"
+#  include "accat/auxilia/base/config.hpp"
+#  include "accat/auxilia/base/format.hpp"
+#  include "accat/auxilia/meta/Monostate.hpp"
+#  include "accat/auxilia/meta/type_traits.hpp"
+
 #  include "Status.hpp"
-#  include "Monostate.hpp"
-#  include "type_traits.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
@@ -25,6 +26,9 @@ namespace accat::auxilia {
 ///        it's designed to be as identical as possible to the
 ///         `absl::StatusOr` class.
 /// @tparam Ty the type of the value
+/// @note `absl::StatusOr` class is very optimized, yet comes with a
+/// not-really-flexible api. It's recommended to use it rather than this
+/// `StatusOr` if performance matters more.
 template <typename Ty> class StatusOr : public Status {
   static_assert(Storable<Ty>,
                 "StatusOr should not be used with non-storable types.");

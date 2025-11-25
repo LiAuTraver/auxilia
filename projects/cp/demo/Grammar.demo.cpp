@@ -18,6 +18,7 @@
 
 #include "Lexing.hpp"
 #include "Grammar.hpp"
+#include "accat/auxilia/status/StatusOr.hpp"
 
 using namespace accat::auxilia;
 using namespace accat::cp;

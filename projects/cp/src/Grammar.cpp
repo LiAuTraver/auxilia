@@ -666,7 +666,7 @@ auto Grammar::parse(string_type &&str) -> Status {
   for (const auto &token : coro) {
     using enum Token::Type;
     if (token.is_type(kLexError))
-      return LexError(token.error_message_str());
+      return LexError(token.error_message());
 
     if (token.is_type(kNumber))
       return UnavailableError(
@@ -705,7 +705,10 @@ auto Grammar::parse(string_type &&str) -> Status {
           break;
         else
           return InvalidArgumentError(
-              "Unexpected terminal symbol '{}', expected '{}'", ident, top);
+              "Unexpected terminal symbol '{}', expected '{}' at location {}",
+              ident,
+              top,
+              token.line());
       }
 
       // non-terminal

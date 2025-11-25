@@ -27,21 +27,21 @@
 
 #pragma once
 
-#include "./details/config.hpp"          // IWYU pragma: export
-#include "./details/id.hpp"              // IWYU pragma: export
-#include "./details/memory.hpp"          // IWYU pragma: export
-#include "./details/Monostate.hpp"       // IWYU pragma: export
-#include "./details/Property.hpp"        // IWYU pragma: export
-#include "./details/random.hpp"          // IWYU pragma: export
-#include "./details/Status.hpp"          // IWYU pragma: export
-#include "./details/StatusOr.hpp"        // IWYU pragma: export
-#include "./details/Variant.hpp"         // IWYU pragma: export
-#include "./details/bit.hpp"             // IWYU pragma: export
-#include "./details/format.hpp"          // IWYU pragma: export
-#include "./details/views.hpp"           // IWYU pragma: export
-#include "./details/Generator.hpp"       // IWYU pragma: export
-#include "./details/program_options.hpp" // IWYU pragma: export
-#include "./details/bitset.hpp"          // IWYU pragma: export
-#include "./details/type_traits.hpp"     // IWYU pragma: export
-#include "./details/chars.hpp"           // IWYU pragma: export
-#include "./details/Trie.hpp"            // IWYU pragma: export
+#include "base/config.hpp"             // IWYU pragma: export
+#include "synchronization/id.hpp"      // IWYU pragma: export
+#include "memory/memory.hpp"           // IWYU pragma: export
+#include "meta/Monostate.hpp"          // IWYU pragma: export
+#include "utility/Property.hpp"        // IWYU pragma: export
+#include "utility/random.hpp"          // IWYU pragma: export
+#include "status/Status.hpp"           // IWYU pragma: export
+#include "status/StatusOr.hpp"         // IWYU pragma: export
+#include "container/Variant.hpp"       // IWYU pragma: export
+#include "utility/bit.hpp"             // IWYU pragma: export
+#include "base/format.hpp"             // IWYU pragma: export
+#include "ranges/views.hpp"            // IWYU pragma: export
+#include "container/Generator.hpp"     // IWYU pragma: export
+#include "utility/program_options.hpp" // IWYU pragma: export
+#include "container/bitset.hpp"        // IWYU pragma: export
+#include "meta/type_traits.hpp"        // IWYU pragma: export
+#include "container/chars.hpp"         // IWYU pragma: export
+#include "container/Trie.hpp"          // IWYU pragma: export

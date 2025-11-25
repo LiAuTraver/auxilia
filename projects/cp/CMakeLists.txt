@@ -3,12 +3,16 @@ project(cp LANGUAGES CXX)
 find_package(GTest REQUIRED)
 
 add_library(cp.shared OBJECT
-    include/automaton.hpp
+  include/automaton.hpp
   include/Grammar.hpp
   include/Lexing.hpp
   src/Grammar.cpp
   src/Lexing.cpp
   src/Automaton.cpp
+  src/NFA.cpp
+  include/NFA.hpp
+  src/DFA.cpp
+  include/DFA.hpp
 )
 target_link_libraries(cp.shared PRIVATE
   auxilia::auxilia
