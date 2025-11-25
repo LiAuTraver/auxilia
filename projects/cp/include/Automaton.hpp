@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <algorithm>
 #include <cstddef>
 #include <functional>
@@ -21,11 +20,11 @@
 #include "accat/auxilia/container/chars.hpp"
 
 namespace accat::cp::details {
-class AutomatonMixin : auxilia::Printable {
+class _automaton_base : auxilia::Printable {
 protected:
-  AutomatonMixin() noexcept = default;
-  AutomatonMixin(AutomatonMixin &&) noexcept = default;
-  AutomatonMixin &operator=(AutomatonMixin &&) noexcept = default;
+  _automaton_base() noexcept = default;
+  _automaton_base(_automaton_base &&) noexcept = default;
+  _automaton_base &operator=(_automaton_base &&) noexcept = default;
 
   // we don't add const here for move-ctor/assignment,
   // but it's logically immutable once it is assigned.
@@ -142,8 +141,9 @@ digraph {} {{
     return c != '(' && c != ')' && is_operator(c);
   }
 };
-auto AutomatonMixin::to_dot(this const auto &self,
-                            const auxilia::FormatPolicy policy) -> std::string {
+auto _automaton_base::to_dot(this const auto &self,
+                             const auxilia::FormatPolicy policy)
+    -> std::string {
   if (self.empty())
     return auxilia::raw(R"(
 digraph Automaton {

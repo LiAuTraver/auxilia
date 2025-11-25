@@ -2,6 +2,7 @@
 
 #include <compare>
 
+#include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
 #include "accat/auxilia/base/format.hpp"
 

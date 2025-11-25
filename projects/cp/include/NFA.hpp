@@ -11,8 +11,8 @@ enum class FormatPolicy : uint8_t;
 
 EXPORT_AUXILIA
 namespace accat::cp {
-class NFA : details::AutomatonMixin {
-  using MyBase = details::AutomatonMixin;
+class NFA : details::_automaton_base {
+  using MyBase = details::_automaton_base;
   friend MyBase;
   friend class DFA;
 

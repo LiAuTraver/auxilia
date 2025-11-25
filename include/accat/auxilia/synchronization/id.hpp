@@ -1,13 +1,12 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstddef>
-#include <mutex>
 #include <cstdint>
 #include <limits>
-#include <array>
 
-#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/macros.hpp"
 
 namespace accat::auxilia::id::details {
 inline auto &_current_id() {

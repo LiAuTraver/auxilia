@@ -51,12 +51,12 @@ F -> A
 A -> ε
 )";
 
-extern const char *const sysc;
+extern const char *const sysY;
 AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
 
-  auto grammar = Grammar::FromStr(simple);
+  auto grammar = Grammar::FromStr(sysY);
   if (!grammar) {
     Println(stderr, "Error: {}", grammar.message());
     exit(1);
@@ -66,18 +66,17 @@ int main() {
     Println(stderr, "Error: {}", good.message());
     exit(1);
   }
-  // std::cout << grammar << "\n\n\n\n\n\n";
 
   grammar->apply_left_factorization();
 
-  std::cout << grammar << "\n\n\n";
+  Out << grammar << "\n\n\n";
 
   Println("TERMINALS: \n{}", grammar->terminals());
   Println("NON-TERMINALS: \n{}", grammar->non_terminals_view());
 
   grammar->compute_first_set();
   grammar->compute_follow_set();
-  Println("{}", grammar->isLL1());
+
   auto &pieces = grammar->non_terminals();
   Println("FIRST: {}",
           pieces |
@@ -88,14 +87,19 @@ int main() {
   Println("SELECT: {}",
           pieces |
               std::ranges::views::transform(&Grammar::NonTerminal::select_set));
-  auto res = grammar->parse(") ( ) sq) ( sq)");
-  Println(res ? "Parsing successful." : res.message());
 
-  fflush(stdout);
+  Out << "\n\n"
+      << (grammar->isLL1() ? "this grammar is LL1."
+                           : "this grammar is not LL1.")
+      << "\n\n";
+
+  auto res = grammar->parse(") ( ) sq) ( sq)");
+  Out << (res ? "Parsing successful." : res.message());
+
   return 0;
 }
 
-constexpr const char *const sysc = R"~~(
+constexpr const char *const sysY = R"~~(
 CompUnit     -> [ CompUnit ] ( Decl | FuncDef ) 
 Decl         -> ConstDecl | VarDecl 
 ConstDecl    -> "const" BType ConstDef { "," ConstDef } ";" 

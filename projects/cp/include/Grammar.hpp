@@ -9,7 +9,8 @@
 #include <vector>
 #include <unordered_set>
 
-#include <accat/auxilia/base/format.hpp>
+#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/format.hpp"
 
 namespace accat::auxilia {
 class Status;
@@ -17,7 +18,7 @@ template <typename> class StatusOr;
 } // namespace accat::auxilia
 namespace accat::cp {
 class Token;
-}
+} // namespace accat::cp
 
 #pragma region Grammar
 namespace accat::cp {
@@ -67,17 +68,20 @@ private:
     friend class Grammar;
     using lhs_t = elem_t;
     template <class Ty> using rhs_container_t = std::vector<Ty>;
+    template <class Ty> using rhs_view_t = std::span<Ty>;
     using rhs_elem_t = rhs_container_t<elem_t>;
+    using rhs_elem_view_t = rhs_view_t<elem_t>;
     using rhs_t = rhs_container_t<rhs_elem_t>;
     using set_t = std::unordered_set<string_type>;
     bool nullable(Grammar *);
+    bool endable() const;
     string_type to_string(
         auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const;
     auto &lhs() const noexcept { return lhs_; }
     auto &rhs() const noexcept { return rhs_; }
     auto &first_set() const noexcept { return first_set_; }
     auto &follow_set() const noexcept { return follow_set_; }
-    auto &select_set() const noexcept { return select_set_; }
+    auto &select_set() const noexcept { return cache_selectSet_; }
 
   private:
     lhs_t lhs_;
@@ -87,7 +91,7 @@ private:
     /// during the process, it would first store each elem's first set as a
     /// temporary cache, and turns into select set for each elem when the
     /// `is_LL1` function called.
-    rhs_container_t<set_t> select_set_;
+    rhs_container_t<set_t> cache_selectSet_;
     /// ditto, store when `is_nullable` is called, used in `isLL1`.
     rhs_container_t<bool> cache_rhsElemNullable;
     std::optional<bool> nullable_;
@@ -114,7 +118,7 @@ private:
 
   static auto _preprocess(const std::vector<Token> &tokens) -> auxilia::Status;
   void _postprocess(std::ranges::common_range auto &&lines);
-  auto _do_parse(std::vector<Token> &&tokens);
+  auto _do_process(std::vector<Token> &&tokens);
 
   void _do_factoring(size_t index);
 
@@ -126,6 +130,8 @@ private:
   bool _follow_set_from_rhs_elem(const Piece &A,
                                  std::ranges::common_range auto &&rhsElem);
 
+  auto _do_parse(std::ranges::common_range auto &&elems) const;
+
 public:
   auto eliminate_left_recursion() -> auxilia::Status;
   void apply_left_factorization();
@@ -135,7 +141,10 @@ public:
   void compute_follow_set();
 
   bool isLL1();
+
   auto parse(string_type &&) -> auxilia::Status;
+  auto parse(Piece::rhs_elem_view_t &&) -> auxilia::Status;
+
   auto to_string(auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const
       -> string_type;
 
@@ -146,6 +155,5 @@ public:
   /// Only parse the string and get the unprocessed grammar.
   static auxilia::StatusOr<Grammar> FromStr(string_type &&str);
 };
-
 } // namespace accat::cp
 #pragma endregion Grammar

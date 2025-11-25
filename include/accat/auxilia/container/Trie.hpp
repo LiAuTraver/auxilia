@@ -4,14 +4,15 @@
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
-#include <ranges>
 
+#include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
 #include "accat/auxilia/base/format.hpp"
 

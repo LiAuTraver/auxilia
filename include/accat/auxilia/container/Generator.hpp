@@ -2,15 +2,14 @@
 
 #include <coroutine>
 #include <cstddef>
-#include <iterator>
-#include <ranges>
-#include <utility>
-#include <optional>
 #include <exception>
-#include <type_traits>
+#include <iterator>
 #include <memory>
+#include <optional>
+#include <ranges>
+#include <type_traits>
 
-#include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/macros.hpp"
 
 namespace accat::auxilia {
 /// @brief A generator class that can be used to generate values

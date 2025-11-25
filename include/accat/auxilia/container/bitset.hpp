@@ -4,24 +4,68 @@
 // cl.exe encountered internal compiler error when compiling this file
 // skip the definition on MSVC for now
 #else
-#include <algorithm>
-#include <climits>
-#include <cstddef>
-#include <cstring>
-#include <functional>
-#include <istream>
-#include <ostream>
-#include <string>
-#include <string_view>
-#include <type_traits>
 
-#include "accat/auxilia/meta/type_traits.hpp"
-#include "accat/auxilia/base/config.hpp"
-#include "accat/auxilia/base/format.hpp"
+#  include <algorithm>
+#  include <climits>
+#  include <cstddef>
+#  include <cstring>
+#  include <functional>
+#  include <istream>
+#  include <ostream>
+#  include <span>
+#  include <string>
+#  include <string_view>
+#  include <type_traits>
 
-// I'm too lazy to substitute those `constexpr` to provide compatibility for
-// older standards. So I just guard the whole file for C++23 and later.
+#  include "accat/auxilia/meta/type_traits.hpp"
+#  include "accat/auxilia/base/macros.hpp"
+#  include "accat/auxilia/base/config.hpp"
+#  include "accat/auxilia/base/format.hpp"
+
+// I'm too unwilling now to substitute those `constexpr` to provide
+// compatibility for older standards. So I just guard the whole file for C++23
+// and later.
 #  if __cplusplus >= 202302L
+namespace accat::auxilia::details {
+using std::dynamic_extent;
+/// @todo: extract out this mixin is for the future dynamic bitset.
+template <size_t N> class _bitset_base {
+protected:
+  using storage_type = std::conditional_t<N <= sizeof(unsigned long) * CHAR_BIT,
+                                          unsigned long,
+                                          unsigned long long>;
+
+  inline static constexpr auto bits_per_word = CHAR_BIT * sizeof(storage_type);
+
+protected:
+  AC_FLATTEN static constexpr auto word_offset(const size_t pos) noexcept {
+    return pos / bits_per_word;
+  }
+  AC_FLATTEN static constexpr auto bit_offset(const size_t pos) noexcept {
+    return pos % bits_per_word;
+  }
+  constexpr void do_set_unchecked(this auto &&self,
+                                  const size_t pos,
+                                  const bool val) noexcept {
+    auto &my_word = self.myArr[word_offset(pos)];
+    const auto my_bit = storage_type{1} << bit_offset(pos);
+
+    if (val)
+      my_word |= my_bit;
+    else
+      my_word &= ~my_bit;
+  }
+  AC_FLATTEN constexpr auto do_subscript_unchecked(this const auto &self,
+                                                   const size_t pos) noexcept {
+    return !!(self.myArr[word_offset(pos)] &
+              (storage_type{1} << bit_offset(pos)));
+  }
+  AC_FLATTEN constexpr void do_flip_unchecked(this auto &&self,
+                                              const size_t pos) noexcept {
+    self.myArr[word_offset(pos)] ^= (storage_type{1} << bit_offset(pos));
+  }
+};
+} // namespace accat::auxilia::details
 EXPORT_AUXILIA
 namespace accat::auxilia {
 #    ifdef AC_STD_COMPLIANT_BITSET
@@ -32,13 +76,29 @@ namespace accat::auxilia {
 /**
  *  A bitset is a fixed-size sequence of bits.
  *  For compatibility reasons, it the same interface as `std::bitset`
- *      although I do not agree with some design decisions of `std::bitset`.
+ *      although I don't like some of them and also want exception-free.
+ *  The reason this container exists is that, libc++ and MSVC STL's `bitset`
+ *      size differs, thus cannot be used uniformly inside union(my `luce`).
  *  @tparam N The number of bits in the bitset.
  *  @todo string-related operations are not optimized yet. Hence you got no
  *      performance advantage over `std::bitset` when using this feature.
  */
-template <size_t N> class bitset : Printable {
+template <size_t N> class bitset : details::_bitset_base<N>, Printable {
+  using myBase = details::_bitset_base<N>;
+  friend myBase;
   friend struct ::std::hash<bitset<N>>;
+
+  using myBase::bit_offset;
+  using myBase::bits_per_word;
+  using myBase::word_offset;
+  using storage_type = myBase::storage_type;
+
+protected:
+  inline static constexpr auto arr_length =
+      N == 0 ? 1 : (N + bits_per_word - 1) / bits_per_word;
+  inline static constexpr auto needs_mask =
+      N < CHAR_BIT * sizeof(unsigned long long);
+  inline static constexpr auto mask = (1ull << (needs_mask ? N : 0)) - 1ull;
 
 public:
   constexpr bitset() noexcept {}
@@ -55,17 +115,6 @@ public:
   }
 
 protected:
-  using storage_type = std::conditional_t<N <= sizeof(unsigned long) * CHAR_BIT,
-                                          unsigned long,
-                                          unsigned long long>;
-
-  inline static constexpr auto bits_per_word = CHAR_BIT * sizeof(storage_type);
-  inline static constexpr auto arr_length =
-      N == 0 ? 1 : (N + bits_per_word - 1) / bits_per_word;
-  inline static constexpr auto needs_mask =
-      N < CHAR_BIT * sizeof(unsigned long long);
-  inline static constexpr auto mask = (1ull << (needs_mask ? N : 0)) - 1ull;
-
   storage_type myArr[arr_length] = {};
 
 private:
@@ -84,57 +133,36 @@ private:
     }
     len = std::ranges::min(len, str.size() - pos);
 
-    // I know nothing of vectorization at all, so here is a naive implementation
-    // for constructing from string. The speed is not optimized.
+    // TODO: I know nothing of vectorization at all, so here is a naive
+    // implementation for constructing from string. The speed is not optimized.
 
     // vvv read the string in reverse order vvv
     for (size_t i = 0; i < len; ++i) {
       const char c = str[pos + len - 1 - i];
       if (c == one)
-        do_set_unchecked(i, true);
+        myBase::do_set_unchecked(i, true);
       else if (c == zero)
-        do_set_unchecked(i, false);
+        myBase::do_set_unchecked(i, false);
       else
         AC_THROW_OR_DIE_("bitset constructor: invalid character");
     }
-  }
-  constexpr void do_set_unchecked(const size_t pos, const bool val) noexcept {
-    auto &my_word = myArr[word_offset(pos)];
-    const auto my_bit = storage_type{1} << bit_offset(pos);
-
-    if (val)
-      my_word |= my_bit;
-    else
-      my_word &= ~my_bit;
-  }
-  AC_FLATTEN constexpr auto
-  do_subscript_unchecked(const size_t pos) const noexcept {
-    return !!(myArr[word_offset(pos)] & (storage_type{1} << bit_offset(pos)));
-  }
-  AC_FLATTEN constexpr void do_flip_unchecked(const size_t pos) noexcept {
-    myArr[word_offset(pos)] ^= (storage_type{1} << bit_offset(pos));
-  }
-  // trim off the unused bits in the last storage word
-  AC_FLATTEN constexpr void trim() noexcept {
-    if constexpr (N > 0)
-      myArr[arr_length - 1] &= (storage_type{1} << (N % bits_per_word)) - 1;
-  }
-  AC_FLATTEN constexpr auto word_offset(const size_t pos) const noexcept {
-    return pos / bits_per_word;
-  }
-  AC_FLATTEN constexpr auto bit_offset(const size_t pos) const noexcept {
-    return pos % bits_per_word;
   }
   constexpr auto do_to_string(const char zero, const char one) const {
     std::string str;
     str.resize_and_overwrite(N, [this, zero, one](char *buf, size_t len) {
       for (size_t i = 0; i < len; ++i) {
         buf[len - 1 - i] =
-            do_subscript_unchecked(i) ? one : zero; // reverse order
+            myBase::do_subscript_unchecked(i) ? one : zero; // reverse order
       }
       return len;
     });
     return str;
+  }
+  // trim off the unused bits in the last storage word
+  AC_FLATTEN constexpr void trim(this auto &&self) noexcept {
+    if constexpr (N > 0)
+      self.myArr[arr_length - 1] &=
+          (storage_type{1} << (N % bits_per_word)) - 1;
   }
   /// @}
 
@@ -145,7 +173,7 @@ public:
    */
   AC_NODISCARD constexpr auto test(const size_t pos) const AC_NOEXCEPT {
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
-    return do_subscript_unchecked(pos);
+    return myBase::do_subscript_unchecked(pos);
   }
   AC_NODISCARD constexpr auto any() const noexcept {
     for (auto i = 0ull; i < arr_length; ++i)
@@ -183,7 +211,7 @@ public:
   constexpr auto &set(const size_t pos, const bool val = true) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support set(pos, val)");
     AC_PRECONDITION(N > pos, "invalid bit position; position out of range")
-    do_set_unchecked(pos, val);
+    myBase::do_set_unchecked(pos, val);
     return *this;
   }
   constexpr auto &set() noexcept {
@@ -216,7 +244,7 @@ public:
   }
   constexpr auto &flip(const size_t pos) AC_NOEXCEPT {
     AC_PRECONDITION(pos < N, "invalid bit position; position out of range")
-    do_flip_unchecked(pos);
+    myBase::do_flip_unchecked(pos);
     return *this;
   }
   constexpr auto &flip(void) {
@@ -246,7 +274,7 @@ public:
     if constexpr (N == 0)
       return 0;
     if constexpr (N > 64) {
-      for (size_t i = 1; i < arr_length; ++i) {
+      for (auto i = 1ull; i < arr_length; ++i) {
         if (myArr[i] != 0) {
           AC_THROW_OR_DIE_("bitset overflow");
         }
@@ -299,7 +327,7 @@ public:
    * @note if N == 0, this class will never be instantiated.
    */
   class reference {
-    friend bitset;
+    friend class bitset;
 
     using container_type = bitset<N>;
 
@@ -357,7 +385,7 @@ public:
       myArr[i] ^= other.myArr[i];
     return *this;
   }
-  constexpr auto operator<<=(const size_t shift) noexcept {
+  constexpr auto &operator<<=(const size_t shift) noexcept {
     if (shift >= N) {
       reset();
       return *this;
@@ -383,7 +411,7 @@ public:
     trim();
     return *this;
   }
-  constexpr auto operator>>=(const size_t shift) noexcept {
+  constexpr auto &operator>>=(const size_t shift) noexcept {
     if (shift >= N) {
       reset();
       return *this;
@@ -466,13 +494,13 @@ AC_NODISCARD inline constexpr auto operator^(const bitset<N> &left,
 template <size_t N>
 std::basic_ostream<char> &operator<<(std::basic_ostream<char> &os,
                                      const bitset<N> &bs) {
-  // unoptimized
+  // TODO: unoptimized
   return os << bs.to_string();
 }
 template <size_t N>
 std::basic_istream<char> &operator>>(std::basic_istream<char> &is,
                                      bitset<N> &bs) {
-  // unoptimized
+  // TODO: unoptimized
   std::string str;
   is >> str;
   bs = bitset<N>(str);
@@ -487,7 +515,6 @@ consteval auto operator""_bs() noexcept {
 }
 } // namespace accat::auxilia::literals
 
-// ReSharper disable once CppRedundantNamespaceDefinition
 namespace std {
 template <size_t N> struct hash<::accat::auxilia::bitset<N>> {
   AC_NODISCARD AC_STATIC_CALL_OPERATOR constexpr auto

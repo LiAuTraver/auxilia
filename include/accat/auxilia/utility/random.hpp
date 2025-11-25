@@ -4,6 +4,7 @@
 #include <limits>
 #include <random>
 
+#include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
 namespace accat::auxilia {
 #ifdef __SIZEOF_INT128__

@@ -7,15 +7,15 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <system_error>
 #include <type_traits>
 #include <vector>
-#include <version>
-#include <ranges>
 
 #include "accat/auxilia/base/config.hpp"
+#include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/status/Status.hpp"
 #include "accat/auxilia/status/StatusOr.hpp"
 

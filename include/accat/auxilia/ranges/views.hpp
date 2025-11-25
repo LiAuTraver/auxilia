@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
 
 namespace accat::auxilia::ranges::views::details {

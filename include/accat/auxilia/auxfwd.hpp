@@ -64,6 +64,7 @@ template <typename, size_t, typename> class basic_chars;
 /// @file accat/auxilia/meta/Monostate.hpp
 struct Monostate;
 /// @file accat/auxilia/base/format.hpp
+enum class FormatPolicy : unsigned char;
 struct Printable;
 struct Viewable;
 

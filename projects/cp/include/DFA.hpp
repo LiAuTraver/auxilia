@@ -11,8 +11,8 @@ class NFA;
 
 EXPORT_AUXILIA
 namespace accat::cp {
-class DFA : details::AutomatonMixin {
-  using MyBase = details::AutomatonMixin;
+class DFA : details::_automaton_base {
+  using MyBase = details::_automaton_base;
   friend MyBase;
 
   using IndexSetTy = std::unordered_set<size_t>;

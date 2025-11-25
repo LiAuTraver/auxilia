@@ -36,10 +36,9 @@ using auxilia::UnimplementedError;
 using auxilia::widen;
 } // namespace accat::cp
 
-
 #pragma region Automaton
 namespace accat::cp::details {
-auto AutomatonMixin::Transition::to_string(const FormatPolicy policy) const
+auto _automaton_base::Transition::to_string(const FormatPolicy policy) const
     -> string_type {
   if (policy == FormatPolicy::kDefault)
     return Format(
@@ -52,7 +51,7 @@ auto AutomatonMixin::Transition::to_string(const FormatPolicy policy) const
                   is_epsilon() ? epsilon : widen(symbol));
   AC_UNREACHABLE()
 }
-const char *AutomatonMixin::State::type_string() const {
+const char *_automaton_base::State::type_string() const {
   switch (type) {
   case Type::kIntermediate:
     return "";
@@ -68,7 +67,7 @@ const char *AutomatonMixin::State::type_string() const {
   AC_UNREACHABLE("Unknown State Type: {}", (type))
   return nullptr;
 }
-auto AutomatonMixin::State::to_string(const FormatPolicy policy) const
+auto _automaton_base::State::to_string(const FormatPolicy policy) const
     -> string_type {
   std::string result;
 
@@ -91,7 +90,7 @@ auto AutomatonMixin::State::to_string(const FormatPolicy policy) const
 
   return result;
 }
-auto AutomatonMixin::_dot_states(const StatesTy &states) -> string_type {
+auto _automaton_base::_dot_states(const StatesTy &states) -> string_type {
   std::string dot;
   // mark start and accept distinctly
   for (const auto &[id, s] : states) {
@@ -107,8 +106,8 @@ auto AutomatonMixin::_dot_states(const StatesTy &states) -> string_type {
   }
   return dot;
 }
-void AutomatonMixin::closure(std::unordered_set<size_t> &state_set,
-                             const char ch) const {
+void _automaton_base::closure(std::unordered_set<size_t> &state_set,
+                              const char ch) const {
 
   // FIXME: poor use of vec
   std::vector stack(state_set.begin(), state_set.end());
@@ -123,19 +122,19 @@ void AutomatonMixin::closure(std::unordered_set<size_t> &state_set,
     }
   }
 }
-AutomatonMixin::Fragment AutomatonMixin::from_char(const char c) {
+_automaton_base::Fragment _automaton_base::from_char(const char c) {
   const auto s = new_state(State::Type::kIntermediate);
   const auto a = new_state(State::Type::kIntermediate);
   add_transition(s, a, c);
   return {s, a};
 }
-AutomatonMixin::Fragment AutomatonMixin::concat(Fragment &&lhs,
-                                                Fragment &&rhs) {
+_automaton_base::Fragment _automaton_base::concat(Fragment &&lhs,
+                                                  Fragment &&rhs) {
   add_transition(lhs.end, rhs.start, '\0');
   return {lhs.start, rhs.end};
 }
-AutomatonMixin::Fragment AutomatonMixin::union_operation(Fragment &&a,
-                                                         Fragment &&b) {
+_automaton_base::Fragment _automaton_base::union_operation(Fragment &&a,
+                                                           Fragment &&b) {
   const auto s = new_state(State::Type::kIntermediate);
   const auto acc = new_state(State::Type::kIntermediate);
 
@@ -146,7 +145,7 @@ AutomatonMixin::Fragment AutomatonMixin::union_operation(Fragment &&a,
   add_transition(b.end, acc, '\0');
   return {s, acc};
 }
-AutomatonMixin::Fragment AutomatonMixin::kleene_star(Fragment &&f) {
+_automaton_base::Fragment _automaton_base::kleene_star(Fragment &&f) {
   const auto s = new_state(State::Type::kIntermediate);
   const auto acc = new_state(State::Type::kIntermediate);
 
@@ -157,7 +156,7 @@ AutomatonMixin::Fragment AutomatonMixin::kleene_star(Fragment &&f) {
   add_transition(f.end, acc, '\0');
   return {s, acc};
 }
-auto AutomatonMixin::_dot_transitions() const -> std::string {
+auto _automaton_base::_dot_transitions() const -> std::string {
   using auxilia::literals::operator""_raw;
   std::string dot;
   for (const auto &[id, s] : states) {
@@ -171,7 +170,7 @@ auto AutomatonMixin::_dot_transitions() const -> std::string {
   }
   return dot;
 }
-bool AutomatonMixin::test(std::string_view input) {
+bool _automaton_base::test(std::string_view input) {
   if (empty())
     return input.empty();
 
@@ -201,7 +200,8 @@ bool AutomatonMixin::test(std::string_view input) {
     return current_states.contains(accept_id);
   });
 }
-auto AutomatonMixin::to_string(const FormatPolicy policy) const -> std::string {
+auto _automaton_base::to_string(const FormatPolicy policy) const
+    -> std::string {
   if (empty())
     return "Automaton <empty>";
 

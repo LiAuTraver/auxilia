@@ -130,7 +130,7 @@ void NFA::init_input_alphabet(const std::string_view sv) {
   auto r = std::ranges::unique(input_alphabet);
   input_alphabet.erase(r.begin(), r.end());
 }
-auxilia::StatusOr<details::AutomatonMixin::Fragment>
+auxilia::StatusOr<details::_automaton_base::Fragment>
 NFA::build_graph(const std::string_view postfix) {
   std::stack<Fragment> stack;
   const auto top_and_pop_stack = [&stack]() {

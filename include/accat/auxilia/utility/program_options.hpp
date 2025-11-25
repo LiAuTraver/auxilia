@@ -6,6 +6,7 @@
 #include <format>
 #include <iostream>
 #include <ostream>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -13,11 +14,9 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <ranges>
 
 #include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
-#include "accat/auxilia/base/format.hpp"
 #include "accat/auxilia/status/Status.hpp"
 #include "accat/auxilia/status/StatusOr.hpp"
 
@@ -47,24 +46,10 @@ public:
       : name_(name), shortname_(shortname), desc_(desc) {}
 
   Option(const Option &other) = delete;
-  auto operator=(const Option &other) -> Option & = delete;
+  Option &operator=(const Option &other) = delete;
 
-  Option(Option &&other) noexcept
-      : name_(other.name_), shortname_(other.shortname_), desc_(other.desc_),
-        values_(std::move(other.values_)), required_(other.required_),
-        nargs_(other.nargs_) {}
-  auto operator=(Option &&other) noexcept -> Option & {
-    if (this == &other)
-      return *this;
-    name_ = other.name_;
-    shortname_ = other.shortname_;
-    desc_ = other.desc_;
-    values_ = std::move(other.values_);
-    required_ = other.required_;
-    has_default_value_ = other.has_default_value_;
-    nargs_ = other.nargs_;
-    return *this;
-  }
+  Option(Option &&other) noexcept = default;
+  Option &operator=(Option &&other) noexcept = default;
 
 public:
   auto name() const -> const std::string_view { return name_; }
@@ -222,12 +207,15 @@ public:
     return add_option(Option{name, std::forward<Properties>(props)...});
   }
 
-  auto program_name() const -> const std::string_view { return program_name_; }
-  auto error() const -> size_t { return error_msgs_.size(); }
-  auto error_messages() const -> std::span<const std::string> {
+  auto program_name() const noexcept -> const std::string_view {
+    return program_name_;
+  }
+  auto error() const noexcept -> size_t { return error_msgs_.size(); }
+  auto error_messages() const noexcept -> std::span<const std::string> {
     return error_msgs_;
   }
-  auto positional_arguments() const -> std::span<const std::string_view> {
+  auto positional_arguments() const noexcept
+      -> std::span<const std::string_view> {
     return positional_args_;
   }
 

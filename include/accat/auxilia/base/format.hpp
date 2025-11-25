@@ -66,12 +66,13 @@ concept Formattable = AC_STD_OR_FMT formattable<T, Char>;
 
 // omit the locale overload
 template <typename... T>
-inline auto Format(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+AC_NODISCARD inline auto Format(AC_STD_OR_FMT format_string<T...> fmt,
+                                T &&...args) {
   return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
-inline auto Format(T &&...args) {
+AC_NODISCARD inline auto Format(T &&...args) {
   return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
 }
 
@@ -200,7 +201,7 @@ template <typename... Ts> struct match : Ts... {
 };
 /// @brief deduction guide for `match`
 template <typename... Ts> match(Ts...) -> match<Ts...>;
-enum class FormatPolicy : uint8_t {
+enum class FormatPolicy : unsigned char {
   kDefault = 0,
   kDetailed = 1,
   kBrief = 2,
