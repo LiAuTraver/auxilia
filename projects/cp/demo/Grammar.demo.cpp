@@ -66,18 +66,17 @@ int main() {
     Println(stderr, "Error: {}", good.message());
     exit(1);
   }
-  // std::cout << grammar << "\n\n\n\n\n\n";
 
   grammar->apply_left_factorization();
 
-  std::cout << grammar << "\n\n\n";
+  Out << grammar << "\n\n\n";
 
   Println("TERMINALS: \n{}", grammar->terminals());
   Println("NON-TERMINALS: \n{}", grammar->non_terminals_view());
 
   grammar->compute_first_set();
   grammar->compute_follow_set();
-  Println("{}", grammar->isLL1());
+
   auto &pieces = grammar->non_terminals();
   Println("FIRST: {}",
           pieces |
@@ -88,10 +87,15 @@ int main() {
   Println("SELECT: {}",
           pieces |
               std::ranges::views::transform(&Grammar::NonTerminal::select_set));
-  auto res = grammar->parse(") ( ) sq) ( sq)");
-  Println(res ? "Parsing successful." : res.message());
 
-  fflush(stdout);
+  Out << "\n\n"
+      << (grammar->isLL1() ? "this grammar is LL1."
+                           : "this grammar is not LL1.")
+      << "\n\n";
+
+  auto res = grammar->parse(") ( ) sq) ( sq)");
+  Out << (res ? "Parsing successful." : res.message());
+
   return 0;
 }
 

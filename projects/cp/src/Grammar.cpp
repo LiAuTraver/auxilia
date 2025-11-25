@@ -5,6 +5,7 @@
 #include <optional>
 #include <ranges>
 #include <stack>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -15,7 +16,10 @@
 #include "Lexing.hpp"
 #include "Grammar.hpp"
 
+#pragma region Helper
 namespace accat::cp {
+namespace sr = std::ranges;
+namespace rv = std::ranges::views;
 using auxilia::Format;
 using auxilia::FormatPolicy;
 using auxilia::InvalidArgumentError;
@@ -27,51 +31,12 @@ using auxilia::Status;
 using auxilia::StatusOr;
 using auxilia::UnavailableError;
 using auxilia::UnimplementedError;
-namespace sr = std::ranges;
-namespace rv = std::ranges::views;
-} // namespace accat::cp
-
-namespace accat::cp {
-#pragma region Piece
-bool Grammar::Piece::nullable(Grammar *myGrammar) {
-  // Only Piece::nullable_ should be modifiable
-  if (nullable_)
-    return *nullable_;
-
-  cache_rhsElemNullable.reserve(rhs_.size());
-
-  const auto isSymbolNullable = [&](auto &&sym) {
-    auto &&ptrPiece = myGrammar->non_terminal(sym);
-    AC_RUNTIME_ASSERT(ptrPiece != this, "infinite loop?")
-    return ptrPiece && ptrPiece->nullable(myGrammar);
-  };
-
-  const auto isRhsElemNullable = [&](auto &&rhsElem) {
-    if (rhsElem.front() == NilMarker) {
-      AC_RUNTIME_ASSERT(rhsElem.size() == 1, "shall not happen")
-      cache_rhsElemNullable.emplace_back(true);
-      return true;
-    }
-    // bitref -> bool
-    return static_cast<bool>(cache_rhsElemNullable.emplace_back(
-        sr::all_of(rhsElem | rv::as_const, isSymbolNullable)));
-  };
-  // not sure, subtle bug? any_of would eagerly return once one of the elem
-  // satisfies the cond
-  return nullable_.emplace(sr::any_of(rhs_ | rv::as_const, isRhsElemNullable));
+static constexpr auto isNil(const std::string &ptr) noexcept {
+  return auxilia::is_epsilon(ptr.data());
 }
-auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
-  return (lhs_ + (" -> "))
-      .append_range(rhs_ //
-                    | std::ranges::views::transform([](auto &&alt) {
-                        return alt | std::ranges::views::join_with(' ');
-                      })                                                     //
-                    | std::ranges::views::join_with(std::string_view(" | ")) //
-                    // ^^^ workaround, pass const char* seems cause issue
-      );
+static constexpr auto NotNil(const std::string &ptr) noexcept {
+  return not auxilia::is_epsilon(ptr.data());
 }
-#pragma endregion Piece
-#pragma region Helper
 auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
                                             const char *prime) const
     -> string_type {
@@ -81,7 +46,10 @@ auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
   } while (non_terminal(newName));
   return newName;
 }
+} // namespace accat::cp
 #pragma endregion Helper
+
+namespace accat::cp {
 #pragma region Recurse
 void Grammar::_immediate_left_recursion(Piece &A,
                                         Piece::rhs_t &&recRhsElems,
@@ -227,7 +195,7 @@ void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
     });
   });
 }
-auto Grammar::_do_parse(std::vector<Token> &&tokens) {
+auto Grammar::_do_process(std::vector<Token> &&tokens) {
   using enum Token::Type;
 
   // I admit it's a bit messy here, but as the saying goes:
@@ -441,7 +409,7 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
 
     // add non-terminal's first set, excluding epsilon
     Piece::set_t setCopy = piecePtr->first_set_;
-    setCopy.erase(auxilia::epsilon);
+    setCopy.erase(NilMarker);
     partialFirstSet.insert_range(std::move(setCopy));
 
     if (!piecePtr->nullable(this))
@@ -456,13 +424,13 @@ Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
   return partialFirstSet;
 }
 void Grammar::_first_set_from_piece(Piece &A) {
-  // if already computed (select_set_ has entries), skip
+  // if already computed (cache_selectSet_ has entries), skip
   if (!A.first_set_.empty())
     return;
 
   std::ranges::for_each(A.rhs_ | rv::as_const, [&](auto &&rhsElem) {
     auto rhsElemFirstSet = _first_set_from_rhs_elem(rhsElem);
-    A.select_set_.emplace_back(rhsElemFirstSet);
+    A.cache_selectSet_.emplace_back(rhsElemFirstSet);
     A.first_set_.insert_range(std::move(rhsElemFirstSet));
   });
 }
@@ -572,7 +540,7 @@ auxilia::StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
 
   Grammar grammar;
 
-  if (auto status = grammar._do_parse(std::move(tokens)); !status)
+  if (auto status = grammar._do_process(std::move(tokens)); !status)
     return {status};
 
   return {std::move(grammar)};
@@ -612,7 +580,7 @@ bool Grammar::isLL1() {
   if (is_ll1_.has_value())
     return *is_ll1_;
 
-  // only select_set_ shall be edited
+  // only cache_selectSet_ shall be edited
   for (auto &piece : pieces_) {
     if (piece.nullable_ == std::nullopt) {
       // not calculated
@@ -620,7 +588,7 @@ bool Grammar::isLL1() {
     }
     Piece::set_t acc;
     for (auto index = 0ull; index < piece.rhs_.size(); ++index) {
-      auto &select = piece.select_set_[index];
+      auto &select = piece.cache_selectSet_[index];
 
       select.erase(NilMarker);
 
@@ -636,15 +604,9 @@ bool Grammar::isLL1() {
   }
   return is_ll1_.emplace(true);
 }
-
-auto Grammar::parse(string_type &&str) -> Status {
-  if (!isLL1())
-    return UnimplementedError(
-        "Not implemented for the grammar that is not LL1, "
-        "default to false.");
-
-  const auto coro = Lexer::LexAsync(std::forward<string_type>(str));
-
+#pragma endregion Interface
+#pragma region Parse
+auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
   std::stack<string_type> myStack;
   myStack.push(pieces_.front().lhs_);
 
@@ -656,34 +618,47 @@ auto Grammar::parse(string_type &&str) -> Status {
       table;
 
   std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
-    for (auto index = 0ull; index < piece.rhs_.size(); ++index) {
-      for (const auto &terminalSym : piece.select_set_[index] | rv::as_const) {
-        table[piece.lhs_][terminalSym] = piece.rhs_[index];
-      }
+    for (auto &&[selectSet, rhs] :
+         rv::zip(piece.cache_selectSet_, piece.rhs_)) {
+
+      std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
+        table[piece.lhs_].emplace(terminalSymbol, rhs);
+      });
     }
   });
 
-  for (const auto &token : coro) {
+  for (const auto &token : elems) {
     using enum Token::Type;
-    if (token.is_type(kLexError))
-      return LexError(token.error_message());
+    const string_type *identPtr;
+    if constexpr (std::is_same_v<std::decay_t<decltype(token)>, elem_t>) {
+      identPtr = &token;
+    } else {
+      if (token.is_type(kLexError))
+        return LexError(token.error_message());
 
-    if (token.is_type(kNumber))
-      return UnavailableError(
-          "Number as identifier is not available: at line {}, number {}",
-          token.line(),
-          token.number());
+      if (token.is_type(kNumber))
+        return UnavailableError(
+            "Number as identifier is not available: at line {}, number {}",
+            token.line(),
+            token.number());
 
-    if (token.is_type(kEndOfFile)) {
-      if (myStack.empty())
-        // parsed completely and successed.
-        return OkStatus();
-      else
+      if (token.is_type(kEndOfFile)) {
+        if (myStack.empty())
+          // parsed completely and successed.
+          return OkStatus();
+        // workaround for empty input
+        if (myStack.size() == 1 && non_terminal(myStack.top()) &&
+            *non_terminal(myStack.top())->nullable_)
+          return OkStatus();
+
         return InvalidArgumentError("Unexpected end of input, expected '{}'",
                                     myStack.top());
-    }
+      }
 
-    auto &&ident = token.lexeme_str();
+      identPtr = &token.lexeme_str();
+    }
+    auto &&ident = *identPtr;
+
     if (non_terminal(ident))
       return InvalidArgumentError(
           "Non-terminal identifier {} "
@@ -691,12 +666,11 @@ auto Grammar::parse(string_type &&str) -> Status {
           ident);
 
     if (!terminal(ident)) {
-      return InvalidArgumentError(
-          "Unrecognized identifier '{}' at line {}", ident, token.line());
+      return InvalidArgumentError("Unrecognized identifier '{}'", ident);
     }
 
     while (!myStack.empty()) {
-      auto top = myStack.top();
+      const auto top = myStack.top();
       myStack.pop();
 
       if (terminal(top)) {
@@ -705,10 +679,7 @@ auto Grammar::parse(string_type &&str) -> Status {
           break;
         else
           return InvalidArgumentError(
-              "Unexpected terminal symbol '{}', expected '{}' at location {}",
-              ident,
-              top,
-              token.line());
+              "Unexpected terminal symbol '{}', expected '{}'", ident, top);
       }
 
       // non-terminal
@@ -730,15 +701,30 @@ auto Grammar::parse(string_type &&str) -> Status {
       const auto &rhsElem = colIt->second;
 
       // push rhsElem into stack in reverse order
-      myStack.push_range(rhsElem                       //
-                         | rv::reverse                 //
-                         | rv::filter([](auto &&sym) { //
-                             return sym != NilMarker;  //
-                           })                          //
+      myStack.push_range(rhsElem              //
+                         | rv::reverse        //
+                         | rv::filter(NotNil) //
       );
     }
   }
   AC_UNREACHABLE()
 }
-#pragma endregion Interface
+
+auto Grammar::parse(string_type &&str) -> Status {
+  if (!isLL1())
+    return UnimplementedError(
+        "Not implemented for the grammar that is not LL1. ");
+
+  auto coro = Lexer::LexAsync(std::forward<string_type>(str));
+
+  return _do_parse(std::move(coro) | std::ranges::views::common);
+}
+auto Grammar::parse(Piece::rhs_elem_view_t &&elems) -> auxilia::Status {
+  if (!isLL1())
+    return UnimplementedError(
+        "Not implemented for the grammar that is not LL1. ");
+
+  return _do_parse(std::move(elems));
+}
+#pragma endregion Parse
 } // namespace accat::cp

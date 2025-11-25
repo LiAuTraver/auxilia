@@ -200,7 +200,7 @@ template <typename... Ts> struct match : Ts... {
 };
 /// @brief deduction guide for `match`
 template <typename... Ts> match(Ts...) -> match<Ts...>;
-enum class FormatPolicy : uint8_t {
+enum class FormatPolicy : unsigned char {
   kDefault = 0,
   kDetailed = 1,
   kBrief = 2,

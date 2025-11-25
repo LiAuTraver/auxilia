@@ -4,11 +4,12 @@ find_package(GTest REQUIRED)
 
 add_library(cp.shared OBJECT
   include/automaton.hpp
-  include/Grammar.hpp
-  include/Lexing.hpp
-  src/Grammar.cpp
-  src/Lexing.cpp
   src/Automaton.cpp
+  include/Grammar.hpp
+  src/Grammar.cpp
+  src/Piece.cpp
+  include/Lexing.hpp
+  src/Lexing.cpp
   src/NFA.cpp
   include/NFA.hpp
   src/DFA.cpp
@@ -69,6 +70,7 @@ add_folder_if_auxilia_top_level("Demo")
 add_executable(cp.test
   tests/Automata.test.cpp
   tests/Grammar.test.cpp
+  tests/Grammar.partial.test.cpp
 )
 target_include_directories(cp.test PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
