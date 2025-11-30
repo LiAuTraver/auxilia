@@ -5,13 +5,13 @@
 #include "NFA.hpp"
 
 namespace accat::cp {
-using auxilia::npos;
 using auxilia::Format;
-using auxilia::Println;
 using auxilia::FormatPolicy;
+using auxilia::npos;
+using auxilia::Println;
 using auxilia::Status;
 using auxilia::StatusOr;
-}
+} // namespace accat::cp
 
 namespace accat::cp {
 #pragma region DFA

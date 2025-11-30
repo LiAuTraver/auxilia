@@ -211,12 +211,14 @@ template <> struct ::fmt::formatter<::std::stacktrace> {
   template <typename FormatContext>
   auto format(const ::std::stacktrace &st, FormatContext &ctx) const {
     auto out = ctx.out();
-    for (const auto &entry : st) {
+    for (size_t i = 0; const auto &entry : st) {
       out = fmt::format_to(out,
-                           "{} {} {} {}\n",
+                           "{}> \033[37m{} {}\033[0m \033[90m{}{}{}\033[0m\n",
+                           ++i,
                            entry.description(),
                            entry.native_handle(),
                            entry.source_file(),
+                           entry.source_line() ? ":" : "",
                            entry.source_line());
     }
     return out;
@@ -271,7 +273,7 @@ operator*(_dbg_block_helper_struct_, Fun_ f_) noexcept(noexcept(f_()))
 
 #  define AC_DEBUG_BLOCK                                                       \
     ::accat::auxilia::details::_dbg_block_helper_struct_{} *[&]()              \
-        -> void // NOLINT(bugprone-macro-parentheses)
+        ->void // NOLINT(bugprone-macro-parentheses)
 
 #  define AC_DEBUG_ONLY(...) __VA_ARGS__
 #  define AC_STATIC_ASSERT(_cond_, ...)                                        \
@@ -345,6 +347,21 @@ AC_FLATTEN inline auto _set_console_output_cp_utf8() noexcept {
 #endif
           ;
 }
+inline constexpr const char *const _fancy_error_message_ =
+    "\033[1;36mIn file\033[0m \033[1m{0}\033[0m, \033[1;36mline\033[0m "
+    "\033[1m{2}\033[0m \033[1;36mcolumn\033[0m \033[1m{3}\033[0m,\n"
+    "           \033[1;36mfunction\033[0m \033[1m{1}\033[0m,\n"
+    "\033[31mConstraints not satisfied:\033[0m\n"
+    "           Expect \033[1;93m{4}\033[0m to be \033[1;32mtrue\033[0m.\n"
+    "\033[90mAdditional message: \033[1;31m{5}\033[0m\n"
+    "\033[1;34mStacktrace:\033[0m {6}";
+inline constexpr const char *const _plain_error_message_ =
+    "In file {0}, line {2} column {3},\n"
+    "           function {1},\n"
+    "Constraints not satisfied:\n"
+    "           Expect {4} to be true.\n"
+    "Additional message: {5}\n"
+    "Stacktrace: {6}";
 } // namespace accat::auxilia::details
 
 #include <cstdio>
@@ -370,12 +387,7 @@ AC_FLATTEN inline auto _set_console_output_cp_utf8() noexcept {
 #  define AC_LINE (::std::source_location::current().line())
 #  define AC_COLUMN (::std::source_location::current().column())
 #  define AC_PRINT_ERROR_MSG_IMPL_WITH_MSG(x, _msg_)                           \
-    spdlog::critical("in file {0}, line {2} column {3},\n"                     \
-                     "           function {1},\n"                              \
-                     "Constraints not satisfied:\n"                            \
-                     "           Expect `{4}` to be true.\n"                   \
-                     "Additional message: {5}\n"                               \
-                     "Stacktrace:{6}",                                         \
+    spdlog::critical(::accat::auxilia::details::_fancy_error_message_,         \
                      AC_FILENAME,                                              \
                      AC_FUNCTION_NAME,                                         \
                      AC_LINE,                                                  \
@@ -430,7 +442,7 @@ AC_FLATTEN inline auto _set_console_output_cp_utf8() noexcept {
 #  define AC_RUNTIME_ASSERT(...) (void)0;
 #  define AC_PRECONDITION(...) (void)0;
 #  define AC_DEBUG_LOGGING_SETUP(...) (void)0;
-#  define AC_DEBUG_BLOCK [&]() -> void
+#  define AC_DEBUG_BLOCK [&]()->void
 #  define AC_DEBUG_ONLY(...)
 #  define AC_STATIC_ASSERT(...) static_assert(...)
 #  define AC_DBG_BREAK (void)0;

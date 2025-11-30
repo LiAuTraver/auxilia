@@ -118,6 +118,7 @@ private:
 
   static auto _preprocess(const std::vector<Token> &tokens) -> auxilia::Status;
   void _postprocess(std::ranges::common_range auto &&lines);
+  auto _expand_ebnf_constructs(std::vector<Token> &&tokens) -> std::vector<Token>;
   auto _do_process(std::vector<Token> &&tokens);
 
   void _do_factoring(size_t index);

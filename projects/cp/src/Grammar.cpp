@@ -107,6 +107,49 @@ bool Grammar::_analyze_left_recursion(Piece &A) {
     // A -> A
     return false;
 
+  // Handle special case: A -> ε | A α₁ | A α₂ | ...
+  // Transform to right-recursive: A -> α₁ A | α₂ A | ... | ε
+  // This represents zero or more repetitions: A -> α*
+  if (nonRecRhsElems.size() == 1 && 
+      nonRecRhsElems[0].size() == 1 &&
+      nonRecRhsElems[0][0] == NilMarker) {
+    // Transform: A -> ε | A α  =>  A -> α A | ε
+    Piece::rhs_t new_rhs;
+    for (auto &&alpha : recRhsElems | rv::as_rvalue) {
+      auto &alphaA = new_rhs.emplace_back();
+      alphaA.reserve(alpha.size() + 1);
+      alphaA.assign_range(alpha | rv::as_rvalue);
+      alphaA.emplace_back(A.lhs_);  // Add A at end (right recursion)
+    }
+    // Keep epsilon production
+    new_rhs.emplace_back().emplace_back(NilMarker);
+    A.rhs_ = std::move(new_rhs);
+    return true;
+  }
+  
+  // Handle mixed case: A -> β | ε | A α (non-epsilon beta exists)
+  // This is more complex and represents optional repetitions
+  if (sr::any_of(nonRecRhsElems,
+                 [](auto &&elems) { return elems.size() == 1 && elems[0] == NilMarker; })) {
+    // For now, we'll transform this using standard elimination
+    // but preserve the epsilon in the result
+    // Remove epsilon from nonRecRhsElems for standard processing
+    Piece::rhs_t filteredNonRec;
+    bool hasEpsilon = false;
+    for (auto &&elem : nonRecRhsElems | rv::as_rvalue) {
+      if (elem.size() == 1 && elem[0] == NilMarker) {
+        hasEpsilon = true;
+      } else {
+        filteredNonRec.emplace_back(std::move(elem));
+      }
+    }
+    if (!filteredNonRec.empty()) {
+      _immediate_left_recursion(A, std::move(recRhsElems), std::move(filteredNonRec));
+      // Note: The new A' production will have epsilon automatically
+      return true;
+    }
+  }
+
   // create A'
   _immediate_left_recursion(
       A, std::move(recRhsElems), std::move(nonRecRhsElems));
@@ -168,6 +211,112 @@ Status Grammar::_preprocess(const std::vector<Token> &tokens) {
   }
   return OkStatus();
 }
+
+auto Grammar::_expand_ebnf_constructs(std::vector<Token> &&tokens) -> std::vector<Token> {
+  // This method expands EBNF constructs into BNF:
+  // [X] (optional) -> X | ε
+  // {X} (zero or more) -> ε | X {X}  (which becomes right-recursive after left-recursion elimination)
+  // Implementation: Replace EBNF tokens with fresh non-terminals and add new productions
+  
+  using enum Token::Type;
+  std::vector<Token> result;
+  result.reserve(tokens.size());
+  
+  size_t ebnfCounter = 0;
+  std::vector<std::pair<string_type, std::vector<Token>>> newProductions;
+  
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    const auto &token = tokens[i];
+    
+    // Check for [ ... ] (optional)
+    if (token.is_type(kSquareBracketOpen)) {
+      // Find matching close bracket
+      size_t depth = 1;
+      size_t closeIdx = i + 1;
+      while (closeIdx < tokens.size() && depth > 0) {
+        if (tokens[closeIdx].is_type(kSquareBracketOpen)) depth++;
+        else if (tokens[closeIdx].is_type(kSquareBracketClose)) depth--;
+        closeIdx++;
+      }
+      
+      if (depth == 0) {
+        // Create new non-terminal: EBNF_OPT_N
+        auto newNT = Format("EBNF_OPT_{}", ebnfCounter++);
+        result.emplace_back(Token::Identifier(newNT, token.line()));
+        
+        // Create production: EBNF_OPT_N -> content | ε
+        std::vector<Token> prod;
+        prod.emplace_back(Token::Identifier(newNT, token.line()));
+        prod.emplace_back(Token::Lexeme(kLeftArrow, "->", token.line()));
+        // Add content between brackets
+        for (size_t j = i + 1; j < closeIdx - 1; ++j) {
+          prod.emplace_back(tokens[j].copy());
+        }
+        prod.emplace_back(Token::Lexeme(kBitwiseOr, "|", token.line()));
+        prod.emplace_back(Token::Identifier(auxilia::epsilon, token.line()));
+        prod.emplace_back(Token::Lexeme(kSemicolon, ";", token.line()));
+        
+        newProductions.emplace_back(newNT, std::move(prod));
+        i = closeIdx - 1; // Skip to after close bracket
+        continue;
+      }
+    }
+    
+    // Check for { ... } (zero or more)
+    if (token.is_type(kLeftBrace)) {
+      size_t depth = 1;
+      size_t closeIdx = i + 1;
+      while (closeIdx < tokens.size() && depth > 0) {
+        if (tokens[closeIdx].is_type(kLeftBrace)) depth++;
+        else if (tokens[closeIdx].is_type(kRightBrace)) depth--;
+        closeIdx++;
+      }
+      
+      if (depth == 0) {
+        // Create new non-terminal: EBNF_REP_N
+        auto newNT = Format("EBNF_REP_{}", ebnfCounter++);
+        result.emplace_back(Token::Identifier(newNT, token.line()));
+        
+        // Create production: EBNF_REP_N -> ε | content EBNF_REP_N
+        // This will be transformed to right-recursive by left-recursion elimination
+        std::vector<Token> prod;
+        prod.emplace_back(Token::Identifier(newNT, token.line()));
+        prod.emplace_back(Token::Lexeme(kLeftArrow, "->", token.line()));
+        prod.emplace_back(Token::Identifier(auxilia::epsilon, token.line()));
+        prod.emplace_back(Token::Lexeme(kBitwiseOr, "|", token.line()));
+        prod.emplace_back(Token::Identifier(newNT, token.line()));
+        // Add content between braces
+        for (size_t j = i + 1; j < closeIdx - 1; ++j) {
+          prod.emplace_back(tokens[j].copy());
+        }
+        prod.emplace_back(Token::Lexeme(kSemicolon, ";", token.line()));
+        
+        newProductions.emplace_back(newNT, std::move(prod));
+        i = closeIdx - 1; // Skip to after close brace
+        continue;
+      }
+    }
+    
+    result.emplace_back(token.copy());
+  }
+  
+  // Append new productions before EOF
+  if (!result.empty() && result.back().is_type(kEndOfFile)) {
+    auto eof = std::move(result.back());
+    result.pop_back();
+    
+    for (auto &&[name, prod] : newProductions) {
+      for (auto &&t : prod | rv::as_rvalue) {
+        result.emplace_back(std::move(t));
+      }
+    }
+    
+    result.emplace_back(std::move(eof));
+  }
+  
+  return result;
+}
+
 void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
 
   for (auto &&l : lines) {
@@ -203,9 +352,17 @@ auto Grammar::_do_process(std::vector<Token> &&tokens) {
 
   string_type errorMsg_lazy;
 
+  // Statement separator: productions are terminated by semicolons
+  // Support both old line-based and new semicolon-based formats
   constexpr auto stmtSeperator = [](auto &&a, auto &&b) {
+    // If 'a' is a semicolon, it marks the end of a production
+    if (a.is_type(kSemicolon))
+      return false;
+    // If 'b' is a semicolon, it's part of current production
+    if (b.is_type(kSemicolon))
+      return true;
+    // Otherwise, use line-based heuristics for backward compatibility
     return a.line() == b.line() // same line
-                                // or different line but same statement
            || ((a.line() < b.line()) && (a.is_type(kBitwiseOr, kLeftArrow) ||
                                          b.is_type(kBitwiseOr, kLeftArrow)));
   };
