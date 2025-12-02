@@ -34,9 +34,9 @@ struct Answer {
 
 constexpr auto simple = Answer{
     .rules = R"(
-S -> A B
-A -> a | ε
-B -> b
+S -> A B;
+A -> a | ε;
+B -> b;
 )",
     .first_set = R"(
 [{"a", "b"}, {"a", "ε"}, {"b"}]
@@ -49,10 +49,10 @@ B -> b
 constexpr auto trivial = Answer{
     .rules = R"(
 S -> id
-   | V assign E
-V -> id
+   | V assign E;
+V -> id;
 E -> V
-   | num
+   | num;
 )",
     .first_set = R"(
 [{"id"}, {"id"}, {"id", "num"}]
@@ -85,10 +85,10 @@ TEST(Grammar, FollowSet) {
 }
 constexpr auto ll0_lr0_0 = Answer{
     .rules = R"(
-S -> b A i B
-A -> ε
-B -> r C
-C -> d
+S -> b A i B;
+A -> ε;
+B -> r C;
+C -> d;
 )",
     .first_set = R"([{"b"}, {"ε"}, {"r"}, {"d"}])",
     .follow_set = R"([{"$"}, {"i"}, {"$"}, {"$"}])",
@@ -127,9 +127,9 @@ constexpr auto ll1_lr0_0 = Answer{
     .rules = R"(
 A -> B
 | x C
-| y A
-B -> C B
-C -> r
+| y A;
+B -> C B;
+C -> r;
 )",
     .first_set = R"([{"r", "x", "y"}, {"r"}, {"r"}])",
     .follow_set = R"([{"$"}, {"$"}, {"$", "r"}])",
@@ -186,9 +186,9 @@ TEST(Grammar, LL1_LR0) {
 constexpr auto ll1_slr1_0 = Answer{
     .rules = R"(
 A -> B c
-| d n A B fo
+| d n A B fo;
 B -> r
-| ε
+| ε;
 )",
     .first_set = R"([{"r", "c", "d"}, {"r", "ε"}])",
     .follow_set = R"([{"$", "r", "fo"}, {"c", "fo"}])",
@@ -233,12 +233,12 @@ TEST(Grammar, LL1_SLR1) {
 
 constexpr auto ll1_lalr1_0 =
     Answer{.rules = R"(
-S -> id Sp
+S -> id Sp;
 Sp -> V assign E
-| ε
-V -> ε
+| ε;
+V -> ε;
 E -> id V
-| num
+| num;
 )",
            .first_set = R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
            .follow_set = R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
@@ -285,14 +285,14 @@ TEST(Grammar, LL1_LALR1) {
 constexpr auto ll1_lr1_0 = Answer{
     .rules = R"(
 S -> a A
-| b B
+| b B;
 A -> C a
-| D b
+| D b;
 B -> C b
-| D a
-C -> E
-D -> E
-E -> ε
+| D a;
+C -> E;
+D -> E;
+E -> ε;
 )",
     .first_set = R"([{"a", "b"}, {"a", "b"}, {"b", "a"}, {"ε"}, {"ε"}, {"ε"}])",
     .follow_set =

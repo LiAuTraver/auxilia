@@ -120,6 +120,9 @@ private:
   void _postprocess(std::ranges::common_range auto &&lines);
   auto _do_process(std::vector<Token> &&tokens);
 
+  // expand EBNF constructs ([optional], {zero-or-more}) to BNF
+  void _expand_ebnf_constructs();
+
   void _do_factoring(size_t index);
 
   auto _first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)

@@ -107,17 +107,25 @@ bool Grammar::_analyze_left_recursion(Piece &A) {
     // A -> A
     return false;
 
-  // need to handle some tricky case like:
-  // A -> ε | A B
-  // which means zero or more B, i.e.,
-  // A -> (B)*
-  if (sr::any_of(nonRecRhsElems,
-                 [](auto &&elems) { return sr::contains(elems, NilMarker); })) {
-    Println(stderr,
-            "grammars like 'A -> ε | A B' are currently unsupported. The "
-            "program will return error as `infinite loop`."
-            "(actually it's not, @todo here.)");
-    return false;
+  // TODO: this is hard coded...
+  // special case: A -> ε | A α
+  // which represents zero or more repetitions of α
+  // transform to right recursion: A -> α A | ε
+  if (nonRecRhsElems.size() == 1 && nonRecRhsElems[0].size() == 1 &&
+      isNil(nonRecRhsElems[0][0])) {
+    // A -> ε | A α  =>  A -> α A | ε
+    Piece::rhs_t new_rhs;
+    for (auto &&alpha : recRhsElems | rv::as_rvalue) {
+      auto &alphaA = new_rhs.emplace_back();
+      alphaA.reserve(alpha.size() + 1);
+      alphaA.assign_range(alpha | rv::as_rvalue);
+      alphaA.emplace_back(A.lhs_); // right recursion
+    }
+    new_rhs.emplace_back().emplace_back(NilMarker);
+
+    A.rhs_ = std::move(new_rhs);
+    terminals_.emplace(NilMarker);
+    return true;
   }
 
   // create A'
@@ -211,16 +219,13 @@ void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
 auto Grammar::_do_process(std::vector<Token> &&tokens) {
   using enum Token::Type;
 
-  // I admit it's a bit messy here, but as the saying goes:
-  // "If it works, don't touch it".
-
   string_type errorMsg_lazy;
 
-  constexpr auto stmtSeperator = [](auto &&a, auto &&b) {
-    return a.line() == b.line() // same line
-                                // or different line but same statement
-           || ((a.line() < b.line()) && (a.is_type(kBitwiseOr, kLeftArrow) ||
-                                         b.is_type(kBitwiseOr, kLeftArrow)));
+  // Statements are separated by semicolons.
+  // Everything before a semicolon is part of the same statement.
+  // TODO: legacy, no need to use `chunk_by` now.
+  constexpr auto stmtSep = [](auto &&a, auto &&b) {
+    return !a.is_type(kSemicolon);
   };
 
   // first should be a single Identifier.
@@ -261,6 +266,11 @@ auto Grammar::_do_process(std::vector<Token> &&tokens) {
                               chunk.front().line());
       return false;
     }
+    // semicolon is the statement terminator
+    if (std::ranges::any_of(chunk,
+                            [](auto &&t) { return t.is_type(kSemicolon); })) {
+      return false;
+    }
     // BitwiseOr indicates an alternative separator;
     // if present, it must be the only token in this chunk.
     if (std::ranges::any_of(chunk,
@@ -290,20 +300,20 @@ auto Grammar::_do_process(std::vector<Token> &&tokens) {
   };
   constexpr auto segmentsSep = [](auto &&lhs, auto &&rhs) {
     return (lhs.is_type(kLeftArrow) == rhs.is_type(kLeftArrow)) &&
-           (lhs.is_type(kBitwiseOr) == rhs.is_type(kBitwiseOr));
+           (lhs.is_type(kBitwiseOr) == rhs.is_type(kBitwiseOr)) &&
+           (lhs.is_type(kSemicolon) == rhs.is_type(kSemicolon));
   };
 
   // is this necessary??? seems not during testing
   const auto tokSize = tokens.size() - 1;
 
-  // transform_view<chunk_by_view<take_view<as_rvalue_view<owning_view<vector<Token>>>>,(l)>,(l)>
   auto lines =
       std::move(tokens) // xvalue to form a owning view rather than a ref view
       | rv::as_rvalue   // mark token in tokens as rvalue
-      | std::ranges::views::take(tokSize)           // drop that kEndOfFile
-      | std::ranges::views::chunk_by(stmtSeperator) // split by line
+      | std::ranges::views::take(tokSize)     // drop that kEndOfFile
+      | std::ranges::views::chunk_by(stmtSep) // split by statements
       | std::ranges::views::transform([&](auto &&line) {
-          return line // now: lhs kLeftArrow rhs_elem1 kBitwiseOr rhs_elem2 ...
+          return line // now: lhs kLeftArrow rhs_elem1 kBitwiseOr rhs_elem2 ...;
                  | std::ranges::views::chunk_by(segmentsSep) // result ^^^
                  | std::ranges::views::enumerate             // [index, chunk]
                  | std::ranges::views::filter(validSep) // extract lhs and rhs.
@@ -327,6 +337,131 @@ auto Grammar::_do_process(std::vector<Token> &&tokens) {
   return OkStatus();
 }
 #pragma endregion Process
+#pragma region EBNF
+void Grammar::_expand_ebnf_constructs() {
+  // expand EBNF constructs to BNF before left recursion elimination
+  // [X] -> X | ε
+  // {X} -> X A' | ε where A' -> X A' | ε
+  // (equivalent to A -> ε | A X after transformation)
+
+  using enum Token::Type;
+
+  const size_t originalSize = pieces_.size();
+
+  // collect new pieces to add after iteration to avoid reallocation issues
+  std::vector<Piece> newPieces;
+
+  for (auto pieceIdx = 0ull; pieceIdx < originalSize; ++pieceIdx) {
+    Piece::rhs_t newRhs;
+
+    for (auto &&rhsElem : std::move(pieces_[pieceIdx].rhs_) | rv::as_rvalue) {
+      // scan for EBNF constructs in this production
+      bool hasEbnf = false;
+      Piece::rhs_elem_t expandedProduction;
+
+      for (auto i = 0ull; i < rhsElem.size(); ++i) {
+        const auto &elem = rhsElem[i];
+
+        // [X]
+        if (elem == "[") {
+          hasEbnf = true;
+          // find matching ]
+          auto j = i + 1;
+          auto bracketDepth = 1ull;
+          while (j < rhsElem.size() && bracketDepth > 0) {
+            if (rhsElem[j] == "[")
+              bracketDepth++;
+            else if (rhsElem[j] == "]")
+              bracketDepth--;
+            j++;
+          }
+
+          if (bracketDepth != 0) {
+            AC_RUNTIME_ASSERT(
+                "unmatched brackets. should handle in the prev stage"
+                "(unimplemented currently)")
+            expandedProduction.emplace_back(elem);
+            continue;
+          }
+
+          // extract content between [ and ]
+          Piece::rhs_elem_t optionalContent;
+          for (size_t k = i + 1; k < j - 1; ++k) {
+            optionalContent.emplace_back(rhsElem[k]);
+          }
+
+          auto newName =
+              _new_unique_non_terminal_name(pieces_[pieceIdx].lhs_, "_Opt");
+          expandedProduction.emplace_back(newName);
+
+          // A_Opt -> X | ε
+          auto &newPiece = newPieces.emplace_back();
+          newPiece.lhs_ = newName;
+          newPiece.rhs_.emplace_back(std::move(optionalContent));
+          newPiece.rhs_.emplace_back().emplace_back(NilMarker);
+          terminals_.emplace(NilMarker);
+
+          i = j - 1; // Skip past the ]
+        }
+        // {X} - zero or more
+        else if (elem == "{") {
+          hasEbnf = true;
+          // Find matching }
+          size_t j = i + 1;
+          size_t braceDepth = 1;
+          while (j < rhsElem.size() && braceDepth > 0) {
+            if (rhsElem[j] == "{")
+              braceDepth++;
+            else if (rhsElem[j] == "}")
+              braceDepth--;
+            j++;
+          }
+
+          if (braceDepth != 0) {
+            expandedProduction.emplace_back(elem);
+            continue;
+          }
+
+          // extract content between { and }
+          Piece::rhs_elem_t repeatContent;
+          for (size_t k = i + 1; k < j - 1; ++k) {
+            repeatContent.emplace_back(rhsElem[k]);
+          }
+
+          auto newName =
+              _new_unique_non_terminal_name(pieces_[pieceIdx].lhs_, "_Rep");
+          expandedProduction.emplace_back(newName);
+
+          // new: A_Rep -> ε | A_Rep X
+          // this will be transformed to right recursion: A_Rep -> X A_Rep | ε
+          // by _analyze_left_recursion
+          auto &newPiece = newPieces.emplace_back();
+          newPiece.lhs_ = newName;
+          newPiece.rhs_.emplace_back().emplace_back(NilMarker);
+          auto &recursiveRhs = newPiece.rhs_.emplace_back();
+          recursiveRhs.emplace_back(newName);
+          recursiveRhs.append_range(repeatContent);
+          terminals_.emplace(NilMarker);
+
+          i = j - 1; // skip the }
+        } else {
+          expandedProduction.emplace_back(elem);
+        }
+      }
+
+      if (hasEbnf) {
+        newRhs.emplace_back(std::move(expandedProduction));
+      } else {
+        newRhs.emplace_back(std::move(rhsElem));
+      }
+    }
+
+    pieces_[pieceIdx].rhs_ = std::move(newRhs);
+  }
+
+  pieces_.append_range(std::move(newPieces) | rv::as_rvalue);
+}
+#pragma endregion EBNF
 #pragma region Factor
 void Grammar::_do_factoring(const size_t index) {
   auto &piece = pieces_[index];
@@ -378,8 +513,8 @@ void Grammar::_do_factoring(const size_t index) {
 }
 #pragma endregion Factor
 #pragma region FirstSet
-Grammar::Piece::set_t
-Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem) {
+auto Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
+    -> Piece::set_t {
 
   AC_RUNTIME_ASSERT(!sr::empty(rhsElem))
 
@@ -555,6 +690,8 @@ auxilia::StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
 
   if (auto status = grammar._do_process(std::move(tokens)); !status)
     return {status};
+
+  grammar._expand_ebnf_constructs();
 
   return {std::move(grammar)};
 }
