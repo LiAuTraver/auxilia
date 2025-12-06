@@ -45,7 +45,7 @@ inline auto
 Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   ::fmt::print(
       ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
-  ::puts("\n");
+  ::putchar('\n');
 }
 template <typename... T>
 inline auto Println(::std::FILE *f,

@@ -401,7 +401,7 @@ inline constexpr const char *const _plain_error_message_ =
       (!defined(AC_IGNORE_GTEST)) && __cpp_exceptions
 #    define AC_RUNTIME_REQUIRE_IMPL_WITH_MSG(_cond_, _msg_)                    \
       AC_AMBIGUOUS_ELSE_BLOCKER                                                \
-      if ((_cond_))                                                            \
+      if (!!(_cond_))                                                          \
         ;                                                                      \
       else {                                                                   \
         throw std::runtime_error(_msg_);                                       \
@@ -511,7 +511,8 @@ AC_FORCEINLINE AC_FLATTEN static inline void _debugbreak() noexcept {
 } // namespace accat::auxilia::details
 
 #define AC_DEFER                                                               \
-  const auto AC_EXPAND_COUNTER(_accat_auxilia_details_defer_block_at_) =       \
+  [[maybe_unused]] const auto AC_EXPAND_COUNTER(                               \
+      _accat_auxilia_details_defer_block_at_) =                                \
       ::accat::auxilia::details::_deferer_helper_struct_{} *[&]()
 
 #ifdef AC_DEBUG_ENABLED

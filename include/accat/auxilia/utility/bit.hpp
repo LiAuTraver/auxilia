@@ -7,9 +7,11 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <optional>
 #include <ranges>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 #include <vector>
@@ -99,6 +101,86 @@ read_raw_bytes(const std::filesystem::path &path) {
   }
 }
 #endif
+template <typename CharT = char>
+inline std::optional<std::basic_string<CharT>>
+readfile(const std::basic_string_view<CharT> myPath) {
+  if constexpr (std::is_same_v<CharT, char>) {
+    // use plain FILE* for char
+    FILE *file = nullptr;
+    AC_DEFER { ::fclose(file); };
+    auto myErr = ::fopen_s(&file, myPath.data(), "rb");
+    if (myErr != 0 || !file)
+      return std::nullopt;
+
+    if (::fseek(file, 0, SEEK_END) != 0)
+      return std::nullopt;
+
+    const long mySize = ::ftell(file);
+    if (mySize < 0)
+      return std::nullopt;
+
+    ::rewind(file);
+
+    std::basic_string<CharT> myStr;
+    myStr.resize_and_overwrite(static_cast<size_t>(mySize),
+                               [&](CharT *const data, const size_t) {
+                                 return ::fread(data, 1, mySize, file);
+                               });
+
+    return std::make_optional(std::move(myStr));
+  }
+  // fall back to filebuf for wchar_t, etc.
+  // I probably never uses character type other than `char`;
+  // anyway I used Claude Sonnet 4.5 to complete code below.
+  // ^^^ Human Write / AI write vvv
+  else {
+
+    std::basic_filebuf<CharT> myfb;
+    AC_DEFER { myfb.close(); };
+
+    if (!myfb.open(myPath, std::ios::in | std::ios::binary))
+      return std::nullopt;
+
+    const auto mySize = myfb.pubseekoff(0, std::ios::end, std::ios::in);
+    if (mySize < 0)
+      return std::nullopt;
+
+    myfb.pubseekpos(0, std::ios::in);
+
+    std::basic_string<CharT> myStr;
+    myStr.resize_and_overwrite(
+        static_cast<size_t>(mySize), [&](CharT *const data, const size_t) {
+          return static_cast<size_t>(myfb.sgetn(data, mySize));
+        });
+
+    return std::make_optional(std::move(myStr));
+  }
+}
+template <typename CharT = char>
+bool writefile(const std::basic_string_view<CharT> myPath,
+               const std::basic_string_view<CharT> myData) {
+  if constexpr (std::is_same_v<CharT, char>) {
+    FILE *file = nullptr;
+    AC_DEFER { ::fclose(file); };
+    auto myErr = ::fopen_s(&file, myPath.data(), "wb");
+    if (myErr != 0 || !file)
+      return false;
+
+    const size_t written = ::fwrite(myData.data(), 1, myData.size(), file);
+    return written == myData.size();
+  }
+  // ditto.
+  else {
+    std::basic_filebuf<CharT> myfb;
+    AC_DEFER { myfb.close(); };
+
+    if (!myfb.open(myPath, std::ios::out | std::ios::binary))
+      return false;
+
+    const auto written = myfb.sputn(myData.data(), myData.size());
+    return written == static_cast<std::streamsize>(myData.size());
+  }
+}
 } // namespace accat::auxilia
 
 namespace accat::auxilia::bit {

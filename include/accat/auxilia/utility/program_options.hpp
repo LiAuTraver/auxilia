@@ -25,13 +25,13 @@ namespace accat::auxilia::program_options {
 EXPORT_AUXILIA class Option;
 /* not necessary to export */ class Parser;
 
-EXPORT_AUXILIA inline Parser *Global(std::string_view,
-                                     std::string_view = "unknown");
-EXPORT_AUXILIA inline Parser Local(std::string_view,
-                                   std::string_view = "unknown");
-EXPORT_AUXILIA inline Parser *find(std::string_view);
-EXPORT_AUXILIA inline Parser &get(std::string_view);
-EXPORT_AUXILIA inline bool erase(std::string_view);
+EXPORT_AUXILIA AC_NODISCARD inline Parser *Global(std::string_view,
+                                                  std::string_view = "unknown");
+EXPORT_AUXILIA AC_NODISCARD inline Parser Local(std::string_view,
+                                                std::string_view = "unknown");
+EXPORT_AUXILIA AC_NODISCARD inline Parser *find(std::string_view);
+EXPORT_AUXILIA AC_NODISCARD inline Parser &get(std::string_view);
+EXPORT_AUXILIA /* can be discarded */ inline bool erase(std::string_view);
 
 namespace details {
 inline auto _get_global_parsers() -> std::vector<Parser> &;
@@ -52,9 +52,17 @@ public:
   Option &operator=(Option &&other) noexcept = default;
 
 public:
-  auto name() const -> const std::string_view { return name_; }
-  auto shortname() const -> const std::string_view { return shortname_; }
-  auto description(this auto &&self) -> std::string_view { return self.desc_; }
+  AC_NODISCARD auto name() const [[clang::lifetimebound]]
+  -> const std::string_view {
+    return name_;
+  }
+  AC_NODISCARD auto shortname() const [[clang::lifetimebound]]
+  -> const std::string_view {
+    return shortname_;
+  }
+  AC_NODISCARD auto description(this auto &&self) -> std::string_view {
+    return self.desc_;
+  }
 
   auto &required(const bool is_required = true) {
     required_ = is_required;
@@ -79,10 +87,12 @@ public:
     return *this;
   }
 
-  auto values() const -> std::span<const std::string> { return values_; }
+  AC_NODISCARD auto values() const -> std::span<const std::string> {
+    return values_;
+  }
 
   /// @pre single value
-  auto value() const -> StatusOr<std::string_view> {
+  AC_NODISCARD auto value() const -> StatusOr<std::string_view> {
     if (values_.empty()) {
       return NotFoundError(format("Option {} has no value.", name_));
     }
@@ -96,7 +106,7 @@ public:
   }
 
 private:
-  std::string help() const {
+  AC_NODISCARD std::string help() const {
     std::string help_text = "  ";
     if (!shortname_.empty()) {
       help_text += format("{}, ", shortname_);
@@ -132,8 +142,6 @@ class Parser {
   std::vector<std::string_view> positional_args_;
 
   Parser() = default;
-  Parser(const Parser &other) = delete;
-  auto operator=(const Parser &other) -> Parser & = delete;
 
   /// @brief Create a local parser,
   ///        whose lifetime is limited to the current scope.
@@ -154,20 +162,10 @@ class Parser {
   }
 
 public:
-  Parser(Parser &&other) noexcept
-      : program_name_(other.program_name_), options_(std::move(other.options_)),
-        error_msgs_(std::move(other.error_msgs_)),
-        positional_args_(std::move(other.positional_args_)) {}
-  auto operator=(Parser &&other) noexcept -> Parser & {
-    if (this == &other)
-      return *this;
-    program_name_ = other.program_name_;
-    program_version_ = other.program_version_;
-    options_ = std::move(other.options_);
-    error_msgs_ = std::move(other.error_msgs_);
-    positional_args_ = std::move(other.positional_args_);
-    return *this;
-  }
+  Parser(const Parser &) = delete;
+  Parser &operator=(const Parser &) = delete;
+  Parser(Parser &&) noexcept = default;
+  Parser &operator=(Parser &&) noexcept = default;
 
   Parser(const std::string_view program_name,
          const std::string_view program_version)
@@ -211,11 +209,12 @@ public:
     return program_name_;
   }
   auto error() const noexcept -> size_t { return error_msgs_.size(); }
-  auto error_messages() const noexcept -> std::span<const std::string> {
+  auto error_messages() const noexcept [[clang::lifetimebound]]
+  -> std::span<const std::string> {
     return error_msgs_;
   }
-  auto positional_arguments() const noexcept
-      -> std::span<const std::string_view> {
+  auto positional_arguments() const noexcept [[clang::lifetimebound]]
+  -> std::span<const std::string_view> {
     return positional_args_;
   }
 
