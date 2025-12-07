@@ -107,7 +107,11 @@ readfile(const std::basic_string_view<CharT> myPath) {
   if constexpr (std::is_same_v<CharT, char>) {
     // use plain FILE* for char
     FILE *file = nullptr;
-    AC_DEFER { ::fclose(file); };
+    AC_DEFER {
+      // pass NULL to fclose is undefined behavior accodring to C standard.
+      if (file)
+        ::fclose(file);
+    };
     auto myErr = ::fopen_s(&file, myPath.data(), "rb");
     if (myErr != 0 || !file)
       return std::nullopt;
@@ -132,7 +136,7 @@ readfile(const std::basic_string_view<CharT> myPath) {
   // fall back to filebuf for wchar_t, etc.
   // I probably never uses character type other than `char`;
   // anyway I used Claude Sonnet 4.5 to complete code below.
-  // ^^^ Human Write / AI write vvv
+  // ^^^ Human Write / AI gen-ed vvv
   else {
 
     std::basic_filebuf<CharT> myfb;
@@ -161,7 +165,10 @@ bool writefile(const std::basic_string_view<CharT> myPath,
                const std::basic_string_view<CharT> myData) {
   if constexpr (std::is_same_v<CharT, char>) {
     FILE *file = nullptr;
-    AC_DEFER { ::fclose(file); };
+    AC_DEFER {
+      if (file)
+        ::fclose(file);
+    };
     auto myErr = ::fopen_s(&file, myPath.data(), "wb");
     if (myErr != 0 || !file)
       return false;

@@ -6,11 +6,6 @@
 
 #include "accat/auxilia/base/macros.hpp"
 #include "accat/auxilia/base/config.hpp"
-namespace accat::auxilia {
-#ifdef __SIZEOF_INT128__
-using uint128_t = __uint128_t;
-#endif
-} // namespace accat::auxilia
 
 namespace accat::auxilia::detail {
 /**

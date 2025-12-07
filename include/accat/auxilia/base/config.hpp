@@ -13,6 +13,11 @@
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
+
+#ifdef __SIZEOF_INT128__
+using uint128_t = __uint128_t;
+#endif
+
 struct Monostate;
 struct Printable;
 struct Viewable;

@@ -512,7 +512,7 @@ AC_FORCEINLINE AC_FLATTEN static inline void _debugbreak() noexcept {
 
 #define AC_DEFER                                                               \
   [[maybe_unused]] const auto AC_EXPAND_COUNTER(                               \
-      _accat_auxilia_details_defer_block_at_) =                                \
+      _accat_auxilia_details_defer_block_at) =                                 \
       ::accat::auxilia::details::_deferer_helper_struct_{} *[&]()
 
 #ifdef AC_DEBUG_ENABLED

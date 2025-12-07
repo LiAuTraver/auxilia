@@ -28,7 +28,8 @@ inline auto get() {
   uint32_t id;
   bool expected;
   do {
-    id = details::_current_id().fetch_add(1) % details::id_pool_size;
+    id = details::_current_id().fetch_add(1, std::memory_order::relaxed) %
+         details::id_pool_size;
     expected = false;
   } while (!details::_active_ids()[id].compare_exchange_weak(
       expected, true, std::memory_order::release, std::memory_order::relaxed));
