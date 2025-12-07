@@ -25,7 +25,7 @@
 // I'm too unwilling now to substitute those `constexpr` to provide
 // compatibility for older standards. So I just guard the whole file for C++23
 // and later.
-#  if __cplusplus >= 202302L
+#  if __cplusplus >= 202302L && defined(CHAR_BIT)
 namespace accat::auxilia::details {
 using std::dynamic_extent;
 /// @todo: extract out this mixin is for the future dynamic bitset.

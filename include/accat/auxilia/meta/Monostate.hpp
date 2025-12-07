@@ -39,7 +39,9 @@ public:
   to_string_view(const FormatPolicy) const -> string_view_type {
     return "Monostate";
   }
-  inline consteval auto data(const FormatPolicy) { return "Monostate"; }
+  inline consteval auto data(const FormatPolicy) const noexcept {
+    return "Monostate";
+  }
 
   friend inline /* not consteval */ constexpr auto
   operator==(const Monostate &, const Monostate &) noexcept -> bool {

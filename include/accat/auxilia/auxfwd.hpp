@@ -59,6 +59,10 @@ template <size_t> class bitset;
 #endif
 /// @file accat/auxilia/meta/type_traits.hpp
 template <typename, size_t> struct basic_chars_storage;
+/// @file accat/auxilia/meta/container_traits.hpp
+template <typename> struct container_traits;
+/// @file accat/auxilia/container/flat_map.hpp
+template <typename, typename, typename, typename, typename> class flat_map;
 /// @file accat/auxilia/container/chars.hpp
 template <typename, size_t, typename> class basic_chars;
 /// @file accat/auxilia/meta/Monostate.hpp

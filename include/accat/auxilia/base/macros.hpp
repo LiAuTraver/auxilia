@@ -149,7 +149,13 @@
 /// @note the attribute is non-standard
 ///       but supported by all three major compilers.
 #  define AC_FORCEINLINE [[clang::always_inline]]
-#  define AC_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#  if __has_cpp_attribute(no_unique_address)
+#    define AC_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#  elif __has_cpp_attribute(msvc::no_unique_address)
+#    define AC_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#  else
+#    define AC_NO_UNIQUE_ADDRESS
+#  endif
 #  define AC_DEBUG_FUNCTION_NAME __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
 #  define AC_FLATTEN [[msvc::flatten]]

@@ -225,8 +225,7 @@ protected:
   }
   template <typename T>
     requires std::is_base_of_v<Printable, T>
-  [[nodiscard]]
-  friend auto
+  AC_NODISCARD friend auto
   format_as(const T &p,
             const FormatPolicy format_policy = FormatPolicy::kDefault)
       -> Printable::string_type {
@@ -264,7 +263,7 @@ protected:
   }
   template <typename T>
     requires std::is_base_of_v<Viewable, T>
-  [[nodiscard]] friend auto operator<<(std::wostream &os, const T &v)
+  AC_NODISCARD friend auto operator<<(std::wostream &os, const T &v)
       -> std::wostream & {
     if constexpr (requires { v.to_string_view(FormatPolicy::kDefault); }) {
       return os << v.to_string_view(FormatPolicy::kDefault);
