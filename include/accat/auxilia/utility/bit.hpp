@@ -112,8 +112,7 @@ readfile(const std::basic_string_view<CharT> myPath) {
       if (file)
         ::fclose(file);
     };
-    auto myErr = ::fopen_s(&file, myPath.data(), "rb");
-    if (myErr != 0 || !file)
+    if (::fopen_s(&file, myPath.data(), "rb") || !file)
       return std::nullopt;
 
     if (::fseek(file, 0, SEEK_END) != 0)
@@ -169,8 +168,7 @@ bool writefile(const std::basic_string_view<CharT> myPath,
       if (file)
         ::fclose(file);
     };
-    auto myErr = ::fopen_s(&file, myPath.data(), "wb");
-    if (myErr != 0 || !file)
+    if (::fopen_s(&file, myPath.data(), "wb") || !file)
       return false;
 
     const size_t written = ::fwrite(myData.data(), 1, myData.size(), file);
