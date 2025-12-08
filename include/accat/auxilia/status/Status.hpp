@@ -322,11 +322,9 @@ public:
     return my_code == kReturning;
   }
   AC_NODISCARD
-  Code code() const noexcept { return my_code; }
+  auto code() const noexcept { return my_code; }
   AC_NODISCARD
-  auto raw_code() const noexcept {
-    return static_cast<std::underlying_type_t<Code>>(my_code);
-  }
+  auto raw_code() const noexcept { return std::to_underlying(my_code); }
   AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {
     return my_message;
   }
@@ -461,64 +459,57 @@ LexError(std::string_view message = "") AC_NOEXCEPT {
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OkStatus(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kOk, Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kOk, Format(fmt, std::forward<Args>(args)...)};
 }
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 Cancelled(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kCancelled,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kCancelled, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnknownError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnknown, Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kUnknown, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InvalidArgumentError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kInvalidArgument,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kInvalidArgument, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DeadlineExceededError(AC_STD_OR_FMT format_string<Args...> fmt,
                       Args &&...args) {
-  return {Status::kDeadlineExceeded,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kDeadlineExceeded, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 NotFoundError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kNotFound,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kNotFound, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AlreadyExistsError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kAlreadyExists,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kAlreadyExists, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 PermissionDeniedError(AC_STD_OR_FMT format_string<Args...> fmt,
                       Args &&...args) {
-  return {Status::kPermissionDenied,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kPermissionDenied, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ResourceExhaustedError(AC_STD_OR_FMT format_string<Args...> fmt,
                        Args &&...args) {
-  return {Status::kResourceExhausted,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kResourceExhausted, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -526,76 +517,67 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 FailedPreconditionError(AC_STD_OR_FMT format_string<Args...> fmt,
                         Args &&...args) {
   return {Status::kFailedPrecondition,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+          Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AbortedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kAborted, Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kAborted, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OutOfRangeError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kOutOfRange,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kOutOfRange, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnimplementedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnimplemented,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kUnimplemented, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InternalError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kInternal,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kInternal, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnavailableError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnavailable,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kUnavailable, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DataLossError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kDataLoss,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kDataLoss, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnauthenticatedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kUnauthenticated,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kUnauthenticated, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ReturnMe(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kReturning,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kReturning, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 ParseError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kParseError,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kParseError, Format(fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 LexError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kLexError,
-          Format(fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kLexError, Format(fmt, std::forward<Args>(args)...)};
 }
 #  if !AC_USE_STD_FMT
 template <typename... Args>
@@ -603,8 +585,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20
     Status OkStatus(const fmt::text_style &ts,
                     fmt::format_string<Args...> fmt,
                     Args &&...args) {
-  return {Status::kOk,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kOk, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -613,7 +594,7 @@ Cancelled(const fmt::text_style &ts,
           fmt::format_string<Args...> fmt,
           Args &&...args) {
   return {Status::kCancelled,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -621,8 +602,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnknownError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
-  return {Status::kUnknown,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kUnknown, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -631,7 +611,7 @@ InvalidArgumentError(const fmt::text_style &ts,
                      fmt::format_string<Args...> fmt,
                      Args &&...args) {
   return {Status::kInvalidArgument,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -640,7 +620,7 @@ DeadlineExceededError(const fmt::text_style &ts,
                       fmt::format_string<Args...> fmt,
                       Args &&...args) {
   return {Status::kDeadlineExceeded,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -648,8 +628,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 NotFoundError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
-  return {Status::kNotFound,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kNotFound, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -658,7 +637,7 @@ AlreadyExistsError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
   return {Status::kAlreadyExists,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -667,7 +646,7 @@ PermissionDeniedError(const fmt::text_style &ts,
                       fmt::format_string<Args...> fmt,
                       Args &&...args) {
   return {Status::kPermissionDenied,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -676,7 +655,7 @@ ResourceExhaustedError(const fmt::text_style &ts,
                        fmt::format_string<Args...> fmt,
                        Args &&...args) {
   return {Status::kResourceExhausted,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -685,7 +664,7 @@ FailedPreconditionError(const fmt::text_style &ts,
                         fmt::format_string<Args...> fmt,
                         Args &&...args) {
   return {Status::kFailedPrecondition,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -693,8 +672,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 AbortedError(const fmt::text_style &ts,
              fmt::format_string<Args...> fmt,
              Args &&...args) {
-  return {Status::kAborted,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kAborted, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -703,7 +681,7 @@ OutOfRangeError(const fmt::text_style &ts,
                 fmt::format_string<Args...> fmt,
                 Args &&...args) {
   return {Status::kOutOfRange,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -712,7 +690,7 @@ UnimplementedError(const fmt::text_style &ts,
                    fmt::format_string<Args...> fmt,
                    Args &&...args) {
   return {Status::kUnimplemented,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -720,8 +698,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 InternalError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
-  return {Status::kInternal,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kInternal, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -730,7 +707,7 @@ UnavailableError(const fmt::text_style &ts,
                  fmt::format_string<Args...> fmt,
                  Args &&...args) {
   return {Status::kUnavailable,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -738,8 +715,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 DataLossError(const fmt::text_style &ts,
               fmt::format_string<Args...> fmt,
               Args &&...args) {
-  return {Status::kDataLoss,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kDataLoss, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -748,7 +724,7 @@ UnauthenticatedError(const fmt::text_style &ts,
                      fmt::format_string<Args...> fmt,
                      Args &&...args) {
   return {Status::kUnauthenticated,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -757,7 +733,7 @@ ReturnMe(const fmt::text_style &ts,
          fmt::format_string<Args...> fmt,
          Args &&...args) {
   return {Status::kReturning,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -766,7 +742,7 @@ ParseError(const fmt::text_style &ts,
            fmt::format_string<Args...> fmt,
            Args &&...args) {
   return {Status::kParseError,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+          fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 
 template <typename... Args>
@@ -774,8 +750,7 @@ AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 LexError(const fmt::text_style &ts,
          fmt::format_string<Args...> fmt,
          Args &&...args) {
-  return {Status::kLexError,
-          fmt::format(ts, fmt, std::forward<decltype(args)>(args)...)};
+  return {Status::kLexError, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 #  endif
 

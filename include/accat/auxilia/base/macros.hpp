@@ -172,7 +172,7 @@
 #else
 #  define AC_FLATTEN
 #  define AC_NO_SANITIZE_ADDRESS
-#  define AC_FORCEINLINE inline
+#  define AC_FORCEINLINE
 #  define AC_NO_UNIQUE_ADDRESS
 #  define AC_DEBUG_FUNCTION_NAME __func__
 #endif

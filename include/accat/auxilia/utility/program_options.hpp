@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
-#include <format>
 #include <iostream>
 #include <ostream>
 #include <ranges>
@@ -94,11 +93,11 @@ public:
   /// @pre single value
   AC_NODISCARD auto value() const -> StatusOr<std::string_view> {
     if (values_.empty()) {
-      return NotFoundError(format("Option {} has no value.", name_));
+      return NotFoundError("Option {} has no value.", name_);
     }
     if (values_.size() > 1) {
-      return InvalidArgumentError(
-          format("Option {} does not have a single value.", name_));
+      return InvalidArgumentError("Option {} does not have a single value.",
+                                  name_);
     }
     return StatusOr<std::string_view>{values_[0]};
     // ^^^^^^^^^^^^^^^^^^^^^^^^^ workaround for MSCV C4927: illegal conversion;
@@ -109,13 +108,13 @@ private:
   AC_NODISCARD std::string help() const {
     std::string help_text = "  ";
     if (!shortname_.empty()) {
-      help_text += format("{}, ", shortname_);
+      help_text += Format("{}, ", shortname_);
     }
-    help_text += format("{}", name_);
+    help_text += Format("{}", name_);
     if (nargs_ != 0) {
       help_text += " <value>";
     }
-    help_text += format("\t\t{}\n", desc_);
+    help_text += Format("\t\t{}\n", desc_);
     return help_text;
   }
 
@@ -183,7 +182,7 @@ public:
     }
     // check conflicts
     if (auto *conflict = is_conflicting(opt)) {
-      error_msgs_.emplace_back(format(
+      error_msgs_.emplace_back(Format(
           "Option '{}' conflicts with existing option '{}'. This option will "
           "be ignored.",
           opt.name(),
@@ -194,7 +193,7 @@ public:
     auto [it, inserted] =
         options_.try_emplace(opt.name(), std::forward<Option>(opt));
     if (!inserted)
-      error_msgs_.emplace_back(format("Option already exists: {}", opt.name()));
+      error_msgs_.emplace_back(Format("Option already exists: {}", opt.name()));
 
     return it->second;
   }
@@ -245,14 +244,14 @@ private:
   auto check_reserved(const Option &opt) -> bool {
     if (opt.name() == "--help" || opt.name() == "--version") {
       error_msgs_.emplace_back(
-          format("Option name '{}' is reserved. Please use another name. "
+          Format("Option name '{}' is reserved. Please use another name. "
                  "This option will be ignored.",
                  opt.name()));
       return true;
     }
     if (opt.shortname() == "-h" || opt.shortname() == "-v") {
       error_msgs_.emplace_back(
-          format("Option shortname '{}' is reserved. Please use another "
+          Format("Option shortname '{}' is reserved. Please use another "
                  "shortname. This option will be ignored.",
                  opt.shortname()));
       return true;
@@ -306,11 +305,11 @@ public:
         if (!is_option(arg))
           positional_args_.emplace_back(arg);
         else
-          error_msgs_.emplace_back(format("Unknown option: {}", arg));
+          error_msgs_.emplace_back(Format("Unknown option: {}", arg));
         continue;
       }
       if (!opt->has_default_value_ && !opt->values_.empty()) {
-        error_msgs_.emplace_back(format(
+        error_msgs_.emplace_back(Format(
             "Option {} specified multiple times. Default to override...", arg));
       }
       // TODO: has default value and specified multiple times.
@@ -328,7 +327,7 @@ public:
           opt->values_.emplace_back(args[i]);
         } else {
           error_msgs_.emplace_back(
-              format("Option {} requires an argument.", arg));
+              Format("Option {} requires an argument.", arg));
         }
         continue;
       }
@@ -344,7 +343,7 @@ public:
     for (const auto &opt : options_ | std::views::values) {
       if (opt.required_ && opt.values_.empty()) {
         error_msgs_.emplace_back(
-            format("Required option {} is missing.", opt.name()));
+            Format("Required option {} is missing.", opt.name()));
       }
     }
 
@@ -352,7 +351,7 @@ public:
   }
   auto help(std::ostream &os = std::cerr) const -> void {
     using namespace auxilia::literals;
-    os << format("Usage: {} [options]\n\nOptions:\n", program_name_);
+    os << Format("Usage: {} [options]\n\nOptions:\n", program_name_);
     os << R"(
   -h, --help        Show this help message and exit
   -v, --version     Show program's version number and exit
@@ -363,7 +362,7 @@ public:
     }
   }
   auto version(std::ostream &os = std::cerr) const -> void {
-    os << format("{} version {}\n", program_name_, program_version_);
+    os << Format("{} version {}\n", program_name_, program_version_);
   }
 };
 namespace details {
@@ -387,7 +386,7 @@ inline auto get(std::string_view program_name) -> Parser & {
   if (auto p = find(program_name))
     return *p;
 
-  AC_THROW_OR_DIE_(format("Parser does not exist: {}", program_name));
+  AC_THROW_OR_DIE_(Format("Parser does not exist: {}", program_name));
 }
 inline auto erase(std::string_view program_name) -> bool {
   auto &parsers = details::_get_global_parsers();
