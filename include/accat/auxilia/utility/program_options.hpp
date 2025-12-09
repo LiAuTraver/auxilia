@@ -81,28 +81,31 @@ public:
     static_assert(
         (std::is_convertible_v<std::remove_cvref_t<Valty>, std::string> && ...),
         "All default values must be convertible to std::string");
-    (values_.emplace_back(std::forward<Valty>(values)), ...);
+    maybe_values_.emplace();
+    (maybe_values_->emplace_back(std::forward<Valty>(values)), ...);
     has_default_value_ = true;
     return *this;
   }
 
-  AC_NODISCARD auto values() const -> std::span<const std::string> {
-    return values_;
+  AC_NODISCARD auto values() const {
+    return maybe_values_ ? &*maybe_values_ : nullptr;
   }
 
   /// @pre single value
   AC_NODISCARD auto value() const -> StatusOr<std::string_view> {
-    if (values_.empty()) {
+    if (!has_values()) {
       return NotFoundError("Option {} has no value.", name_);
     }
-    if (values_.size() > 1) {
+    if (maybe_values_->size() > 1) {
       return InvalidArgumentError("Option {} does not have a single value.",
                                   name_);
     }
-    return StatusOr<std::string_view>{values_[0]};
+    return StatusOr<std::string_view>{(*maybe_values_)[0]};
     // ^^^^^^^^^^^^^^^^^^^^^^^^^ workaround for MSCV C4927: illegal conversion;
     // more than one user-defined conversion has been implicitly applied
   }
+
+  bool has_values() const { return maybe_values_ && !maybe_values_->empty(); }
 
 private:
   AC_NODISCARD std::string help() const {
@@ -126,7 +129,9 @@ private:
   std::string_view shortname_;
   // show message
   std::string_view desc_;
-  std::vector<std::string> values_;
+  /// workaround optional; Option cannot be constexpr-initialized due to
+  /// std::string; empty optional has zero-initialization for the holding value.
+  std::optional<std::vector<std::string>> maybe_values_;
   bool required_ = false;
   bool has_default_value_ = false;
   // 0: flag, 1 or '1': single value, '+': one or more
@@ -308,23 +313,23 @@ public:
           error_msgs_.emplace_back(Format("Unknown option: {}", arg));
         continue;
       }
-      if (!opt->has_default_value_ && !opt->values_.empty()) {
+      if (!opt->has_default_value_ && opt->has_values()) {
         error_msgs_.emplace_back(Format(
             "Option {} specified multiple times. Default to override...", arg));
       }
       // TODO: has default value and specified multiple times.
 
-      opt->values_.clear();
+      opt->maybe_values_.emplace();
 
       if (opt->nargs_ == 0) {
-        opt->values_.emplace_back("true");
+        opt->maybe_values_->emplace_back("true");
         continue;
       }
 
       if (opt->nargs_ == 1 or opt->nargs_ == '1') {
         if (i + 1 < args.size() && !is_option(args[i + 1])) {
           i++;
-          opt->values_.emplace_back(args[i]);
+          opt->maybe_values_->emplace_back(args[i]);
         } else {
           error_msgs_.emplace_back(
               Format("Option {} requires an argument.", arg));
@@ -336,12 +341,12 @@ public:
 
       while (i + 1 < args.size() && !is_option(args[i + 1])) {
         i++;
-        opt->values_.emplace_back(args[i]);
+        opt->maybe_values_->emplace_back(args[i]);
       }
     }
 
     for (const auto &opt : options_ | std::views::values) {
-      if (opt.required_ && opt.values_.empty()) {
+      if (opt.required_ && (!opt.maybe_values_ || opt.maybe_values_->empty())) {
         error_msgs_.emplace_back(
             Format("Required option {} is missing.", opt.name()));
       }

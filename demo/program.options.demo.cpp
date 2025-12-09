@@ -18,11 +18,11 @@ int main(int argc, char **argv) {
   }
 
   if (auto inputOpt = parser->get_option("--input");
-      inputOpt && !inputOpt->values().empty()) {
-    println("Input files: {}", fmt::join(inputOpt->values(), ", "));
+      inputOpt && inputOpt->has_values()) {
+    println("Input files: {}", fmt::join(*inputOpt->values(), ", "));
   }
   if (auto verboseOpt = parser->get_option("--verbose");
-      verboseOpt && !verboseOpt->values().empty()) {
+      verboseOpt && verboseOpt->has_values()) {
     Println("Verbose mode enabled");
   }
   if (auto outputOpt = parser->get_option("--output")) {

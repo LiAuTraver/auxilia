@@ -160,8 +160,13 @@ readfile(const std::basic_string_view<CharT> myPath) {
   }
 }
 template <typename CharT = char>
+bool writefile(std::filesystem::path &&myPath,
+               std::basic_string<CharT> &&myData) {
+  return writefile<CharT>(myPath.native(), std::move(myData));
+}
+template <typename CharT = char>
 bool writefile(const std::basic_string_view<CharT> myPath,
-               const std::basic_string_view<CharT> myData) {
+               std::basic_string<CharT> &&myData) {
   if constexpr (std::is_same_v<CharT, char>) {
     FILE *file = nullptr;
     AC_DEFER {

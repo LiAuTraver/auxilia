@@ -18,6 +18,8 @@ namespace accat::auxilia {
 using uint128_t = __uint128_t;
 #endif
 
+static inline constexpr auto _ = std::ignore;
+
 struct Monostate;
 struct Printable;
 struct Viewable;

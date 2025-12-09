@@ -15,43 +15,43 @@
 #  include <fmt/xchar.h>
 namespace accat::auxilia {
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Format(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Format(fmt::text_style ts, fmt::wformat_string<T...> fmt, T &&...args) {
   return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Print(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   return ::fmt::print(
       ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Print(::std::FILE *f,
-                  fmt::text_style ts,
-                  fmt::format_string<T...> fmt,
-                  T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Print(::std::FILE *f,
+                                            fmt::text_style ts,
+                                            fmt::format_string<T...> fmt,
+                                            T &&...args) {
   return ::fmt::print(f,
                       ::std::forward<fmt::text_style>(ts),
                       (fmt),
                       ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
   ::fmt::print(
       ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
   ::putchar('\n');
 }
 template <typename... T>
-inline auto Println(::std::FILE *f,
-                    fmt::text_style ts,
-                    fmt::format_string<T...> fmt,
-                    T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Println(::std::FILE *f,
+                                              fmt::text_style ts,
+                                              fmt::format_string<T...> fmt,
+                                              T &&...args) {
   ::fmt::print(f,
                ::std::forward<fmt::text_style>(ts),
                (fmt),
@@ -67,85 +67,89 @@ template <typename... T> using FormatString = AC_STD_OR_FMT format_string<T...>;
 
 // omit the locale overload
 template <typename... T>
-AC_NODISCARD inline auto Format(AC_STD_OR_FMT format_string<T...> fmt,
-                                T &&...args) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN inline auto
+Format(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT format((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
-AC_NODISCARD inline auto Format(T &&...args) {
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN inline auto Format(T &&...args) {
   return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
 }
 
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Print(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Print(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto
+Print(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Print(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Print(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto
+Print(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Print(::std::ostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT print(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
-inline auto Print(T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Print(T &&...args) {
   return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Println(::std::ostream &os,
-                    AC_STD_OR_FMT format_string<T...> fmt,
-                    T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Println(
+    ::std::ostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println(os, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Println(::std::wostream &os,
-                    AC_STD_OR_FMT format_string<T...> fmt,
-                    T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Println(
+    ::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println(os, (fmt), ::std::forward<T>(args)...);
 }
 
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Println(::std::FILE *f, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Println(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto
+Println(AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println((fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto
+AC_FORCEINLINE AC_FLATTEN inline auto
 Println(::std::FILE *f, AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println(f, (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
-inline auto Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto
+Println(AC_STD_OR_FMT wformat_string<T...> fmt, T &&...args) {
   return AC_STD_OR_FMT println((fmt), ::std::forward<T>(args)...);
 }
-inline auto Println(void) { return AC_STD_OR_FMT println(""); }
+AC_FORCEINLINE AC_FLATTEN inline auto Println(void) {
+  return AC_STD_OR_FMT println("");
+}
 
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
-inline auto Println(T &&...args) {
+AC_FORCEINLINE AC_FLATTEN inline auto Println(T &&...args) {
   return AC_STD_OR_FMT print(("{}\n"), ::std::forward<T>(args)...);
 }
 } // namespace accat::auxilia
