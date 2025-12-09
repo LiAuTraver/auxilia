@@ -54,9 +54,6 @@
 /// @see P2961R2
 /// https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2961r2.pdf
 #  define contract_assert(...) AC_RUNTIME_ASSERT(__VA_ARGS__)
-/// @def contract_check(condition, message)
-/// @brief handy macro for checking whether a condition holds true
-#  define contract_check(_cond_) AC_RUNTIME_ASSERT(_cond_, "expect " #_cond_)
 #  define precondition(...) AC_PRECONDITION(__VA_ARGS__)
 #  define postcondition(...) AC_POSTCONDITION(__VA_ARGS__);
 #  define dbg(...) AC_DEBUG_LOGGING(__VA_ARGS__)

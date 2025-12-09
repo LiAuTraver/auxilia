@@ -63,6 +63,7 @@ inline auto Println(::std::FILE *f,
 namespace accat::auxilia {
 template <typename T, typename Char = char>
 concept Formattable = AC_STD_OR_FMT formattable<T, Char>;
+template <typename... T> using FormatString = AC_STD_OR_FMT format_string<T...>;
 
 // omit the locale overload
 template <typename... T>
@@ -212,6 +213,9 @@ enum class FormatPolicy : unsigned char {
 /// @note use public inheritance to make fmt::print work.
 struct AC_NOVTABLE AC_EMPTY_BASES Printable {
 
+private:
+  template <typename Ty> struct please_define_to_string_method_for;
+
 protected:
   using string_type = std::string;
   template <typename T>
@@ -219,8 +223,10 @@ protected:
   friend auto operator<<(std::ostream &os, const T &p) -> std::ostream & {
     if constexpr (requires { p.to_string(FormatPolicy::kDefault); }) {
       return os << p.to_string(FormatPolicy::kDefault);
-    } else {
+    } else if constexpr (requires { p.to_string(); }) {
       return os << p.to_string();
+    } else {
+      please_define_to_string_method_for<T>{};
     }
   }
   template <typename T>
@@ -231,8 +237,10 @@ protected:
       -> Printable::string_type {
     if constexpr (requires { p.to_string(format_policy); }) {
       return p.to_string(format_policy);
-    } else {
+    } else if constexpr (requires { p.to_string(); }) {
       return p.to_string();
+    } else {
+      please_define_to_string_method_for<T>{};
     }
   }
 
@@ -250,6 +258,9 @@ public:
 
 /// @interface Viewable
 struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
+private:
+  template <typename Ty> struct please_define_to_string_view_method_for;
+
 protected:
   using string_view_type = std::string_view;
   template <typename T>
@@ -257,18 +268,24 @@ protected:
   friend auto operator<<(std::ostream &os, const T &v) -> std::ostream & {
     if constexpr (requires { v.to_string_view(FormatPolicy::kDefault); }) {
       return os << v.to_string_view(FormatPolicy::kDefault);
-    } else {
+    } else if constexpr (requires { v.to_string_view(); }) {
       return os << v.to_string_view();
+    } else {
+      please_define_to_string_view_method_for<T>{};
     }
   }
   template <typename T>
     requires std::is_base_of_v<Viewable, T>
-  AC_NODISCARD friend auto operator<<(std::wostream &os, const T &v)
-      -> std::wostream & {
-    if constexpr (requires { v.to_string_view(FormatPolicy::kDefault); }) {
-      return os << v.to_string_view(FormatPolicy::kDefault);
+  AC_NODISCARD friend auto
+  format_as(const T &v,
+            const FormatPolicy format_policy = FormatPolicy::kDefault)
+      -> Viewable::string_view_type {
+    if constexpr (requires { v.to_string_view(format_policy); }) {
+      return v.to_string_view(format_policy);
+    } else if constexpr (requires { v.to_string_view(); }) {
+      return v.to_string_view();
     } else {
-      return os << v.to_string_view();
+      please_define_to_string_view_method_for<T>{};
     }
   }
 

@@ -496,8 +496,11 @@ inline constexpr const char *const _plain_error_message_ =
 #endif
 
 namespace accat::auxilia::details {
-/// @see
+/// see
 /// https://stackoverflow.com/questions/32432450/what-is-standard-defer-finalizer-implementation-in-c
+///
+/// Neargye also has an implementation in their library, see
+/// https://github.com/Neargye/scope_guard
 EXPORT_AUXILIA
 struct _deferer_helper_struct_ {};
 template <class Fun_> struct _deferrer_ {
