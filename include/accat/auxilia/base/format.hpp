@@ -108,7 +108,7 @@ Print(::std::wostream &os, AC_STD_OR_FMT format_string<T...> fmt, T &&...args) {
 template <typename... T>
   requires(!std::is_same_v<AC_STD_OR_FMT format_string<T...>, T...>)
 inline auto Print(T &&...args) {
-  return AC_STD_OR_FMT format(("{}"), ::std::forward<T>(args)...);
+  return AC_STD_OR_FMT print(("{}"), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Println(::std::ostream &os,
