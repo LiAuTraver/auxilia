@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+
 using namespace accat::auxilia::program_options;
 
 TEST(Options, Parsing) {
@@ -15,13 +16,13 @@ TEST(Options, Parsing) {
 
   auto help_opt = parser.get_option("--my-help");
   ASSERT_NE(help_opt, nullptr);
-  EXPECT_TRUE(help_opt->values());
-  EXPECT_EQ((*help_opt->values())[0], "true");
+  EXPECT_FALSE(help_opt->values().empty());
+  EXPECT_EQ(help_opt->values()[0], "true");
 
   auto output_opt = parser.get_option("--output");
   ASSERT_NE(output_opt, nullptr);
-  EXPECT_TRUE(output_opt->values());
-  EXPECT_EQ((*output_opt->values())[0], "file.txt");
+  EXPECT_FALSE(output_opt->values().empty());
+  EXPECT_EQ(output_opt->values()[0], "file.txt");
 }
 
 TEST(Options, Required) {
@@ -49,7 +50,7 @@ TEST(Options, Positional) {
 
   auto other_opt = parser.get_option("--other");
   ASSERT_NE(other_opt, nullptr);
-  EXPECT_EQ(other_opt->values()->size(), 1);
+  EXPECT_EQ(other_opt->values().size(), 1);
 }
 
 TEST(Options, Default) {
@@ -59,8 +60,8 @@ TEST(Options, Default) {
   EXPECT_TRUE(p1.parse(args1));
   auto level_opt1 = p1.get_option("--level");
   ASSERT_NE(level_opt1, nullptr);
-  ASSERT_EQ(level_opt1->values()->size(), 1);
-  EXPECT_EQ((*level_opt1->values())[0], "info");
+  ASSERT_EQ(level_opt1->values().size(), 1);
+  EXPECT_EQ(level_opt1->values()[0], "info");
 
   auto p2 = Local("test2", "1.0");
   p2.add_option("--level", "-l").nargs('1').default_value("info");
@@ -68,8 +69,8 @@ TEST(Options, Default) {
   EXPECT_TRUE(p2.parse(args2));
   auto level_opt2 = p2.get_option("--level");
   ASSERT_NE(level_opt2, nullptr);
-  ASSERT_EQ(level_opt2->values()->size(), 1);
-  EXPECT_EQ((*level_opt2->values())[0], "debug");
+  ASSERT_EQ(level_opt2->values().size(), 1);
+  EXPECT_EQ(level_opt2->values()[0], "debug");
 }
 
 TEST(Options, HelpAndVersion) {
