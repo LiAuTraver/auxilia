@@ -161,20 +161,16 @@ readfile(const std::basic_string_view<CharT> myPath) {
   }
 }
 template <typename CharT = char>
-bool writefile(std::filesystem::path &&myPath,
+bool writefile(const std::filesystem::path &myPath,
                std::basic_string<CharT> &&myData) {
-  return writefile<CharT>(myPath.native(), std::move(myData));
-}
-template <typename CharT = char>
-bool writefile(const std::basic_string_view<CharT> myPath,
-               std::basic_string<CharT> &&myData) {
+  const auto pathStr = myPath.string();
   if constexpr (std::is_same_v<CharT, char>) {
     FILE *file = nullptr;
     AC_DEFER {
       if (file)
         ::fclose(file);
     };
-    if (::fopen_s(&file, myPath.data(), "wb") || !file)
+    if (::fopen_s(&file, pathStr.data(), "wb") || !file)
       return false;
 
     const size_t written = ::fwrite(myData.data(), 1, myData.size(), file);
@@ -185,7 +181,7 @@ bool writefile(const std::basic_string_view<CharT> myPath,
     std::basic_filebuf<CharT> myfb;
     AC_DEFER { myfb.close(); };
 
-    if (!myfb.open(myPath, std::ios::out | std::ios::binary))
+    if (!myfb.open(pathStr.data(), std::ios::out | std::ios::binary))
       return false;
 
     const auto written = myfb.sputn(myData.data(), myData.size());
