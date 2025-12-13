@@ -18,16 +18,39 @@ namespace accat::auxilia {
 /// @tparam ReturnType the type of the value to be returned, usually
 /// its 'void' for no return value(infinite sequence generator)
 /// @tparam AllocatorType the allocator type to be used for the generator
-/// @note I used this in some cases where std::geneartor isn't available yet.
-/// Currently there's no plan for me to implement standard-complient features
-/// like recursive generators, type-erasure, polymorphic
-/// resources(std::pmr::meow), and reference types(not sure of this though).
+/// @note Code should use `std::generator` when it's widely provided; as said
+/// below, this class does not compilant with standard and lacks `Ref`/`RRef`
+/// yield type member types and more.
+/// @attention I used this in some cases where std::geneartor isn't available
+/// yet. Currently there's no plan for me to implement standard-complient
+/// features, like: polymorphic resources(`std::pmr::meow`), or resursive
+/// generator, like:
+/// @code
+/// template <typename Ty>
+/// using generator_t = Generator<T>;
+/// struct Node;
+/// using NodePtr = std::unique_ptr<Node>;
+/// struct Node {
+///   int value;
+///   NodePtr left;
+///   NodePtr right;
+/// };
+/// // change the order of co_yield to get different traversal orders
+/// generator_t<Node *> pre_order(NodePtr &root) {
+///   if (root == nullptr)
+///     co_return;
+///
+///   co_yield root.get();
+///   co_yield std::ranges::elements_of(pre_order(root->left));
+///   co_yield std::ranges::elements_of(pre_order(root->right));
+/// }
+/// @endcode
+/// They are too complicated and far beyond my skills to implement.
+/// In such case, just use `std::generator` or other library instead.
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class [[using clang:
-        // coro_return_type,
-        coro_lifetimebound]] Generator
+class [[using clang: coro_lifetimebound]] [[nodiscard]] Generator
     : public std::ranges::view_interface<
           Generator<YieldType, ReturnType, AllocatorType>> {
   static_assert(
@@ -57,6 +80,7 @@ private:
     friend class Generator;
     ~promise_type_base() {}
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    // actually a shared_ptr(for MSVC STL), pay it once anyways
     std::exception_ptr exception;
 #endif
 
@@ -86,7 +110,7 @@ private:
 
   public:
 #else
-    void unhandled_exception()/* const, but for ABI compatibility, we don't add it */ noexcept {}
+    void unhandled_exception()/* const, but we don't add it to align with above^^^ */ noexcept {}
 #endif
 
     using CharAlloc = typename std::allocator_traits<

@@ -62,6 +62,8 @@ StatementMacros:
   - contract_check
   - precondition
   - postcondition
+  - ac_unreachable
+  - AC_UNREACHABLE
   - AC_PRECONDITION
   - AC_POSTCONDITION
   - AC_RUNTIME_ASSERT

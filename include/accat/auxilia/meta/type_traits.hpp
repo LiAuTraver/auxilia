@@ -175,7 +175,7 @@ template <typename Ty>
 struct is_arithmetic : bool_constant<is_arithmetic_v<Ty>> {};
 
 template <typename> struct always_false {
-  constexpr always_false(auto &&.../* descriptive messages */) noexcept {}
+  consteval always_false(auto &&.../* descriptive messages */) noexcept {}
 
   static_assert(false);
 };

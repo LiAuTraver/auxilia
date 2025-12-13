@@ -1,4 +1,4 @@
-﻿//===-------- defines.hpp - Auxilia Library Header -------*- C++ -*-===//
+//===-------- defines.hpp - Auxilia Library Header -------*- C++ -*-===//
 //
 // Part of the auxilia project.
 // Licensed under the Apache License v2.0.
@@ -62,6 +62,7 @@
 #define dbg_block AC_DEBUG_BLOCK
 #define dbg_only(...) AC_DEBUG_ONLY(__VA_ARGS__)
 #define dbg_break AC_DEBUG_BREAK
+#define ac_unreachable(...) AC_UNREACHABLE(__VA_ARGS__)
 
 /// @def TODO mimic from kotlin's `TODO` function, which throws an
 /// exception and is also discoverable
