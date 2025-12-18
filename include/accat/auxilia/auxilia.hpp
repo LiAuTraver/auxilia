@@ -45,3 +45,4 @@
 #include "meta/type_traits.hpp"        // IWYU pragma: export
 #include "container/chars.hpp"         // IWYU pragma: export
 #include "container/Trie.hpp"          // IWYU pragma: export
+#include "utility/Noise.hpp"           // IWYU pragma: export

@@ -342,6 +342,7 @@ public:
     return Format("Status {}: {}", raw_code(), my_message);
   }
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
+  /// @brief just a shorthand to move the StatusOr object.
   inline auto rvalue(this auto &&self) { return std::move(self); }
 #  else
   inline auto rvalue() & { return std::move(*this); }

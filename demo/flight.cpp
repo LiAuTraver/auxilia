@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cstddef>
@@ -7,6 +8,8 @@
 
 #include <accat/auxilia/auxilia.hpp>
 #include <accat/auxilia/defines.hpp>
+#include "accat/auxilia/status/StatusOr.hpp"
+#include "accat/auxilia/utility/Noise.hpp"
 
 using namespace accat::auxilia;
 // unused vvv
@@ -186,13 +189,24 @@ static_assert(sizeof(parent) == sizeof(exemplar));
 static_assert(alignof(parent) == alignof(exemplar));
 
 int main() {
-  parent p;
-  p.foo = 100;
+  StatusOr<Noise<>> s1 = Noise<>();
+  std::move(s1)
+      .and_then([](auto &&val) {
+        Println("Got Noise from StatusOr");
+        return StatusOr<Noise<>>(std::move(val));
+      })
+      .and_then([](auto &&val) {
+        Println("Chained Noise from StatusOr");
+        return StatusOr<Noise<>>(std::move(val));
+      })
+      .transform([](auto &&val) { std::cout << val; });
+  // parent p;
+  // p.foo = 100;
 
-  p.bar = "hello world";
+  // p.bar = "hello world";
 
-  auto x = p.bar.size();
-  assert(x == 11);
+  // auto x = p.bar.size();
+  // assert(x == 11);
 
-  return p.foo;
+  // return p.foo;
 }

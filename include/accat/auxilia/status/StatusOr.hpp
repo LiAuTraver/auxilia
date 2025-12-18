@@ -549,11 +549,27 @@ public:
 #  endif
 #  undef AC_DOLL_ASSERT
   /// @deprecated just uses operator=(StatusOr &&that) instead.
-  [[clang::reinitializes]] inline auto reset(const Ty &value = {}) AC_NOEXCEPT {
+  [[clang::reinitializes]] constexpr inline auto reset(const Ty &value = {})
+      AC_NOEXCEPT {
     my_value = std::move(value);
     my_code = kOk;
     my_message.clear();
     return *this;
+  }
+  /// @brief Converts the StatusOr to a std::optional; ownership is transferred.
+  constexpr inline auto to_optional(this auto &&self) AC_NOEXCEPT
+      -> std::optional<value_type> {
+    static_assert(
+        std::is_rvalue_reference_v<decltype(self)>,
+        "This method exists as a shorthand to integrate StatusOr "
+        "with std::optional, so there's hardly the point to not to "
+        "`move` out of the underlying value. please move the object before "
+        "callying this function.");
+    if (self.ok()) {
+      return std::make_optional(std::forward<decltype(self)>(self).my_value);
+    } else {
+      return std::nullopt;
+    }
   }
 
 public:

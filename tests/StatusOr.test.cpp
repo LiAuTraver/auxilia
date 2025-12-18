@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "accat/auxilia/utility/Noise.hpp"
 
 using namespace accat::auxilia;
 
@@ -99,4 +100,23 @@ TEST(StatusOr, MonadicTransform) {
                            return 44;
                          });
   EXPECT_EQ(another_int.value(), 44);
+}
+
+TEST(StatusOr, ToOptional) {
+  auto s1 = getValue(true);
+  EXPECT_TRUE(s1.ok());
+  auto opt1 = s1.rvalue().to_optional();
+  EXPECT_EQ(*opt1, 42);
+  // s1 stores an int which is trivially copyable; hence we need a different way
+  // to test
+
+  auto s2 = StatusOr(std::string("hello"));
+  EXPECT_TRUE(s2.ok());
+  auto opt_str = s2.rvalue().to_optional();
+  EXPECT_EQ(*opt_str, "hello");
+
+  EXPECT_TRUE(s2.code() == Status::Code::kMovedFrom); // moved from
+
+  auto opt2 = getValue(false).to_optional();
+  EXPECT_FALSE(opt2.has_value());
 }

@@ -83,9 +83,7 @@ template <typename CharType = char>
 auto as_raw_bytes(const std::basic_string<CharType> &data) {
   // clang-format off
   return data 
-          | std::views::transform([](auto &&c) {
-              return static_cast<std::byte>(c);
-            })
+          | std::views::transform(&as<std::byte,CharType>)
           | std::views::common
           | std::ranges::to<std::vector<std::byte>>();
   // clang-format on

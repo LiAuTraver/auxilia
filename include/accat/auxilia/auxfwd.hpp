@@ -85,6 +85,14 @@ template <typename Instance,
           Field (Instance::*getter)() const,
           ReturnType (Instance::*setter)(const Field &)>
 struct Property;
+/// @file accat/auxilia/utility/Noise.hpp
+template <const basic_chars_storage,
+          const basic_chars_storage,
+          const basic_chars_storage,
+          const basic_chars_storage,
+          const basic_chars_storage,
+          const basic_chars_storage>
+struct Noise;
 /// @file accat/auxilia/status/Status.hpp
 class Status;
 /// @file accat/auxilia/status/StatusOr.hpp
