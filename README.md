@@ -115,6 +115,25 @@ std::println("{}", v); // prints "class accat::auxilia::Variant<struct accat::au
 std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
 ```
 
+- `Noise`: A utility class to track object lifetimes and copy/move operations for debugging purposes. For example, we got best performance of monadic function of `StatusOr` only follows:
+
+```cpp
+  StatusOr<Noise<>>() // rvalue, otherwise copy ctor will be called
+      .and_then([](auto &&val) {
+        Println("Got Noise from StatusOr");
+        return StatusOr<Noise<>>(std::move(val)); // move ctor, otherwise copied
+      })
+      .and_then([](auto &&val) {
+        Println("Chained Noise from StatusOr");
+        return StatusOr<Noise<>>(std::move(val)); // ditto
+      })
+      .transform([](auto &&val) {
+        std::cout << val;
+      });
+```
+
+> Don't use `Noise` in production code where RTTI is enabled, since it's message is derived from NTTP; the typeinfo would be hilariously long.
+
 - `Property`: C#-like property system for C++ full of syntax sugar.
 
 - `Printable`,`Viewable`: template-less static interface for `fmt::print` and `fmt::format_to`, or possibly `std::print` and `std::format_to` in C++23.
@@ -122,7 +141,7 @@ std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!
 ```cpp
 struct MyStruct : Printable {
   // no need to override
-  auto to_string(const accat::auxilia::FormatPolicy policy = accat::auxilia::FormatPolicy::kDefault) const -> string_type {
+  auto to_string(const ::accat::auxilia::FormatPolicy policy = ::accat::auxilia::FormatPolicy::kDefault) const -> string_type {
     return "a string";
   }
 };

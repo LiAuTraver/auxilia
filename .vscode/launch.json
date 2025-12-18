@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "name": "Current Target",
+      "name": "Current Target - ms cpp",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${command:cmake.launchTargetPath}",
@@ -9,6 +9,16 @@
       "stopAtEntry": false,
       "cwd": "${command:cmake.launchTargetDirectory}",
       "environment": [],
+      "console": "internalConsole"
+    },
+    {
+      "name": "Current Target - lldb-dap",
+      "type": "lldb-dap",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [],
+      "cwd": "${command:cmake.launchTargetDirectory}",
+      "stopOnEntry": false,
       "console": "internalConsole"
     }
   ]
