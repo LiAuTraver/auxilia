@@ -130,8 +130,7 @@ StatusOr<DFA> DFA::FromNFA(const NFA &nfa) {
   return {std::move(dfa)};
 }
 auxilia::StatusOr<DFA> DFA::FromRegex(const std::string_view sv) {
-  return NFA::FromRegex(sv).and_then(
-      [](auto &&nfa) { return DFA::FromNFA(nfa); });
+  return NFA::FromRegex(sv).and_then(DFA::FromNFA);
 }
 auto DFA::initial_partition(const StatesTy &states) -> PartitionsTy {
   PartitionsTy partitions;
