@@ -336,6 +336,15 @@ public:
     // else do nothing
   }
 
+  AC_CONSTEXPR20 inline auto
+  swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::string_type>)
+      -> void {
+    using ::std::swap;
+    AC_STATIC_ASSERT(std::is_nothrow_swappable_v<Status::Code>, "not fail");
+    swap(my_code, that.my_code);
+    swap(my_message, that.my_message);
+  }
+
 public:
   inline auto to_string(const FormatPolicy = FormatPolicy::kDefault) const
       -> string_type {

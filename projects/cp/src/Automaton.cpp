@@ -13,8 +13,6 @@
 
 #include "Automaton.hpp"
 
-#include "NFA.hpp"
-
 #include "accat/auxilia/container/chars.hpp"
 #include "accat/auxilia/status/Status.hpp"
 
@@ -110,51 +108,58 @@ void _automaton_base::closure(std::unordered_set<size_t> &state_set,
                               const char ch) const {
 
   // FIXME: poor use of vec
-  std::vector stack(state_set.begin(), state_set.end());
+  // R1:    changed vec to stack
+  std::stack stack(std::from_range, state_set);
   while (!stack.empty()) {
-    size_t current = stack.back();
-    stack.pop_back();
-    for (const auto &edge : states.at(current).edges) {
-      if (edge.symbol == ch && state_set.emplace(edge.target_id).second) {
-        // second is true if insertion took place
-        stack.emplace_back(edge.target_id);
-      }
-    }
+    auto current = stack.top();
+    stack.pop();
+    std::ranges::for_each(
+        states.at(current).edges | std::views::as_const, [&](auto &&edge) {
+          edge.symbol == ch &&
+                             // whether the target state is already in the set
+                             state_set.emplace(edge.target_id)
+                                 .second
+                                     // second is true if insertion took place
+                                     &&stack.emplace(edge.target_id);
+        });
   }
 }
-_automaton_base::Fragment _automaton_base::from_char(const char c) {
-  const auto s = new_state(State::Type::kIntermediate);
-  const auto a = new_state(State::Type::kIntermediate);
-  add_transition(s, a, c);
-  return {s, a};
+auto _automaton_base::from_char(const char c) -> Fragment {
+  const auto beg = new_state();
+  const auto end = new_state();
+  add_transition(beg, end, c);
+  return {beg, end};
 }
-_automaton_base::Fragment _automaton_base::concat(Fragment &&lhs,
-                                                  Fragment &&rhs) {
-  add_transition(lhs.end, rhs.start, '\0');
-  return {lhs.start, rhs.end};
+auto _automaton_base::concat(Fragment &&a, Fragment &&b) -> Fragment {
+  add_transition(a.end, b.start);
+  return {a.start, b.end};
 }
-_automaton_base::Fragment _automaton_base::union_operation(Fragment &&a,
-                                                           Fragment &&b) {
-  const auto s = new_state(State::Type::kIntermediate);
-  const auto acc = new_state(State::Type::kIntermediate);
+auto _automaton_base::union_operation(Fragment &&a, Fragment &&b) -> Fragment {
+  const auto beg = new_state();
+  const auto end = new_state();
+  // ... beg a|b end ...
+  add_transition(beg, a.start);
+  add_transition(beg, b.start);
 
-  add_transition(s, a.start, '\0');
-  add_transition(s, b.start, '\0');
-
-  add_transition(a.end, acc, '\0');
-  add_transition(b.end, acc, '\0');
-  return {s, acc};
+  add_transition(a.end, end);
+  add_transition(b.end, end);
+  return {beg, end};
 }
-_automaton_base::Fragment _automaton_base::kleene_star(Fragment &&f) {
-  const auto s = new_state(State::Type::kIntermediate);
-  const auto acc = new_state(State::Type::kIntermediate);
+auto _automaton_base::kleene_star(Fragment &&f) -> Fragment {
+  const auto beg = new_state();
+  const auto end = new_state();
 
-  add_transition(s, f.start, '\0');
-  add_transition(s, acc, '\0');
+  // ... beg a* end ...
+  add_transition(beg, f.start);
+  add_transition(f.end, end);
 
-  add_transition(f.end, f.start, '\0');
-  add_transition(f.end, acc, '\0');
-  return {s, acc};
+  // 0 occurrence
+  add_transition(beg, end);
+
+  // more occurrences
+  add_transition(f.end, f.start);
+
+  return {beg, end};
 }
 auto _automaton_base::_dot_transitions() const -> std::string {
   using auxilia::literals::operator""_raw;
@@ -170,7 +175,7 @@ auto _automaton_base::_dot_transitions() const -> std::string {
   }
   return dot;
 }
-bool _automaton_base::test(std::string_view input) {
+bool _automaton_base::test(const std::string_view input) {
   if (empty())
     return input.empty();
 

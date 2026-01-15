@@ -77,6 +77,10 @@ protected:
     string_type to_string(
         auxilia::FormatPolicy policy = auxilia::FormatPolicy::kDefault) const;
   };
+  /// we automatically infer input alphabet from a given regex.
+  ///
+  /// note: currently only english letters, digits and common symbols are
+  /// supported.
   std::string input_alphabet;
   std::unordered_map<size_t, State> states;
   // conceptually we can have multiple start states,
@@ -98,7 +102,7 @@ protected:
   }
   void
   add_transition(const size_t from, const size_t to, const char symbol = '\0') {
-    AC_PRECONDITION(from < states.size() && to < states.size(), "out of range")
+    precondition(from < states.size() && to < states.size(), "out of range")
     states[from].edges.emplace(to, symbol);
   }
   void closure(std::unordered_set<size_t> &state_set, char ch) const;
@@ -113,15 +117,22 @@ protected:
   [[nodiscard]] bool empty() const noexcept {
     return states.empty() && start_id == auxilia::npos && accept_ids.empty();
   }
-
+  [[nodiscard]]
   Fragment from_char(char c);
-  Fragment concat(Fragment &&lhs, Fragment &&rhs);
+  /// @brief Concatenate two fragments: f = ab
+  [[nodiscard]]
+  Fragment concat(Fragment &&a, Fragment &&b);
+  /// @brief Union of two fragments: f = a | b
+  [[nodiscard]]
   Fragment union_operation(Fragment &&a, Fragment &&b);
+  /// @brief Kleene star of a fragment: f = a* = aaaa...
+  [[nodiscard]]
   Fragment kleene_star(Fragment &&f);
   [[nodiscard]] auto _dot_transitions() const -> std::string;
-  bool test(std::string_view input);
-  auto to_dot(this const auto &self,
-              auxilia::FormatPolicy policy = auxilia::FormatPolicy::kDefault)
+  [[nodiscard]] bool test(std::string_view input);
+  [[nodiscard]] auto
+  to_dot(this const auto &self,
+         auxilia::FormatPolicy policy = auxilia::FormatPolicy::kDefault)
       -> std::string;
   [[nodiscard]] auto to_string(
       auxilia::FormatPolicy policy = auxilia::FormatPolicy::kDefault) const

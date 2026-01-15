@@ -73,10 +73,10 @@ private:
     using rhs_elem_view_t = rhs_view_t<elem_t>;
     using rhs_t = rhs_container_t<rhs_elem_t>;
     using set_t = std::unordered_set<string_type>;
-    bool nullable(Grammar *);
-    bool endable() const;
     string_type to_string(
         auxilia::FormatPolicy = auxilia::FormatPolicy::kDefault) const;
+    bool nullable(Grammar *g) { return nullable_.value_or(_do_nullable(g)); }
+    bool endable() const { return follow_set_.contains(EndMarker); }
     auto &lhs() const noexcept { return lhs_; }
     auto &rhs() const noexcept { return rhs_; }
     auto &first_set() const noexcept { return first_set_; }
@@ -95,6 +95,10 @@ private:
     /// ditto, store when `is_nullable` is called, used in `isLL1`.
     rhs_container_t<bool> cache_rhsElemNullable;
     std::optional<bool> nullable_;
+
+  private:
+    // Only Piece::nullable_ should be modifiable
+    bool _do_nullable(Grammar *);
   };
   std::vector<Piece> pieces_;
   std::unordered_set<string_type> terminals_;

@@ -768,13 +768,13 @@ auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
       table;
 
   std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
-    for (auto &&[selectSet, rhs] :
-         rv::zip(piece.cache_selectSet_, piece.rhs_)) {
-
-      std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
-        table[piece.lhs_].emplace(terminalSymbol, rhs);
-      });
-    }
+    std::ranges::for_each(
+        rv::zip(piece.cache_selectSet_, piece.rhs_), [&](auto &&pair) {
+          auto &&[selectSet, rhs] = pair;
+          std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
+            table[piece.lhs_].emplace(terminalSymbol, rhs);
+          });
+        });
   });
 
   for (const auto &token : elems) {
@@ -874,7 +874,7 @@ auto Grammar::parse(Piece::rhs_elem_view_t &&elems) -> auxilia::Status {
     return UnimplementedError(
         "Not implemented for the grammar that is not LL1. ");
 
-  return _do_parse(std::move(elems));
+  return _do_parse(std::forward<decltype(elems)>(elems));
 }
 #pragma endregion Parse
 } // namespace accat::cp

@@ -1,4 +1,5 @@
 #include <accat/auxilia/auxilia.hpp>
+#include <ranges>
 
 #include "Automaton.hpp"
 #include "DFA.hpp"
@@ -142,7 +143,10 @@ auto DFA::initial_partition(const StatesTy &states) -> PartitionsTy {
     else
       non_accept_states.emplace(sid);
   }
-  AC_RUNTIME_ASSERT(!accept_states.empty(), "");
+  contract_assert(
+      !accept_states.empty(),
+      "accept states is empty in initial partitioning; should not happen");
+
   partitions.emplace_back(std::move(accept_states));
 
   if (!non_accept_states.empty())
@@ -211,83 +215,108 @@ void DFA::rebuild_from_partitions(const PartitionsTy &partitions) {
 }
 void DFA::hopcroft(PartitionsTy &partitions) const {
   // init W to { F, Q / F }.
-  // NOTE:
-  // initialize only to { F } according to some references is WRONG here(?)
-  std::vector<size_t> worklist;
-  worklist.emplace_back(0);
-  worklist.emplace_back(1);
+  // IMPORTANT NOTE:
+  // initialize only to { F } according to some references is WRONG here
+  std::vector<size_t> worklist{0, 1};
 
-  while (!worklist.empty()) {
+  do {
     const size_t A_idx = worklist.back();
     worklist.pop_back();
     const auto A = partitions[A_idx]; // copy, we need the snapshot of A
 
-    for (const auto c : input_alphabet) {
-      PartitionTy S;
+    std::ranges::for_each(input_alphabet, [&](const auto c) {
+      // S := { q in Q | δ(q, c) in A }
+      const auto S = [&]() {
+        PartitionTy S;
+        S.reserve(states.size() / 4); // rough estimate
 
-      // S = { q \in Q | \delta(q, c) \in A }
-      for (const auto &[sid, q] : states) {
-        const auto &edges = q.edges;
-        const auto it = std::ranges::find(edges, c, &Transition::symbol);
-        if (it == edges.end())
-          continue;
-        if (A.contains(it->target_id))
-          S.emplace(sid);
-      }
+        std::ranges::for_each(
+            this->states | std::views::as_const, [&](auto &&pair) {
+              const auto &[sid, q] = pair;
+              const auto it =
+                  std::ranges::find(q.edges, c, &Transition::symbol);
+              if (it != q.edges.end() && A.contains(it->target_id))
+                S.emplace(sid);
+            });
+        return S;
+      }();
+
       if (S.empty())
-        continue;
+        return; // nothing to split
 
       // modify partitions safely via interating through index.
-      // precondition see below
+      // precondition: both Y1 and Y2 are not empty.
       for (auto Y_idx = 0ull; Y_idx < partitions.size(); ++Y_idx) {
         const auto &Y = partitions[Y_idx];
 
-        // Y1 = Y \cap S, Y2 = Y \setminus S ( cap: ∩ set minus/diff: \ )
         PartitionTy Y1;
         PartitionTy Y2;
         Y1.reserve(std::ranges::min(Y.size(), S.size()));
         Y2.reserve(Y.size());
 
-        for (const auto state_idx : Y) {
-          if (S.contains(state_idx))
-            Y1.emplace(state_idx);
-          else
-            Y2.emplace(state_idx);
-        }
+        // for (const auto state_idx : Y) {
+        //   if (S.contains(state_idx))
+        //     Y1.emplace(state_idx);
+        //   else
+        //     Y2.emplace(state_idx);
+        // }
+
+        /// ^^^ manual loop
+        /// --- can also use ranges::filter, but that is not necessarily faster.
+        /// vvv fancy ranges version
+        std::ranges::partition_copy(
+            Y,
+            std::inserter(Y1, Y1.end()), // Y1 = Y ∩ S
+            std::inserter(Y2, Y2.end()), // Y2 = Y \ S
+            [&S](const auto state_idx) { return S.contains(state_idx); });
 
         if (Y1.empty() || Y2.empty())
           continue; // no split, precondition not satisfied
 
-        // partitions[i] := Y1(replaces Y)
+        // partitions[i] := Y1 (replaces Y)
         partitions[Y_idx] = std::move(Y1);
         const size_t new_index = partitions.size();
         //  partition append Y2
         partitions.emplace_back(std::move(Y2));
 
-        // If Y (index i) is in worklist, replace that occurrence with both i
-        // and new_index. Otherwise, add the smaller of the two to worklist.
-        if (const auto it_w = std::ranges::find(worklist, Y_idx);
-            it_w != worklist.end()) {
-          // replace the first occurrence of i with i (already) and add
-          // new_index (Y should be unique, currently it is, but not sure in the
-          // future.)
-          AC_DEBUG_BLOCK {
+        // if (const auto it_w = std::ranges::find(worklist, Y_idx);
+        //     it_w != worklist.end()) {
+        //   worklist.emplace_back(new_index);
+        // } else {
+        //   worklist.emplace_back(partitions[Y_idx].size() <
+        //                                 partitions[new_index].size()
+        //                             ? Y_idx
+        //                             : new_index);
+        // }
+
+        /// old ^^^ / vvv Revised - optimized: check size first
+
+        // the logic: if Y (index i) is in worklist, replace that occurrence
+        // with both i and new_index. Otherwise, add the smaller of the two to
+        // worklist.
+
+        if (partitions[new_index].size() < partitions[Y_idx].size()) {
+          // Y1 > Y2, always add Y2
+          worklist.emplace_back(new_index);
+        } else if (const auto it_w = std::ranges::find(worklist, Y_idx);
+                   it_w != worklist.end()) {
+          dbg_block
+          {
+            // Y should be unique, currently it is, but not sure in the future.
             const auto it_last =
                 std::ranges::find_last(worklist, Y_idx).begin();
-            AC_RUNTIME_ASSERT(it_last == it_w, "id shall be unique")
+            contract_assert(it_last == it_w, "id shall be unique")
+            // replace the first occurrence of i with i (already) -
             *it_w = Y_idx; // no-op, just keeps intent clear
           };
+          // - and add new_index
           worklist.emplace_back(new_index);
         } else {
-          // add the smaller of the two sets
-          if (partitions[Y_idx].size() < partitions[new_index].size())
-            worklist.emplace_back(Y_idx);
-          else
-            worklist.emplace_back(new_index);
+          worklist.emplace_back(Y_idx);
         }
       }
-    }
-  }
+    });
+  } while (!worklist.empty());
 }
 DFA::IndexSetTy DFA::get_transition_signature(const PartitionsTy &partitions,
                                               const State &s) const {

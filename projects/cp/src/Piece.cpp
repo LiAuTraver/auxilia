@@ -9,10 +9,7 @@ using auxilia::FormatPolicy;
 } // namespace accat::cp
 #pragma region Piece
 namespace accat::cp {
-bool Grammar::Piece::nullable(Grammar *myGrammar) {
-  // Only Piece::nullable_ should be modifiable
-  if (nullable_)
-    return *nullable_;
+bool Grammar::Piece::_do_nullable(Grammar *myGrammar) {
 
   cache_rhsElemNullable.reserve(rhs_.size());
 
@@ -36,7 +33,6 @@ bool Grammar::Piece::nullable(Grammar *myGrammar) {
   // satisfies the cond
   return nullable_.emplace(sr::any_of(rhs_ | rv::as_const, isRhsElemNullable));
 }
-bool Grammar::Piece::endable() const { return follow_set_.contains(EndMarker); }
 auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
   return (lhs_ + (" -> "))
       .append_range(

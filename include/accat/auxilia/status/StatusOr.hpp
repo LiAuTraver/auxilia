@@ -20,6 +20,8 @@
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
+using ::std::in_place;
+using ::std::in_place_t;
 
 /// @brief A class that represents the status of a function call,
 ///          or a value.
@@ -43,38 +45,39 @@ public:
   using rvoff_value_t = std::remove_cv_t<Ty>;
 
 public:
-  AC_NODISCARD
-  constexpr StatusOr() = default;
-  AC_NODISCARD
-  StatusOr(const Status &status) : base_type(status) {}
-  AC_NODISCARD
-  StatusOr(Status &&status) : base_type(std::move(status)) {}
-  AC_NODISCARD
-  StatusOr(const value_type &value) : base_type(kOk), my_value(value) {}
-  AC_NODISCARD
-  StatusOr(value_type &&value) : base_type(kOk), my_value(std::move(value)) {}
-  AC_NODISCARD
-  StatusOr(const Status &status, const value_type &value)
+  AC_NODISCARD inline constexpr StatusOr() = default;
+  AC_NODISCARD inline StatusOr(const Status &status) : base_type(status) {}
+  AC_NODISCARD inline StatusOr(Status &&status)
+      : base_type(std::move(status)) {}
+  AC_NODISCARD inline StatusOr(const value_type &value)
+      : base_type(kOk), my_value(value) {}
+  AC_NODISCARD inline StatusOr(value_type &&value)
+      : base_type(kOk), my_value(std::move(value)) {}
+  AC_NODISCARD inline StatusOr(const Status &status, const value_type &value)
       : base_type(status), my_value(value) {}
-  AC_NODISCARD
-  StatusOr(Status &&status, value_type &&value)
+  AC_NODISCARD inline StatusOr(Status &&status, value_type &&value)
       : base_type(std::move(status)), my_value(std::move(value)) {}
-  AC_NODISCARD
-  StatusOr(const StatusOr &that) : base_type(that), my_value(that.my_value) {}
-  AC_NODISCARD
-  StatusOr(StatusOr &&that) noexcept
+  AC_NODISCARD inline StatusOr(const StatusOr &that)
+      : base_type(that), my_value(that.my_value) {}
+  AC_NODISCARD inline StatusOr(StatusOr &&that) noexcept
       : base_type(std::move(that)), my_value(std::move(that.my_value)) {}
-  StatusOr &operator=(const StatusOr &that) {
+  inline StatusOr &operator=(const StatusOr &that) {
     base_type::operator=(that);
     my_value = that.my_value;
     return *this;
   }
-  StatusOr &operator=(StatusOr &&that) noexcept {
+  inline StatusOr &operator=(StatusOr &&that) noexcept {
     base_type::operator=(std::move(that));
     my_value = std::move(that.my_value);
     return *this;
   }
   ~StatusOr() noexcept = default;
+
+  template <typename... Args>
+  explicit inline StatusOr(in_place_t, Args &&...args) noexcept(
+      noexcept(value_type{std::forward<Args>(args)...}))
+      : base_type(kOk), my_value(std::forward<Args>(args)...) {}
+
 #  define AC_STATUSOR_DELETE                                                   \
     AC_DELETE_WITH_MESSAGE(                                                    \
         "Constructing a StatusOr<Ty> from a StatusOr<Uy> where Ty != Uy is "   \
@@ -571,6 +574,19 @@ public:
       return std::nullopt;
     }
   }
+  /// this is not optimized at all -- use with caution.
+  constexpr inline void
+  swap(StatusOr &that) noexcept(std::is_nothrow_swappable_v<value_type> &&
+                                std::is_nothrow_swappable_v<base_type>) {
+    if constexpr (std::is_swappable_v<value_type>) {
+      base_type::swap(that.as_status());
+      using ::std::swap;
+      swap(my_value, that.my_value);
+    } else {
+      always_false<value_type>("value_type is not swappable");
+    }
+    return *this;
+  }
 
 public:
   auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
@@ -596,6 +612,25 @@ public:
 private:
   value_type my_value;
 };
+
+template <typename Ty> StatusOr(Ty &&value) -> StatusOr<std::decay_t<Ty>>;
+
+/// it's a bit controversial here: the usage of `std::decay_t` may cause
+/// potential copy happens(without `std::decay_t`, if the parameter is an lvalue
+/// reference, `static_assert` fails), but I choose to be consistent with
+/// standard library's `make_optional`.
+template <typename Ty>
+inline constexpr auto OkStatus(Ty &&value) noexcept(
+    noexcept(StatusOr<std::decay_t<Ty>>{std::forward<Ty>(value)})) {
+  return StatusOr<std::decay_t<Ty>>{std::forward<Ty>(value)};
+}
+
+/// emplace-like `OkStatus` function
+template <typename Ty, typename... Args>
+inline constexpr auto OkStatus(Args &&...args) noexcept(noexcept(StatusOr<Ty>{
+    in_place, std::forward<Args>(args)...})) {
+  return StatusOr<Ty>{in_place, std::forward<Args>(args)...};
+}
 } // namespace accat::auxilia
 
 #endif // ACCAT_AUXILIA_STATUSOR_HPP

@@ -109,9 +109,9 @@ auxilia::StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
   // worked, and fancy :P vvv
   std::ranges::reverse_copy(op_stack, std::back_inserter(postfix));
 
-  return {postfix};
+  return auxilia::OkStatus(std::move(postfix));
 }
-auto NFA::_to_dot_impl(const auxilia::FormatPolicy) const -> std::string {
+auto NFA::_to_dot_impl(const auxilia::FormatPolicy) const {
   auto dot = auxilia::Format(unformatted_header, "NFA", start_id);
 
   dot += _dot_states(states);
@@ -130,8 +130,8 @@ void NFA::init_input_alphabet(const std::string_view sv) {
   auto r = std::ranges::unique(input_alphabet);
   input_alphabet.erase(r.begin(), r.end());
 }
-auxilia::StatusOr<details::_automaton_base::Fragment>
-NFA::build_graph(const std::string_view postfix) {
+auto NFA::build_graph(const std::string_view postfix)
+    -> auxilia::StatusOr<Fragment> {
   std::stack<Fragment> stack;
   const auto top_and_pop_stack = [&stack]() {
     AC_PRECONDITION(!stack.empty(), "Stack underflow")

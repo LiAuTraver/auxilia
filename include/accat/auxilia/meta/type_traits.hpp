@@ -21,6 +21,12 @@ consteval auto as_basic_chars_storage() noexcept {
   return MyChars;
 }
 
+template <typename> struct always_false {
+  consteval always_false(auto &&.../* descriptive messages */) noexcept {}
+
+  static_assert(false);
+};
+
 /// You may ask why I re-implemented some of the type traits in std.
 /// Just as proof of some false claims my colleagues made like
 /// "it's compiler intrinsics and cannot be implemented in pure C++".
@@ -108,12 +114,6 @@ inline constexpr auto extent_v<Ty[], I> =
 template <typename Ty, unsigned int I>
 struct extent : integral_constant<size_t, extent_v<Ty, I>> {};
 
-template <const auto &Chars>
-inline constexpr size_t array_size_v =
-    extent_v<remove_reference_t<decltype(Chars)>>;
-template <const auto &Chars>
-struct array_size : integral_constant<size_t, array_size_v<Chars>> {};
-
 #ifdef __clang__
 template <class Ty, class Uy> constexpr bool is_same_v = __is_same(Ty, Uy);
 template <class Ty, class Uy>
@@ -124,6 +124,15 @@ template <class _Ty> constexpr bool is_same_v<_Ty, _Ty> = true;
 template <class Ty, class Uy>
 struct is_same : bool_constant<is_same_v<Ty, Uy>> {};
 #endif
+
+// in standard ^^^ / vvv custom type traits
+
+/// @brief A helper variable template to get the size of an array from NTTP.
+template <const auto &Chars>
+inline constexpr size_t array_size_v =
+    extent_v<remove_reference_t<decltype(Chars)>>;
+template <const auto &Chars>
+struct array_size : integral_constant<size_t, array_size_v<Chars>> {};
 
 /// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
 template <class Ty, template <class...> class Template>
@@ -139,6 +148,9 @@ inline constexpr bool is_any_of_v = (is_same_v<Ty, Candidates> || ...);
 template <typename Ty, typename... Candidates>
 struct is_any_of : bool_constant<is_any_of_v<Ty, Candidates...>> {};
 
+// custom type traits ^^^ / vvv in standard
+
+/// to implement this trait handily, `is_any_of_v` is required.
 template <typename Ty>
 inline constexpr auto is_integral_v = is_any_of_v<remove_cv_t<Ty>,
                                                   bool,
@@ -173,10 +185,4 @@ inline constexpr auto is_arithmetic_v =
     is_integral_v<Ty> || is_floating_point_v<Ty>;
 template <typename Ty>
 struct is_arithmetic : bool_constant<is_arithmetic_v<Ty>> {};
-
-template <typename> struct always_false {
-  consteval always_false(auto &&.../* descriptive messages */) noexcept {}
-
-  static_assert(false);
-};
 } // namespace accat::auxilia
