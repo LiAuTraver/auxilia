@@ -8,6 +8,18 @@
 #include "accat/auxilia/status/StatusOr.hpp"
 
 #pragma region Common
+
+namespace accat::cp {
+using auxilia::Format;
+using auxilia::FormatPolicy;
+using auxilia::InternalError;
+using auxilia::InvalidArgumentError;
+using auxilia::npos;
+using auxilia::OkStatus;
+using auxilia::Status;
+using auxilia::StatusOr;
+using auxilia::UnimplementedError;
+} // namespace accat::cp
 namespace accat::cp {
 constexpr size_t precedence(const char op) {
   switch (op) {
@@ -28,6 +40,7 @@ constexpr size_t precedence(const char op) {
 
 #pragma region NFA
 namespace accat::cp {
+
 std::string NFA::preprocess_regex(const std::string_view regex) {
   std::string result;
   // insert `.` for concatenation between
@@ -37,7 +50,7 @@ std::string NFA::preprocess_regex(const std::string_view regex) {
       regex.size() * 2,
       [&](char *const out, [[maybe_unused]] const size_t capacity) {
         constexpr auto is_in = [](const char c, const std::string_view chars) {
-          return chars.find(c) != auxilia::npos;
+          return chars.find(c) != npos;
         };
         auto j = 0ull;
         for (auto i = 0ull; i < regex.size(); ++i) {
@@ -52,7 +65,7 @@ std::string NFA::preprocess_regex(const std::string_view regex) {
       });
   return result;
 }
-auxilia::StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
+StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
   std::string postfix;
   std::string op_stack;
   auto lvl = 0u; // workaround, detect parentheses level
@@ -68,11 +81,11 @@ auxilia::StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
         op_stack.pop_back();
       }
       if (op_stack.empty()) {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Unfinished parentheses in regex: missing '('");
       }
       if (op_stack.back() != '(') {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Mismatched parentheses in regex: expected '(', got '{}'",
             op_stack.back());
       }
@@ -94,8 +107,7 @@ auxilia::StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
     postfix += c;
   }
   if (lvl != 0) {
-    return auxilia::InvalidArgumentError(
-        "Unfinished parentheses in regex: missing ')'");
+    return InvalidArgumentError("Unfinished parentheses in regex: missing ')'");
   }
 
   // while (!op_stack.empty()) {
@@ -109,10 +121,10 @@ auxilia::StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
   // worked, and fancy :P vvv
   std::ranges::reverse_copy(op_stack, std::back_inserter(postfix));
 
-  return auxilia::OkStatus(std::move(postfix));
+  return OkStatus(std::move(postfix));
 }
-auto NFA::_to_dot_impl(const auxilia::FormatPolicy) const {
-  auto dot = auxilia::Format(unformatted_header, "NFA", start_id);
+auto NFA::_to_dot_impl(const FormatPolicy) const {
+  auto dot = Format(unformatted_header, "NFA", start_id);
 
   dot += _dot_states(states);
 
@@ -129,8 +141,7 @@ void NFA::init_input_alphabet(const std::string_view sv) {
   auto r = std::ranges::unique(input_alphabet);
   input_alphabet.erase(r.begin(), r.end());
 }
-auto NFA::build_graph(const std::string_view postfix)
-    -> auxilia::StatusOr<Fragment> {
+auto NFA::build_graph(const std::string_view postfix) -> StatusOr<Fragment> {
   std::stack<Fragment> stack;
   const auto top_and_pop_stack = [&stack]() {
     AC_PRECONDITION(!stack.empty(), "Stack underflow")
@@ -146,7 +157,7 @@ auto NFA::build_graph(const std::string_view postfix)
     }
     if (c == '|') {
       if (stack.size() < 2) {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Invalid regex at position {}: not enough operands for |",
             postfix.find(c));
       }
@@ -157,10 +168,9 @@ auto NFA::build_graph(const std::string_view postfix)
     }
     if (c == '.') {
       if (stack.size() < 2) {
-        return auxilia::InvalidArgumentError(
-            "Invalid regex at position {}: not "
-            "enough operands for concatenation",
-            postfix.find(c));
+        return InvalidArgumentError("Invalid regex at position {}: not "
+                                    "enough operands for concatenation",
+                                    postfix.find(c));
       }
       auto b = top_and_pop_stack();
       auto a = top_and_pop_stack();
@@ -169,7 +179,7 @@ auto NFA::build_graph(const std::string_view postfix)
     }
     if (c == '*') {
       if (stack.empty()) {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Invalid regex at position {}: not enough operands for *",
             postfix.find(c));
       }
@@ -180,7 +190,7 @@ auto NFA::build_graph(const std::string_view postfix)
     if (c == '+') {
       // a+ = aa*
       if (stack.empty()) {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Invalid regex at position {}: not enough operands for +",
             postfix.find(c));
       }
@@ -194,7 +204,7 @@ auto NFA::build_graph(const std::string_view postfix)
     if (c == '?') {
       // a? = (a|ε)
       if (stack.empty()) {
-        return auxilia::InvalidArgumentError(
+        return InvalidArgumentError(
             "Invalid regex at position {}: not enough operands for ?",
             postfix.find(c));
       }
@@ -208,18 +218,16 @@ auto NFA::build_graph(const std::string_view postfix)
       continue;
     }
     // stack.emplace(from_char(c)); // fallback
-    AC_UNREACHABLE("Unimplemented operator in regex: '{}'", c);
-    return auxilia::UnimplementedError(
-        "Unhandled character in postfix regex: '{}'", c);
+    ac_unreachable("Unimplemented operator in regex: '{}'", c);
+    return UnimplementedError("Unhandled character in postfix regex: '{}'", c);
   }
   if (stack.size() != 1) {
-    AC_UNREACHABLE(
+    ac_unreachable(
         "Internal Error: expression not fully reduced, stack size {}",
         stack.size());
-    return auxilia::InternalError(
-        "Internal Error: expression not fully reduced");
+    return InternalError("Internal Error: expression not fully reduced");
   }
-  return {top_and_pop_stack()};
+  return OkStatus(std::move(stack.top()));
 }
 void NFA::finalize(Fragment &&frag) {
   const auto &[sid, eid] = frag;
@@ -235,17 +243,16 @@ auto NFA::construxt_from_regex(const std::string_view sv) {
   const auto preprocessed = preprocess_regex(sv);
   auto maybe_postfix = to_postfix(preprocessed);
   if (!maybe_postfix)
-    return maybe_postfix.as_status();
+    return maybe_postfix.rvalue().as_status();
 
   auto maybe_frag = build_graph(*maybe_postfix);
   if (!maybe_frag)
-    return maybe_frag.as_status();
-
+    return maybe_frag.rvalue().as_status();
   finalize(*std::move(maybe_frag));
 
-  return auxilia::OkStatus();
+  return OkStatus();
 }
-auxilia::StatusOr<NFA> NFA::FromRegex(const std::string_view sv) {
+StatusOr<NFA> NFA::FromRegex(const std::string_view sv) {
   if (sv.empty())
     return {};
 
@@ -254,7 +261,7 @@ auxilia::StatusOr<NFA> NFA::FromRegex(const std::string_view sv) {
   if (auto s = nfa.construxt_from_regex(sv); !s)
     return {std::move(s)};
 
-  return {std::move(nfa)};
+  return OkStatus(std::move(nfa));
 }
 } // namespace accat::cp
 #pragma endregion NFA

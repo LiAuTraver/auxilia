@@ -354,13 +354,13 @@ StatusOr<DFA> DFA::FromNFA(const NFA &nfa) {
   dfa.input_alphabet = nfa.input_alphabet;
 
   if (nfa.empty())
-    return {std::move(dfa)};
+    return OkStatus(std::move(dfa));
 
   dfa.construct_from_nfa(nfa);
 
-  return {std::move(dfa)};
+  return OkStatus(std::move(dfa));
 }
-auxilia::StatusOr<DFA> DFA::FromRegex(const std::string_view sv) {
+StatusOr<DFA> DFA::FromRegex(const std::string_view sv) {
   return NFA::FromRegex(sv).and_then(DFA::FromNFA);
 }
 auto DFA::initial_partition(const StatesTy &states) -> PartitionsTy {

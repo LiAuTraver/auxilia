@@ -1,5 +1,6 @@
 #include "Grammar.hpp"
 
+#include "accat/auxilia/defines.hpp"
 #include "accat/auxilia/base/format.hpp"
 
 namespace accat::cp {
@@ -15,13 +16,13 @@ bool Grammar::Piece::_do_nullable(Grammar *myGrammar) {
 
   const auto isSymbolNullable = [&](auto &&sym) {
     auto &&ptrPiece = myGrammar->non_terminal(sym);
-    AC_RUNTIME_ASSERT(ptrPiece != this, "infinite loop?")
+    contract_assert(ptrPiece != this, "infinite loop?")
     return ptrPiece && ptrPiece->nullable(myGrammar);
   };
 
   const auto isRhsElemNullable = [&](auto &&rhsElem) {
     if (rhsElem.front() == NilMarker) {
-      AC_RUNTIME_ASSERT(rhsElem.size() == 1, "shall not happen")
+      contract_assert(rhsElem.size() == 1, "shall not happen")
       cache_rhsElemNullable.emplace_back(true);
       return true;
     }

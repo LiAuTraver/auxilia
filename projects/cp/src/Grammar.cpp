@@ -24,19 +24,24 @@ namespace rv = std::ranges::views;
 using auxilia::Format;
 using auxilia::FormatPolicy;
 using auxilia::InvalidArgumentError;
+using auxilia::is_epsilon;
 using auxilia::LexError;
 using auxilia::OkStatus;
+using auxilia::Printable;
 using auxilia::Println;
 using auxilia::ResourceExhaustedError;
 using auxilia::Status;
 using auxilia::StatusOr;
+using auxilia::Trie;
 using auxilia::UnavailableError;
 using auxilia::UnimplementedError;
+} // namespace accat::cp
+namespace accat::cp {
 static constexpr auto isNil(const std::string &ptr) noexcept {
-  return auxilia::is_epsilon(ptr.data());
+  return is_epsilon(ptr.data());
 }
 static constexpr auto NotNil(const std::string &ptr) noexcept {
-  return not auxilia::is_epsilon(ptr.data());
+  return not is_epsilon(ptr.data());
 }
 auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
                                             const char *prime) const
@@ -169,7 +174,7 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
 Status Grammar::_preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
     contract_assert(tokens.back().is_type(Token::Type::kEndOfFile))
-    return auxilia::UnavailableError("nothing to do");
+    return UnavailableError("nothing to do");
   }
   if (string_type str; std::ranges::any_of(tokens, [&](const Token &token) {
         // allowed type in this Left Recursion Grammar.
@@ -469,7 +474,7 @@ void Grammar::_do_factoring(const size_t index) {
   using rhs_elem_t = Piece::rhs_elem_t;
   using rhs_t = Piece::rhs_t;
 
-  auxilia::Trie<rhs_elem_t> trie;
+  Trie<rhs_elem_t> trie;
   trie.assign_range(piece.rhs_);
 
   auto [lcpPath, lcpNode] = trie.longest_common_prefix();
@@ -648,10 +653,10 @@ void Grammar::compute_follow_set() {
 #pragma endregion FollowSet
 #pragma region Interface
 auto Grammar::to_string(FormatPolicy) const -> string_type {
-  return pieces_                                                      //
-         | std::ranges::views::transform(auxilia::Printable::Default) //
-         | std::ranges::views::join_with('\n')                        //
-         | std::ranges::to<string_type>()                             //
+  return pieces_                                             //
+         | std::ranges::views::transform(Printable::Default) //
+         | std::ranges::views::join_with('\n')               //
+         | std::ranges::to<string_type>()                    //
       ;
 }
 StatusOr<Grammar> Grammar::Process(string_type &&str) {
@@ -668,7 +673,7 @@ StatusOr<Grammar> Grammar::Process(string_type &&str) {
   grammar.compute_first_set();
   grammar.compute_follow_set();
 
-  return {std::move(grammar)};
+  return OkStatus(std::move(grammar));
 }
 StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
   auto maybeTokens = Lexer{std::forward<string_type>(str)}.lexAll_or_error();
@@ -687,7 +692,7 @@ StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
 
   grammar._expand_ebnf_constructs();
 
-  return {std::move(grammar)};
+  return OkStatus(std::move(grammar));
 }
 
 Status Grammar::eliminate_left_recursion() {
@@ -863,7 +868,7 @@ auto Grammar::parse(string_type &&str) -> Status {
 
   return _do_parse(std::move(coro) | std::ranges::views::common);
 }
-auto Grammar::parse(Piece::rhs_elem_view_t &&elems) -> auxilia::Status {
+auto Grammar::parse(Piece::rhs_elem_view_t &&elems) -> Status {
   if (!isLL1())
     return UnimplementedError(
         "Not implemented for the grammar that is not LL1. ");
