@@ -115,6 +115,8 @@ std::println("{}", v); // prints "class accat::auxilia::Variant<struct accat::au
 std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
 ```
 
+- `Trie`: I used it in [cp](./projects/cp) as a part of left factoring implementation.
+
 - `Noise`: A utility class to track object lifetimes and copy/move operations for debugging purposes. For example, we got best performance of monadic function of `StatusOr` only follows:
 
 ```cpp
@@ -174,6 +176,7 @@ defer { /* do something */ }; // don't forget semicolon
 ```
 
 - `contract_assert`, `precondition` and `postcondition`: initialy an idea proposed for C++26(now accepted, thus sometime maybe I'll have their name changed), these macros are used to assert preconditions and postconditions in a function. Precondition and Postcondition won't be checked in release mode, but _contract_assert_ will be checked in both debug and release mode. This is useful for debugging and testing purposes. Semicolon is not needed but better add it to `.clang-format` as `StatementAttributeLikeMacros` in order to avoid *iℕℂ*öṙṙĕℂţ **Föṙ**MäṮ*ţĭng*.
+
   Furthermore, those assertion triggers a debug break when debugger is attached, so you can easily debug the code when it fails(Rather than an awkward _Microsoft C++ Runtime Library_ window popping up and terminates the program), otherwise prints stacktrace and aborts the program. I found it more useful both than `assert` and `boost::contract::check` boilerplate code.
 
 > note: the functionalities of `pre`, `post` and `contract_assert` is slightly different from the original proposal. I just borrowed the name.
@@ -208,6 +211,10 @@ dbg_block {
 ```
 
 - `AC_BITMASK_OPS(_bitmask_)`: from Microsoft's STL implementation, bring some bit operations for scoped enums.
+
+## Projects
+
+Some miniprojects of myself that directly use `auxilia` are located in the [projects](./projects) folder. Add `-DAUXILIA_BUILD_PROJECTS=ON` to CMake to build them.
 
 ## Notes
 
