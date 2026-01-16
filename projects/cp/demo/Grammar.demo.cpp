@@ -55,7 +55,7 @@ AC_SPDLOG_INITIALIZATION("demo", debug)
 int main() {
   set_console_output_cp_utf8();
 
-  auto grammar = Grammar::FromStr(sysY_BNF);
+  auto grammar = Grammar::FromStr(simple);
   if (!grammar) {
     Println(stderr, "Error: {}", grammar.message());
     exit(1);

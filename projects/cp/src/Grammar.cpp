@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <accat/auxilia/auxilia.hpp>
+#include <accat/auxilia/defines.hpp>
 
 #include "Lexing.hpp"
 #include "Grammar.hpp"
@@ -136,7 +137,7 @@ bool Grammar::_analyze_left_recursion(Piece &A) {
 void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
   Piece::rhs_t new_rhs;
   for (auto &&rhsElem : std::move(A.rhs_) | rv::as_rvalue) {
-    AC_RUNTIME_ASSERT(!rhsElem.empty(), "should not happen")
+    contract_assert(!rhsElem.empty(), "should not happen")
     AC_STATIC_ASSERT(std::is_rvalue_reference_v<decltype(rhsElem)>);
 
     if ((rhsElem.front() == B.lhs_)) {
@@ -167,7 +168,7 @@ void Grammar::_indirect_left_recursion(Piece &A, const Piece &B) const {
 #pragma region Process
 Status Grammar::_preprocess(const std::vector<Token> &tokens) {
   if (tokens.size() == 1) {
-    AC_RUNTIME_ASSERT(tokens.back().is_type(Token::Type::kEndOfFile))
+    contract_assert(tokens.back().is_type(Token::Type::kEndOfFile))
     return auxilia::UnavailableError("nothing to do");
   }
   if (string_type str; std::ranges::any_of(tokens, [&](const Token &token) {
@@ -377,7 +378,7 @@ void Grammar::_expand_ebnf_constructs() {
           }
 
           if (bracketDepth != 0) {
-            AC_RUNTIME_ASSERT(
+            contract_assert(
                 "unmatched brackets. should handle in the prev stage"
                 "(unimplemented currently)")
             expandedProduction.emplace_back(elem);
@@ -493,11 +494,6 @@ void Grammar::_do_factoring(const size_t index) {
   auto newName = _new_unique_non_terminal_name(piece.lhs_, "@");
 
   // add factored prefix + newName.
-  // auto factoredPrefix = lcpPath;
-  // factoredPrefix.emplace_back(newName);
-  // newRhs.emplace_back(std::move(factoredPrefix));
-
-  // ^^^ equivalent to vvv
   newARhs.emplace_back(std::move(lcpPath)).emplace_back(newName);
   piece.rhs_ = std::move(newARhs);
 
@@ -507,8 +503,7 @@ void Grammar::_do_factoring(const size_t index) {
 
   // if suffix is single epsilon token, keep as-is;
   // else just the sequence.
-  // Remove standalone epsilon marker if prefer empty production;
-  // here we just keep it.
+  // here we just keep the standalone epsilon marker.
   newPiece.rhs_.append_range(std::move(APrimeRhs) | rv::as_rvalue);
 }
 #pragma endregion Factor
@@ -516,7 +511,7 @@ void Grammar::_do_factoring(const size_t index) {
 auto Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
     -> Piece::set_t {
 
-  AC_RUNTIME_ASSERT(!sr::empty(rhsElem))
+  contract_assert(!sr::empty(rhsElem))
 
   Piece::set_t partialFirstSet;
 
@@ -526,15 +521,14 @@ auto Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
   if (*f == NilMarker) {
     partialFirstSet.emplace(*f);
     // else, continue search?
-    AC_RUNTIME_ASSERT(sr::next(f) == sr::cend(rhsElem),
-                      "epsilon should be alone in production")
+    contract_assert(sr::next(f) == sr::cend(rhsElem),
+                    "epsilon should be alone in production")
     return partialFirstSet;
   }
 
   if (terminal(*f)) {
     partialFirstSet.emplace(*f);
-    AC_RUNTIME_ASSERT(*f != NilMarker,
-                      "epsilon should have been handled earlier")
+    contract_assert(*f != NilMarker, "epsilon should have been handled earlier")
     return partialFirstSet;
   }
 
@@ -542,15 +536,15 @@ auto Grammar::_first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
     // terminal, add and stop
     if (terminal(*f)) {
       partialFirstSet.emplace(*f);
-      AC_RUNTIME_ASSERT(*f != NilMarker,
-                        "epsilon should have been handled earlier")
+      contract_assert(*f != NilMarker,
+                      "epsilon should have been handled earlier")
       break;
     }
 
     // non-terminal, recursively compute its first set if needed
     auto piecePtr = non_terminal(*f);
-    AC_RUNTIME_ASSERT(piecePtr != nullptr,
-                      "symbol must be terminal or non-terminal")
+    contract_assert(piecePtr != nullptr,
+                    "symbol must be terminal or non-terminal")
 
     // if not empty it's calculated before, handled in the function already
     _first_set_from_piece(*piecePtr);
@@ -660,7 +654,7 @@ auto Grammar::to_string(FormatPolicy) const -> string_type {
          | std::ranges::to<string_type>()                             //
       ;
 }
-auxilia::StatusOr<Grammar> Grammar::Process(string_type &&str) {
+StatusOr<Grammar> Grammar::Process(string_type &&str) {
   auto maybeGrammar = Grammar::FromStr(std::forward<string_type>(str));
   if (!maybeGrammar)
     return {std::move(maybeGrammar).as_status()};
@@ -676,7 +670,7 @@ auxilia::StatusOr<Grammar> Grammar::Process(string_type &&str) {
 
   return {std::move(grammar)};
 }
-auxilia::StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
+StatusOr<Grammar> Grammar::FromStr(string_type &&str) {
   auto maybeTokens = Lexer{std::forward<string_type>(str)}.lexAll_or_error();
   if (!maybeTokens)
     return InvalidArgumentError(std::move(maybeTokens).error());
@@ -732,7 +726,7 @@ bool Grammar::isLL1() {
 
   // only cache_selectSet_ shall be edited
   for (auto &piece : pieces_) {
-    if (piece.nullable_ == std::nullopt) {
+    if (!piece.nullable_) {
       // not calculated
       piece.nullable(this);
     }
@@ -760,22 +754,22 @@ auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
   std::stack<string_type> myStack;
   myStack.push(pieces_.front().lhs_);
 
-  AC_RUNTIME_ASSERT(pieces_.front().follow_set_.contains(EndMarker))
+  contract_assert(pieces_.front().follow_set_.contains(EndMarker))
 
   // construct a table for LL1 parsing
-  std::unordered_map<string_type,
-                     std::unordered_map<string_type, Piece::rhs_elem_t>>
+  static std::unordered_map<string_type,
+                            std::unordered_map<string_type, Piece::rhs_elem_t>>
       table;
-
-  std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
-    std::ranges::for_each(
-        rv::zip(piece.cache_selectSet_, piece.rhs_), [&](auto &&pair) {
-          auto &&[selectSet, rhs] = pair;
-          std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
-            table[piece.lhs_].emplace(terminalSymbol, rhs);
+  if (table.empty())
+    std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
+      std::ranges::for_each(
+          rv::zip(piece.cache_selectSet_, piece.rhs_), [&](auto &&pair) {
+            auto &&[selectSet, rhs] = pair;
+            std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
+              table[piece.lhs_].emplace(terminalSymbol, rhs);
+            });
           });
-        });
-  });
+    });
 
   for (const auto &token : elems) {
     using enum Token::Type;

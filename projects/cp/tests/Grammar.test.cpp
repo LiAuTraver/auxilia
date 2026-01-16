@@ -11,7 +11,7 @@
 using namespace accat::auxilia;
 using namespace accat::cp;
 using NonTerminal = Grammar::NonTerminal;
-using ranges::views::trim;
+using accat::auxilia::ranges::views::trim;
 namespace rv = std::ranges::views;
 
 #define EXPECT_TRIMMED_STR_EQ(str1, str2) EXPECT_EQ(trim(str1), trim(str2))
@@ -231,8 +231,8 @@ TEST(Grammar, LL1_SLR1) {
   }
 }
 
-constexpr auto ll1_lalr1_0 =
-    Answer{.rules = R"(
+constexpr auto ll1_lalr1_0 = Answer{
+    .rules = R"(
 S -> id Sp;
 Sp -> V assign E
 | ε;
@@ -240,25 +240,27 @@ V -> ε;
 E -> id V
 | num;
 )",
-           .first_set = R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
-           .follow_set = R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
-           .nullability = R"([false, true, true, false])",
-           .tests = {
-               {
-                   {
-                       .input = "id",
-                       .output = Pair::EmptyStr,
-                   },
-                   {
-                       .input = "id assign id",
-                       .output = Pair::EmptyStr,
-                   },
-                   {
-                       .input = "id assign num",
-                       .output = Pair::EmptyStr,
-                   },
-               },
-           }};
+    .first_set = R"([{"id"}, {"assign", "ε"}, {"ε"}, {"id", "num"}])",
+    .follow_set = R"([{"$"}, {"$"}, {"assign", "$"}, {"$"}])",
+    .nullability = R"([false, true, true, false])",
+    .tests =
+        {
+            {
+                {
+                    .input = "id",
+                    .output = Pair::EmptyStr,
+                },
+                {
+                    .input = "id assign id",
+                    .output = Pair::EmptyStr,
+                },
+                {
+                    .input = "id assign num",
+                    .output = Pair::EmptyStr,
+                },
+            },
+        },
+};
 
 TEST(Grammar, LL1_LALR1) {
   auto grammar = *Grammar::Process(ll1_lalr1_0.rules);
