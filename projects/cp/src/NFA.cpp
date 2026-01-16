@@ -122,9 +122,8 @@ auto NFA::_to_dot_impl(const auxilia::FormatPolicy) const {
   return dot;
 }
 void NFA::init_input_alphabet(const std::string_view sv) {
-  input_alphabet =
-      sv | std::views::filter([](const char c) { return !is_operator(c); }) |
-      std::ranges::to<std::string>();
+  input_alphabet = sv | std::views::filter(std::not_fn(MyBase::is_operator)) |
+                   std::ranges::to<std::string>();
   std::ranges::sort(input_alphabet);
 
   auto r = std::ranges::unique(input_alphabet);

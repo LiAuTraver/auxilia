@@ -1,4 +1,5 @@
 #include <accat/auxilia/auxilia.hpp>
+#include <algorithm>
 #include <ranges>
 
 #include "Automaton.hpp"
@@ -27,6 +28,8 @@ private:
 
 private:
   // S := { q in Q | δ(q, c) in A }
+  // TODO: establish reverse transition map to optimize this, currently it is
+  // O(n)
   auto getS(const DFA::PartitionTy &A, const char c) {
     DFA::PartitionTy S;
     S.reserve(dfa.states.size() / 4); // rough estimate
@@ -75,7 +78,7 @@ private:
       worklist.emplace_back(Y_idx);
     }
   }
-  auto modify_partitions(const size_t Y_idx, const DFA::PartitionTy &S) {
+  auto split(const size_t Y_idx, const DFA::PartitionTy &S) {
     const auto &Y = partitions[Y_idx];
 
     DFA::PartitionTy Y1;
@@ -91,18 +94,25 @@ private:
     // }
 
     /// ^^^ manual loop
-    /// --- can also use ranges::filter, but that is not necessarily
-    /// faster. vvv fancy ranges version
+    /// - can also use ranges::filter, but that is not necessarily faster.
+    /// vvv fancy ranges version
     std::ranges::partition_copy(
         Y,
         std::inserter(Y1, Y1.end()), // Y1 = Y ∩ S
         std::inserter(Y2, Y2.end()), // Y2 = Y \ S
         [&S](const auto state_idx) { return S.contains(state_idx); });
 
-    if (Y1.empty() || Y2.empty())
-      return; // no split, precondition not satisfied
+    return std::make_pair(std::move(Y1), std::move(Y2));
+  }
+  auto modify_partitions(const size_t Y_idx, const DFA::PartitionTy &S) {
 
-    // partitions[i] := Y1 (replaces Y)
+    auto [Y1, Y2] = split(Y_idx, S);
+
+    // precondition: both Y1 and Y2 are not empty.
+    if (Y1.empty() || Y2.empty())
+      return; // no split
+
+    // partitions[i] := Y1 (that is, Y1 replaces Y)
     partitions[Y_idx] = std::move(Y1);
     const size_t new_index = partitions.size();
     //  partition append Y2
@@ -116,8 +126,7 @@ private:
     if (S.empty())
       return; // nothing to split
 
-    // modify partitions safely via interating through index.
-    // precondition: both Y1 and Y2 are not empty.
+    // modify through index -- not iterator since we are changing the elem
     for (auto Y_idx = 0ull; Y_idx < partitions.size(); ++Y_idx) {
       modify_partitions(Y_idx, S);
     }
@@ -131,7 +140,7 @@ public:
     do {
       const size_t A_idx = worklist.back();
       worklist.pop_back();
-      const auto A = partitions[A_idx]; // copy, we need the snapshot of A
+      const auto A = partitions[A_idx]; // copy, we need a snapshot of A
 
       std::ranges::for_each(dfa.input_alphabet,
                             [&A, this](const auto c) { perchar(A, c); });
@@ -140,6 +149,100 @@ public:
 };
 } // namespace accat::cp::details
 #pragma endregion hopcroft
+
+#pragma region moore
+namespace accat::cp::details {
+struct moore_helper {
+private:
+  const DFA &dfa;
+  DFA::PartitionsTy &partitions;
+  bool changed;
+
+private:
+  // signature of the state sid based on its transitions
+  auto get_transition_signature(const DFA::State &s) const {
+    DFA::IndexSetTy dest_set;
+    dest_set.reserve(s.edges.size());
+
+    std::ranges::for_each(
+        dfa.input_alphabet | std::views::as_const, [&](const auto symbol) {
+          // find the transition for the current symbol
+          const auto edge_it =
+              std::ranges::find(s.edges, symbol, &DFA::Transition::symbol);
+
+          if (edge_it == s.edges.end())
+            // no transition exists for this symbol, skip to the next symbol
+            return;
+
+          // found a transition from states[sid] to states[target_id]
+          const auto destination_id = edge_it->target_id;
+
+          // this variable denotes which partition states[target_id] belongs to.
+          const auto dest_pid =
+              std::ranges::find_if(partitions, [destination_id](const auto &p) {
+                return p.contains(destination_id);
+              });
+
+          contract_assert(dest_pid != partitions.end(), "should not happen")
+
+          // add the partition index to the signature of the current state.
+          dest_set.emplace(std::ranges::distance(partitions.begin(), dest_pid));
+        });
+
+    return dest_set;
+  }
+  // splits a given partition (`part`) into smaller groups
+  //        based on the transitions of states in the partition.
+  // states with identical transition behavior
+  //      (signature) will remain in the same group.
+  auto split(const DFA::PartitionTy &part) const {
+    // map to group states by their transition signatures
+    std::unordered_map<DFA::IndexSetTy, DFA::PartitionTy, DFA::IndexSetHasher>
+        groups;
+
+    // add the current state to the group corresponding to its signature.
+    std::ranges::for_each(part, [&](auto &&sid) {
+      const auto &s = dfa.states.at(sid);
+      auto sig = get_transition_signature(s);
+      groups[std::move(sig)].emplace(sid);
+    });
+
+    return groups;
+  }
+
+public:
+  moore_helper(const DFA &dfa, DFA::PartitionsTy &partitions)
+      : dfa(dfa), partitions(partitions), changed(false) {}
+
+  auto doit() {
+    do {
+      changed = false;
+      DFA::PartitionsTy new_partitions;
+
+      std::ranges::for_each(
+          partitions | std::views::as_const, [&](auto &&part) {
+            if (part.size() == 1) {
+              // can't split an atom set
+              new_partitions.emplace_back(part);
+              return;
+            }
+
+            // mapping: states -> partition
+            auto groups = split(part);
+
+            // a part was splited, so it's changed
+            if (groups.size() > 1)
+              changed = true;
+
+            // this part -> several parts or unchanged
+            new_partitions.append_range(std::move(groups) | std::views::values);
+          });
+
+      partitions = std::move(new_partitions);
+    } while (changed);
+  }
+};
+} // namespace accat::cp::details
 
 namespace accat::cp {
 #pragma region DFA
@@ -188,7 +291,7 @@ void DFA::process_transitions(const NFA &nfa, Key2IdTy &key_to_id) {
       std::unordered_set<size_t> move_set;
       for (const auto s : mapping[cur]) {
         const auto it = nfa.states.find(s);
-        AC_RUNTIME_ASSERT(
+        contract_assert(
             it != nfa.states.end(),
             "Internal Error: NFA state {} not found during DFA construction",
             s)
@@ -235,13 +338,13 @@ void DFA::construct_from_nfa(const NFA &nfa) {
   process_transitions(nfa, key_to_id);
   finalize(nfa);
 
-  AC_DEBUG_ONLY(
+  dbg_only(
       // check determinism(each edge symbol unique per state)
       for (const auto &s : states | std::views::values) {
         std::unordered_set<char> seen;
         for (const auto &[to_id, symbol] : s.edges) {
-          AC_RUNTIME_ASSERT(!seen.contains(symbol),
-                            "Non-deterministic DFA found! Should not happen.");
+          contract_assert(!seen.contains(symbol),
+                          "Non-deterministic DFA found! Should not happen.");
           seen.emplace(symbol);
         }
       })
@@ -308,9 +411,9 @@ void DFA::rebuild_from_partitions(const PartitionsTy &partitions) {
 
     AC_DEBUG_ONLY(auto oneshot = false;)
     if (isKeyContained(start_id)) {
-      AC_DEBUG_ONLY(AC_RUNTIME_ASSERT(oneshot == false,
-                                      "should only have one start state")
-                        oneshot = true);
+      AC_DEBUG_ONLY(
+          contract_assert(oneshot == false, "should only have one start state")
+              oneshot = true);
       new_start_id = pid;
       newState.type = chosen_state.type;
     }
@@ -343,78 +446,8 @@ void DFA::rebuild_from_partitions(const PartitionsTy &partitions) {
 void DFA::hopcroft(PartitionsTy &partitions) const {
   details::hopcroft_helper(*this, partitions).doit();
 }
-DFA::IndexSetTy DFA::get_transition_signature(const PartitionsTy &partitions,
-                                              const State &s) const {
-  // signature of the state sid based on its transitions
-  IndexSetTy dest_set;
-  dest_set.reserve(s.edges.size());
-
-  for (const auto symbol : input_alphabet) {
-
-    // find the transition for the current symbol
-    const auto edge_it =
-        std::ranges::find(s.edges, symbol, &Transition::symbol);
-
-    if (edge_it == s.edges.end())
-      // no transition exists for this symbol, skip to the next symbol
-      continue;
-
-    // found a transition from states[sid] to states[target_id]
-    const auto destination_id = edge_it->target_id;
-
-    // this variable denotes which partition states[target_id] belongs to.
-    const auto dest_pid =
-        std::ranges::find_if(partitions, [destination_id](const auto &p) {
-          return p.contains(destination_id);
-        });
-
-    AC_RUNTIME_ASSERT(dest_pid != partitions.end(), "should not happen")
-
-    // add the partition index to the signature of the current state.
-    dest_set.emplace(std::ranges::distance(partitions.begin(), dest_pid));
-  }
-
-  return dest_set;
-}
-auto DFA::split(const PartitionsTy &partitions, const PartitionTy &part) const {
-  // map to group states by their transition signatures
-  std::unordered_map<IndexSetTy, PartitionTy, IndexSetHasher> groups;
-
-  // add the current state to the group corresponding to its signature.
-  std::ranges::for_each(part, [&](auto &&sid) {
-    const auto &s = states.at(sid);
-    auto sig = get_transition_signature(partitions, s);
-    groups[std::move(sig)].emplace(sid);
-  });
-
-  return groups;
-}
 void DFA::moore(PartitionsTy &partitions) const {
-  bool changed;
-  do {
-    changed = false;
-    PartitionsTy new_partitions;
-
-    for (const auto &part : partitions) {
-      if (part.size() == 1) {
-        // can't split an atom set
-        new_partitions.emplace_back(part);
-        continue;
-      }
-
-      // mapping: states -> partition
-      auto groups = split(partitions, part);
-
-      // a part was splited, so it's changed
-      if (groups.size() > 1)
-        changed = true;
-
-      // this part -> several parts or unchanged
-      new_partitions.append_range(std::move(groups) | std::views::values);
-    }
-
-    partitions = std::move(new_partitions);
-  } while (changed);
+  details::moore_helper(*this, partitions).doit();
 }
 #pragma endregion DFA
 } // namespace accat::cp

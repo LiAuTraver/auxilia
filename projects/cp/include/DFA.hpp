@@ -10,7 +10,8 @@ class NFA;
 }
 namespace accat::cp::details {
 struct hopcroft_helper;
-}
+struct moore_helper;
+} // namespace accat::cp::details
 
 EXPORT_AUXILIA
 namespace accat::cp {
@@ -30,15 +31,17 @@ class DFA : details::_automaton_base {
   using MyBase = details::_automaton_base;
   friend MyBase;
   friend details::hopcroft_helper;
+  friend details::moore_helper;
 
   using IndexSetTy = std::unordered_set<size_t>;
-  using IndexSetHasher = decltype([](const IndexSetTy &s) {
-    auto h = 0ull;
-    for (const auto v : s)
-      h ^= std::hash<size_t>{}(v) + auxilia::hash_magic_number_64bit +
-           (h << 6) + (h >> 2);
-    return h;
-  });
+  using IndexSetHasher =
+      decltype([](const IndexSetTy &s) AC_STATIC_CALL_OPERATOR {
+        auto h = 0ull;
+        for (const auto v : s)
+          h ^= std::hash<size_t>{}(v) + auxilia::hash_magic_number_64bit +
+               (h << 6) + (h >> 2);
+        return h;
+      });
   using Key2IdTy = std::unordered_map<IndexSetTy, size_t, IndexSetHasher>;
 
   std::unordered_map<size_t, IndexSetTy> mapping;
@@ -90,15 +93,6 @@ private:
   /// Hopcroft algorithm (not Hopcroft-Karp algorithm)
   /// @ref https://en.wikipedia.org/wiki/DFA_minimization
   void hopcroft(PartitionsTy &) const;
-
-  IndexSetTy get_transition_signature(const PartitionsTy &,
-                                      const State &) const;
-
-  // splits a given partition (`part`) into smaller groups
-  //        based on the transitions of states in the partition.
-  // states with identical transition behavior
-  //      (signature) will remain in the same group.
-  auto split(const PartitionsTy &, const PartitionTy &) const;
   void moore(PartitionsTy &) const;
 
   template <const auto &Char> struct unknown_algorithm;
