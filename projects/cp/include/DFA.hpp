@@ -8,6 +8,9 @@
 namespace accat::cp {
 class NFA;
 }
+namespace accat::cp::details {
+struct hopcroft_helper;
+}
 
 EXPORT_AUXILIA
 namespace accat::cp {
@@ -26,6 +29,7 @@ namespace accat::cp {
 class DFA : details::_automaton_base {
   using MyBase = details::_automaton_base;
   friend MyBase;
+  friend details::hopcroft_helper;
 
   using IndexSetTy = std::unordered_set<size_t>;
   using IndexSetHasher = decltype([](const IndexSetTy &s) {
