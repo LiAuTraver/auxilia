@@ -123,7 +123,7 @@ StatusOr<std::string> NFA::to_postfix(const std::string_view regex) {
 
   return OkStatus(std::move(postfix));
 }
-auto NFA::_to_dot_impl(const FormatPolicy) const {
+auto NFA::_to_dot_impl(const FormatPolicy) const -> std::string {
   auto dot = Format(unformatted_header, "NFA", start_id);
 
   dot += _dot_states(states);

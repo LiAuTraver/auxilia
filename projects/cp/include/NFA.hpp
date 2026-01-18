@@ -36,7 +36,7 @@ private:
   // I choose not to use recursive descent here,
   // for I'm used it too often
   static auxilia::StatusOr<std::string> to_postfix(std::string_view);
-  auto _to_dot_impl(auxilia::FormatPolicy) const;
+  std::string _to_dot_impl(auxilia::FormatPolicy) const;
   void init_input_alphabet(std::string_view);
   auto build_graph(std::string_view) -> auxilia::StatusOr<Fragment>;
   void finalize(Fragment &&);

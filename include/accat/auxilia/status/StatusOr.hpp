@@ -130,6 +130,9 @@ public:
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
+  /// this function returns a copy, which may not you want; call `std::move`
+  /// first or just use `.rvalue()` to get the rvalue reference and move it
+  /// out to avoid unnecessary copy.
   AC_NODISCARD AC_CONSTEXPR20 inline value_type
   value_or(this auto &&self, rvoff_value_t &&default_value) {
     return self.ok() ? std::forward<decltype(self)>(self).my_value
