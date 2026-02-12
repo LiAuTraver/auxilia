@@ -13,47 +13,48 @@
 #if !AC_USE_STD_FMT
 #  include <fmt/color.h>
 #  include <fmt/xchar.h>
+// compatibility layer of `fmt` and `std`'s formatting functions
 namespace accat::auxilia {
 template <typename... T>
 inline auto
-Format(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+Format(::fmt::text_style ts, ::fmt::format_string<T...> fmt, T &&...args) {
   return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
-Format(fmt::text_style ts, fmt::wformat_string<T...> fmt, T &&...args) {
+Format(::fmt::text_style ts, ::fmt::wformat_string<T...> fmt, T &&...args) {
   return ::fmt::format(ts, fmt, std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
-Print(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+Print(::fmt::text_style ts, ::fmt::format_string<T...> fmt, T &&...args) {
   return ::fmt::print(
-      ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
+      ::std::forward<::fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto Print(::std::FILE *f,
-                  fmt::text_style ts,
-                  fmt::format_string<T...> fmt,
+                  ::fmt::text_style ts,
+                  ::fmt::format_string<T...> fmt,
                   T &&...args) {
   return ::fmt::print(f,
-                      ::std::forward<fmt::text_style>(ts),
+                      ::std::forward<::fmt::text_style>(ts),
                       (fmt),
                       ::std::forward<T>(args)...);
 }
 template <typename... T>
 inline auto
-Println(fmt::text_style ts, fmt::format_string<T...> fmt, T &&...args) {
+Println(::fmt::text_style ts, ::fmt::format_string<T...> fmt, T &&...args) {
   ::fmt::print(
-      ::std::forward<fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
+      ::std::forward<::fmt::text_style>(ts), (fmt), ::std::forward<T>(args)...);
   ::putchar('\n');
 }
 template <typename... T>
 inline auto Println(::std::FILE *f,
-                    fmt::text_style ts,
-                    fmt::format_string<T...> fmt,
+                    ::fmt::text_style ts,
+                    ::fmt::format_string<T...> fmt,
                     T &&...args) {
   ::fmt::print(f,
-               ::std::forward<fmt::text_style>(ts),
+               ::std::forward<::fmt::text_style>(ts),
                (fmt),
                ::std::forward<T>(args)...);
   ::puts("\n");
