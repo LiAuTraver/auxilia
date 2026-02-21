@@ -215,14 +215,14 @@ public:
     return this->visit([format_policy](const auto &value) -> string_type {
       using T = std::decay_t<decltype(value)>;
 
-      if constexpr (requires { T::to_string(format_policy); }) {
+      if constexpr (requires { value.to_string(format_policy); }) {
         return value.to_string(format_policy);
-      } else if constexpr (requires { T::to_string(); }) {
+      } else if constexpr (requires { value.to_string(); }) {
         return value.to_string();
       } else if constexpr (requires { value->to_string(format_policy); }) {
-        return value.to_string(format_policy);
+        return value->to_string(format_policy);
       } else if constexpr (requires { value->to_string(); }) {
-        return value.to_string();
+        return value->to_string();
       } else if constexpr (requires { Format("{}", value); }) {
         return Format("{}", value);
       } else if constexpr (std::is_convertible_v<T, string_type>) {
