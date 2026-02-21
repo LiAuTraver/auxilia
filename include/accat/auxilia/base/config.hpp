@@ -116,10 +116,10 @@ AC_FLATTEN AC_FORCEINLINE inline void break_if_debugging() noexcept {
   if (details::_is_debugger_present())
     details::_debugbreak();
 }
-template <typename To, typename From>
-AC_FLATTEN AC_FORCEINLINE inline To as(From &&f) noexcept {
-  return static_cast<To>(f);
-}
+template <typename To>
+inline constexpr auto as = [](auto &&from) static constexpr noexcept -> To {
+  return static_cast<To>(from);
+};
 
 // from MSVC STL:
 // converts from a fancy pointer to a plain pointer
