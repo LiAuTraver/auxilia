@@ -725,9 +725,7 @@ void Grammar::apply_left_factorization() {
     }
   }
 }
-bool Grammar::isLL1() {
-  if (is_ll1_.has_value())
-    return *is_ll1_;
+bool Grammar::_do_isLL1() {
 
   // only cache_selectSet_ shall be edited
   for (auto &piece : pieces_) {
@@ -768,7 +766,8 @@ auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
   if (table.empty())
     std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
       std::ranges::for_each(
-          rv::zip(piece.cache_selectSet_, piece.rhs_), [&](auto &&pair) {
+          std::views::zip(piece.cache_selectSet_, piece.rhs_),
+          [&](auto &&pair) {
             auto &&[selectSet, rhs] = pair;
             std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
               table[piece.lhs_].emplace(terminalSymbol, rhs);

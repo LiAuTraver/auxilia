@@ -264,6 +264,7 @@ public:
     AC_PRECONDITION(argv, "argv is null")
     AC_PRECONDITION(argc > 0, "argc is not positive")
     std::vector<std::string_view> args;
+    args.reserve(argc);
     for (int i = 0; i < argc; ++i) {
       args.emplace_back(argv[i]);
     }
@@ -375,22 +376,23 @@ inline auto _get_global_parsers() -> std::vector<Parser> & {
 /// @returns nullptr if the parser does not exist.
 inline auto find(const std::string_view program_name) -> Parser * {
   auto &parsers = details::_get_global_parsers();
-  for (auto &parser : parsers) {
-    if (parser.program_name() == program_name)
-      return &parser;
-  }
-  return nullptr;
+
+  const auto it = std::ranges::find_if(parsers, [&](auto &&parser) {
+    return parser.program_name() == program_name;
+  });
+
+  return it == parsers.end() ? nullptr : &*it;
 }
 /// @pre The parser must exist, otherwise throws.
-inline auto get(std::string_view program_name) -> Parser & {
+inline auto get(const std::string_view program_name) -> Parser & {
   if (auto p = find(program_name))
     return *p;
 
   AC_THROW_OR_DIE_(Format("Parser does not exist: {}", program_name));
 }
-inline auto erase(std::string_view program_name) -> bool {
+inline auto erase(const std::string_view program_name) -> bool {
   auto &parsers = details::_get_global_parsers();
-  auto it = std::ranges::find_if(parsers, [&](const Parser &p) {
+  const auto it = std::ranges::find_if(parsers, [&](const Parser &p) {
     return p.program_name() == program_name;
   });
   if (it != parsers.end()) {

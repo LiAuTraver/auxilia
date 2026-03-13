@@ -138,6 +138,7 @@ private:
                                  std::ranges::common_range auto &&rhsElem);
 
   auto _do_parse(std::ranges::common_range auto &&elems) const;
+  bool _do_isLL1();
 
 public:
   auto eliminate_left_recursion() -> auxilia::Status;
@@ -147,7 +148,7 @@ public:
   // ditto: follow_set
   void compute_follow_set();
 
-  bool isLL1();
+  bool isLL1() { return is_ll1_.value_or(_do_isLL1()); }
 
   auto parse(string_type &&) -> auxilia::Status;
   auto parse(Piece::rhs_elem_view_t &&) -> auxilia::Status;
