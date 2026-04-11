@@ -118,6 +118,7 @@ public:
     else
       return ((type_ == types) || ...);
   }
+  constexpr auto is_error() const noexcept { return is_type(Type::kLexError); }
   constexpr auto line() const noexcept { return line_; }
   auto to_string(const auxilia::FormatPolicy &format_policy =
                      auxilia::FormatPolicy::kDefault) const -> string_type;

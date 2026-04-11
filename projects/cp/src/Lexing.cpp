@@ -16,7 +16,6 @@
 
 #include "Lexing.hpp"
 
-
 namespace accat::cp {
 using auxilia::Format;
 using auxilia::FormatPolicy;
@@ -103,15 +102,13 @@ auto Lexer::lexAll_or_error()
   if (!error())
     return result;
 
-  return std::unexpected(result //
-                         | std::ranges::views::filter([](const token_t &t) {
-                             return t.is_type(kLexError);
-                           }) //
-                         | std::ranges::views::transform([](const token_t &t) {
-                             return std::string(t.error_message());
-                           }) |
-                         std::ranges::views::join_with('\n') //
-                         | std::ranges::to<string_type>()    //
+  return std::unexpected(
+      std::move(result)                                          //
+      | std::ranges::views::as_rvalue                            //
+      | std::ranges::views::filter(&Token::is_error)             //
+      | std::ranges::views::transform(&Token::error_message_str) //
+      | std::ranges::views::join_with('\n')                      //
+      | std::ranges::to<string_type>()                           //
   );
 }
 bool Lexer::is_at_end(const size_t offset) const {
@@ -289,6 +286,7 @@ auto Lexer::lex_number() -> std::optional<number_value_t> {
   return to_number(value, is_floating_point, Base);
 }
 Lexer::string_view_type Lexer::lex_identifier() {
+  // `locale` here is necessary otherwise it'll throw exception.
   while (std::isalnum(peek(), std::locale()) ||
          tolerable_chars.find(peek()) != string_view_type::npos) {
     get();
