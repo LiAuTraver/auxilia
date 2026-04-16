@@ -55,6 +55,46 @@ auto Grammar::_new_unique_non_terminal_name(const std::string_view origName,
 } // namespace accat::cp
 #pragma endregion Helper
 
+#pragma region Piece
+namespace accat::cp {
+bool Grammar::Piece::_do_nullable(Grammar *myGrammar) {
+
+  cache_rhsElemNullable.reserve(rhs_.size());
+
+  const auto isSymbolNullable = [&](auto &&sym) {
+    auto &&ptrPiece = myGrammar->non_terminal(sym);
+    contract_assert(ptrPiece != this, "infinite loop?")
+    return ptrPiece && ptrPiece->nullable(myGrammar);
+  };
+
+  const auto isRhsElemNullable = [&](auto &&rhsElem) {
+    if (rhsElem.front() == NilMarker) {
+      contract_assert(rhsElem.size() == 1, "shall not happen")
+      cache_rhsElemNullable.emplace_back(true);
+      return true;
+    }
+    // bitref -> bool
+    return static_cast<bool>(cache_rhsElemNullable.emplace_back(
+        sr::all_of(rhsElem | rv::as_const, isSymbolNullable)));
+  };
+  // not sure, subtle bug? any_of would eagerly return once one of the elem
+  // satisfies the cond
+  return nullable_.emplace(sr::any_of(rhs_ | rv::as_const, isRhsElemNullable));
+}
+auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
+  return (lhs_ + (" -> "))
+      .append_range(
+          rhs_ //
+          | std::ranges::views::transform([](auto &&alt) {
+              return alt | std::ranges::views::join_with(' ');
+            })                                                     //
+          | std::ranges::views::join_with(std::string_view(" | ")) //
+          // ^^^ string_view is a workaround, pass const char* seems cause issue
+      );
+}
+} // namespace accat::cp
+#pragma endregion Piece
+
 namespace accat::cp {
 #pragma region Recurse
 void Grammar::_immediate_left_recursion(Piece &A,
@@ -193,7 +233,7 @@ Status Grammar::_preprocess(const std::vector<Token> &tokens) {
     return UnimplementedError(std::move(str).append(
         "Grammar contains non-allowed token types; Validation failure."));
   }
-  return OkStatus();
+  return {};
 }
 void Grammar::_postprocess(std::ranges::common_range auto &&lines) {
 

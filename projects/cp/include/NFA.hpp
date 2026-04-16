@@ -18,8 +18,8 @@ namespace accat::cp {
 /// ε-transitions)
 ///
 /// @copydoc DFA
-class NFA : details::_automaton_base {
-  using MyBase = details::_automaton_base;
+class NFA : details::AutomatonBase {
+  using MyBase = details::AutomatonBase;
   friend MyBase;
   friend class DFA;
 
@@ -29,18 +29,18 @@ public:
   using MyBase::to_string;
 
 private:
-  static std::string preprocess_regex(std::string_view);
+  inline static std::string preprocess_regex(std::string_view);
 
   // Shunting-Yard Algorithm, ref:
   // https://en.wikipedia.org/wiki/Shunting_yard_algorithm#The_algorithm_in_detail
   // I choose not to use recursive descent here,
   // for I'm used it too often
-  static auxilia::StatusOr<std::string> to_postfix(std::string_view);
-  std::string _to_dot_impl(auxilia::FormatPolicy) const;
-  void init_input_alphabet(std::string_view);
-  auto build_graph(std::string_view) -> auxilia::StatusOr<Fragment>;
-  void finalize(Fragment &&);
-  auto construxt_from_regex(std::string_view);
+  inline static auxilia::StatusOr<std::string> to_postfix(std::string_view);
+  inline std::string _to_dot_impl(auxilia::FormatPolicy) const;
+  inline void init_input_alphabet(std::string_view);
+  inline auto build_graph(std::string_view) -> auxilia::StatusOr<Fragment>;
+  inline void finalize(Fragment &&);
+  inline auto construxt_from_regex(std::string_view);
 
 public:
   // McNaughton-Yamada-Thompson algorithm

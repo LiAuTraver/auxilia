@@ -108,34 +108,37 @@ private:
   /// ensure uniqueness of the name.
   /// @note this function only returns a unique name, and does NOT add it into
   /// the `index_map`.
-  auto _new_unique_non_terminal_name(std::string_view origName,
-                                     const char *prime) const -> string_type;
+  inline auto _new_unique_non_terminal_name(std::string_view origName,
+                                            const char *prime) const
+      -> string_type;
 
-  void _immediate_left_recursion(Piece &A,
-                                 Piece::rhs_t &&recRhsElems,
-                                 Piece::rhs_t &&nonRecRhsElems);
+  inline void _immediate_left_recursion(Piece &A,
+                                        Piece::rhs_t &&recRhsElems,
+                                        Piece::rhs_t &&nonRecRhsElems);
   // eliminate direct left recursion for A
-  bool _analyze_left_recursion(Piece &A);
+  inline bool _analyze_left_recursion(Piece &A);
 
   // eliminate indirect left recursion
-  void _indirect_left_recursion(Piece &A, const Piece &B) const;
+  inline void _indirect_left_recursion(Piece &A, const Piece &B) const;
 
-  static auto _preprocess(const std::vector<Token> &tokens) -> auxilia::Status;
-  void _postprocess(std::ranges::common_range auto &&lines);
-  auto _do_process(std::vector<Token> &&tokens);
+  inline static auto _preprocess(const std::vector<Token> &tokens)
+      -> auxilia::Status;
+  inline void _postprocess(std::ranges::common_range auto &&lines);
+  inline auto _do_process(std::vector<Token> &&tokens);
 
   // expand EBNF constructs ([optional], {zero-or-more}) to BNF
-  void _expand_ebnf_constructs();
+  inline void _expand_ebnf_constructs();
 
-  void _do_factoring(size_t index);
+  inline void _do_factoring(size_t index);
 
-  auto _first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
+  inline auto _first_set_from_rhs_elem(std::ranges::common_range auto &&rhsElem)
       -> Piece::set_t;
 
-  void _first_set_from_piece(Piece &A);
+  inline void _first_set_from_piece(Piece &A);
 
-  bool _follow_set_from_rhs_elem(const Piece &A,
-                                 std::ranges::common_range auto &&rhsElem);
+  inline bool
+  _follow_set_from_rhs_elem(const Piece &A,
+                            std::ranges::common_range auto &&rhsElem);
 
   auto _do_parse(std::ranges::common_range auto &&elems) const;
   bool _do_isLL1();

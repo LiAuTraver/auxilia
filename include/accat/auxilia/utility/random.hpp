@@ -68,7 +68,7 @@ template <typename Ty>
 #endif
 inline Ty _random_integer_generator<Ty>::operator()(const Ty(min),
                                                     const Ty(max)) const {
-  precondition((min) < (max), "min must be less than max");
+  AC_PRECONDITION((min) < (max), "min must be less than max")
   return (((*this).operator()()) % ((max) - (min))) + (min);
 }
 /// @brief A random integer generator for 8-bit unsigned integers.
@@ -84,7 +84,7 @@ template <> struct _random_integer_generator<uint8_t> {
   }
 
   inline uint8_t operator()(const uint8_t(min), const uint8_t(max)) const {
-    AC_PRECONDITION((min) < (max), "min must be less than max");
+    AC_PRECONDITION((min) < (max), "min must be less than max")
     return (((*this)() % ((max) - (min))) + (min));
   }
 };

@@ -345,12 +345,12 @@ bool Lexer::advance_if_is(const char_t expected) {
   cursor++;
   return true;
 }
-static constexpr bool is_valid_base(const char c) noexcept {
+inline static constexpr bool is_valid_base(const char c) noexcept {
   return c == 'x' || c == 'X' || c == 'b' || c == 'B' || c == 'o' || c == 'O' ||
          c == 'd' || c == 'D';
 }
-static constexpr bool is_valid_digit_of_base(const char c,
-                                             const int base) noexcept {
+inline static constexpr bool is_valid_digit_of_base(const char c,
+                                                    const int base) noexcept {
   switch (base) {
   case 2:
     return c == '0' || c == '1';

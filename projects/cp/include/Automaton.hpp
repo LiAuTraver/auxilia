@@ -20,11 +20,11 @@
 #include "accat/auxilia/container/chars.hpp"
 
 namespace accat::cp::details {
-class _automaton_base : auxilia::Printable {
+class AutomatonBase : auxilia::Printable {
 protected:
-  _automaton_base() noexcept = default;
-  _automaton_base(_automaton_base &&) noexcept = default;
-  _automaton_base &operator=(_automaton_base &&) noexcept = default;
+  AutomatonBase() noexcept = default;
+  AutomatonBase(AutomatonBase &&) noexcept = default;
+  AutomatonBase &operator=(AutomatonBase &&) noexcept = default;
 
   // we don't add const here for move-ctor/assignment,
   // but it's logically immutable once it is assigned.
@@ -152,9 +152,8 @@ digraph {} {{
     return c != '(' && c != ')' && is_operator(c);
   }
 };
-auto _automaton_base::to_dot(this const auto &self,
-                             const auxilia::FormatPolicy policy)
-    -> std::string {
+auto AutomatonBase::to_dot(this const auto &self,
+                           const auxilia::FormatPolicy policy) -> std::string {
   if (self.empty())
     return auxilia::raw(R"(
 digraph Automaton {

@@ -18,17 +18,17 @@ namespace accat::cp {
 /// @brief Deterministic Finite Automaton
 ///
 /// A DFA can be represented by a 5-tuple (Q, Σ, δ, q0, F) where:
-/// - Q: finite set of states: @link details::_automaton_base::states @endlink
+/// - Q: finite set of states: @link details::AutomatonBase::states @endlink
 /// - Σ: finite set of input symbols: @link
-/// details::_automaton_base::input_alphabet @endlink
+/// details::AutomatonBase::input_alphabet @endlink
 /// - δ: Q × Σ → Q is the transition function, represented by
-///        @link details::_automaton_base::State::edges @endlink
-/// - q0 ∈ Q is the start state: @link details::_automaton_base::start_id
+///        @link details::AutomatonBase::State::edges @endlink
+/// - q0 ∈ Q is the start state: @link details::AutomatonBase::start_id
 /// @endlink
 /// - F ⊆ Q is the set of accept states: @link
-/// details::_automaton_base::accept_ids @endlink
-class DFA : details::_automaton_base {
-  using MyBase = details::_automaton_base;
+/// details::AutomatonBase::accept_ids @endlink
+class DFA : details::AutomatonBase {
+  using MyBase = details::AutomatonBase;
   friend MyBase;
   friend details::hopcroft_helper;
   friend details::moore_helper;
@@ -58,12 +58,12 @@ public:
   DFA &operator=(DFA &&) noexcept = default;
 
 private:
-  auto _dot_transition_details() const;
   auto _to_dot_impl(auxilia::FormatPolicy policy) const -> std::string;
-  void process_start_state(const NFA &nfa, Key2IdTy &key_to_id);
-  void process_transitions(const NFA &nfa, Key2IdTy &key_to_id);
-  void finalize(const NFA &nfa);
-  void construct_from_nfa(const NFA &nfa);
+  inline auto _dot_transition_details() const;
+  inline void process_start_state(const NFA &nfa, Key2IdTy &key_to_id);
+  inline void process_transitions(const NFA &nfa, Key2IdTy &key_to_id);
+  inline void finalize(const NFA &nfa);
+  inline void construct_from_nfa(const NFA &nfa);
 
 public:
   static auxilia::StatusOr<DFA> FromNFA(const NFA &nfa);
@@ -93,10 +93,10 @@ private:
   /// Hopcroft algorithm (not Hopcroft-Karp algorithm)
   /// @ref https://en.wikipedia.org/wiki/DFA_minimization
   void hopcroft(PartitionsTy &) const;
-  void moore(PartitionsTy &) const;
+  inline void moore(PartitionsTy &) const;
 
   template <const auto &Char> struct unknown_algorithm;
-  template <const auto &Option> void _do_minify() {
+  template <const auto &Option> inline void _do_minify() {
     auto partitions = initial_partition(this->states);
 
     if constexpr (auxilia::as_chars(Option) == "Hopcroft")

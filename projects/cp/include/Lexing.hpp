@@ -54,7 +54,7 @@ public:
     kEndOfFile = std::numeric_limits<uint8_t>::max()
     // clang-format on
   };
-  constexpr auto token_type_operator() const -> std::string_view;
+  inline constexpr auto token_type_operator() const -> std::string_view;
   Token() = default;
   Token(Type type, std::string_view lexeme, uint_least32_t line)
       : type_(type), lexeme_(std::string{lexeme}), line_(line) {}
@@ -293,31 +293,31 @@ public:
 
 private:
   bool is_at_end(size_t offset = 0) const;
-  token_t add_identifier_or_keyword();
-  token_t add_number();
-  token_t add_string();
-  token_t add_comment();
+  inline token_t add_identifier_or_keyword();
+  inline token_t add_number();
+  inline token_t add_string();
+  inline token_t add_comment();
   token_t next_token();
   token_t add_token(Token::Type type);
-  auto add_token(number_value_t number) const -> token_t;
-  auto add_error_token(string_type &&msg) -> token_t;
-  auto lex_string() -> auxilia::Status;
+  inline auto add_token(number_value_t number) const -> token_t;
+  inline auto add_error_token(string_type &&msg) -> token_t;
+  inline auto lex_string() -> auxilia::Status;
   auto lex_number() -> std::optional<number_value_t>;
   string_view_type lex_identifier();
 
 private:
-  auto to_number(string_view_type value, bool isFloating, int Base)
+  inline auto to_number(string_view_type value, bool isFloating, int Base)
       -> std::optional<number_value_t>;
 
   /// @brief lookaheads; we have only consumed the character before the cursor
-  char_t peek(size_t offset = 0) const;
+  inline char_t peek(size_t offset = 0) const;
   /// @brief get current character and advance the cursor
-  const char_t &get(size_t offset = 1);
+  inline const char_t &get(size_t offset = 1);
 
   /// @brief advance the cursor if the character is the expected character
   /// @return true if the character is the expected character and the cursor is
   /// advanced, false otherwise
-  bool advance_if_is(char_t expected);
+  inline bool advance_if_is(char_t expected);
 
 private:
   /// @brief head of a token

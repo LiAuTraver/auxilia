@@ -7,7 +7,6 @@ add_library(cp.shared OBJECT
   src/Automaton.cpp
   include/Grammar.hpp
   src/Grammar.cpp
-  src/Piece.cpp
   include/Lexing.hpp
   src/Lexing.cpp
   src/NFA.cpp

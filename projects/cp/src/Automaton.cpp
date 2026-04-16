@@ -36,7 +36,7 @@ using auxilia::widen;
 
 #pragma region Automaton
 namespace accat::cp::details {
-auto _automaton_base::Transition::to_string(const FormatPolicy policy) const
+auto AutomatonBase::Transition::to_string(const FormatPolicy policy) const
     -> string_type {
   if (policy == FormatPolicy::kDefault)
     return Format(
@@ -49,7 +49,7 @@ auto _automaton_base::Transition::to_string(const FormatPolicy policy) const
                   is_epsilon() ? epsilon : widen(symbol));
   AC_UNREACHABLE()
 }
-const char *_automaton_base::State::type_string() const {
+const char *AutomatonBase::State::type_string() const {
   switch (type) {
   case Type::kIntermediate:
     return "";
@@ -65,7 +65,7 @@ const char *_automaton_base::State::type_string() const {
   AC_UNREACHABLE("Unknown State Type: {}", (type))
   return nullptr;
 }
-auto _automaton_base::State::to_string(const FormatPolicy policy) const
+auto AutomatonBase::State::to_string(const FormatPolicy policy) const
     -> string_type {
   std::string result;
 
@@ -88,7 +88,7 @@ auto _automaton_base::State::to_string(const FormatPolicy policy) const
 
   return result;
 }
-auto _automaton_base::_dot_states(const StatesTy &states) -> string_type {
+auto AutomatonBase::_dot_states(const StatesTy &states) -> string_type {
   std::string dot;
   // mark start and accept distinctly
   for (const auto &[id, s] : states) {
@@ -104,8 +104,8 @@ auto _automaton_base::_dot_states(const StatesTy &states) -> string_type {
   }
   return dot;
 }
-void _automaton_base::closure(std::unordered_set<size_t> &state_set,
-                              const char ch) const {
+void AutomatonBase::closure(std::unordered_set<size_t> &state_set,
+                            const char ch) const {
 
   // FIXME: poor use of vec
   // R1:    changed vec to stack
@@ -124,17 +124,17 @@ void _automaton_base::closure(std::unordered_set<size_t> &state_set,
         });
   }
 }
-auto _automaton_base::from_char(const char c) -> Fragment {
+auto AutomatonBase::from_char(const char c) -> Fragment {
   const auto beg = new_state();
   const auto end = new_state();
   add_transition(beg, end, c);
   return {beg, end};
 }
-auto _automaton_base::concat(Fragment &&a, Fragment &&b) -> Fragment {
+auto AutomatonBase::concat(Fragment &&a, Fragment &&b) -> Fragment {
   add_transition(a.end, b.start);
   return {a.start, b.end};
 }
-auto _automaton_base::union_operation(Fragment &&a, Fragment &&b) -> Fragment {
+auto AutomatonBase::union_operation(Fragment &&a, Fragment &&b) -> Fragment {
   const auto beg = new_state();
   const auto end = new_state();
   // ... beg a|b end ...
@@ -145,7 +145,7 @@ auto _automaton_base::union_operation(Fragment &&a, Fragment &&b) -> Fragment {
   add_transition(b.end, end);
   return {beg, end};
 }
-auto _automaton_base::kleene_star(Fragment &&f) -> Fragment {
+auto AutomatonBase::kleene_star(Fragment &&f) -> Fragment {
   const auto beg = new_state();
   const auto end = new_state();
 
@@ -161,7 +161,7 @@ auto _automaton_base::kleene_star(Fragment &&f) -> Fragment {
 
   return {beg, end};
 }
-auto _automaton_base::_dot_transitions() const -> std::string {
+auto AutomatonBase::_dot_transitions() const -> std::string {
   using auxilia::literals::operator""_raw;
   std::string dot;
   for (const auto &[id, s] : states) {
@@ -175,7 +175,7 @@ auto _automaton_base::_dot_transitions() const -> std::string {
   }
   return dot;
 }
-bool _automaton_base::test(const std::string_view input) {
+bool AutomatonBase::test(const std::string_view input) {
   if (empty())
     return input.empty();
 
@@ -205,8 +205,7 @@ bool _automaton_base::test(const std::string_view input) {
     return current_states.contains(accept_id);
   });
 }
-auto _automaton_base::to_string(const FormatPolicy policy) const
-    -> std::string {
+auto AutomatonBase::to_string(const FormatPolicy policy) const -> std::string {
   if (empty())
     return "Automaton <empty>";
 

@@ -120,7 +120,7 @@ TEST(Grammar, LL0_LR0) {
              rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 
   for (auto &&sample : ll0_lr0_0.tests | rv::take_while(Pair::NotNull)) {
-    EXPECT_EQ(sample.output, grammar.parse(sample.input).message());
+    EXPECT_TRIMMED_STR_EQ(sample.output, grammar.parse(sample.input).message());
   }
 }
 constexpr auto ll1_lr0_0 = Answer{
@@ -180,7 +180,7 @@ TEST(Grammar, LL1_LR0) {
              rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
 
   for (auto &&sample : ll1_lr0_0.tests | rv::take_while(Pair::NotNull)) {
-    EXPECT_EQ(sample.output, grammar.parse(sample.input).message());
+    EXPECT_TRIMMED_STR_EQ(sample.output, grammar.parse(sample.input).message());
   }
 }
 constexpr auto ll1_slr1_0 = Answer{
@@ -227,7 +227,7 @@ TEST(Grammar, LL1_SLR1) {
 
   for (auto &&[input, output] :
        ll1_slr1_0.tests | rv::take_while(Pair::NotNull)) {
-    EXPECT_EQ(output, grammar.parse(input).message());
+    EXPECT_TRIMMED_STR_EQ(output, grammar.parse(input).message());
   }
 }
 
@@ -281,7 +281,7 @@ TEST(Grammar, LL1_LALR1) {
 
   for (auto &&[input, output] :
        ll1_lalr1_0.tests | rv::take_while(Pair::NotNull)) {
-    EXPECT_EQ(output, grammar.parse(input).message());
+    EXPECT_TRIMMED_STR_EQ(output, grammar.parse(input).message());
   }
 }
 constexpr auto ll1_lr1_0 = Answer{
@@ -341,6 +341,6 @@ TEST(Grammar, LL1_LR1) {
              rv::transform(std::bind_back(&NonTerminal::nullable, &grammar))));
   for (auto &&[input, output] :
        ll1_lr1_0.tests | rv::take_while(Pair::NotNull)) {
-    EXPECT_EQ(output, grammar.parse(input).message());
+    EXPECT_TRIMMED_STR_EQ(output, grammar.parse(input).message());
   }
 }
