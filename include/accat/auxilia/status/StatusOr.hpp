@@ -97,7 +97,7 @@ public:
 public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
-  inline auto value(this auto &&self) {
+  inline decltype(auto) value(this auto &&self) {
     AC_RUNTIME_ASSERT(self.ok() or self.is_return(),
                       "Cannot dereference a status that is not OK.");
     return std::forward<decltype(self)>(self).my_value;
@@ -216,6 +216,13 @@ public:
         "Playing Russian doll with StatusOr is not allowed: `" #_name_ "()` "  \
         "called to return a StatusOr inside another StatusOr. "                \
         "Please use `and_then()` or `or_else()` instead.");
+#  define AC_STATUSOR_CONSUME_METHOD(_name_)                                   \
+    static_assert(                                                             \
+        std::is_rvalue_reference_v<decltype(self)>,                            \
+        "Method `" #_name_ "` is designed to consume the StatusOr, "           \
+        "but it is called on an lvalue. Please call it on an rvalue "          \
+        "or use the corresponding method that does not consume the "           \
+        "StatusOr.");
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   /// @brief Calls the function `f` with the value stored in the StatusOr
   /// if it is OK, otherwise do nothing and return the StatusOr itself.
@@ -225,32 +232,34 @@ public:
     requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
   auto and_then(this auto &&self, F &&f)
       -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
+    AC_STATUSOR_CONSUME_METHOD(and_then)
     if (!self.ok()) {
+      // `forward` is sufficient since `as_status` is a perfect function itself.
       return {std::forward<decltype(self)>(self).as_status()};
     }
     return std::invoke(std::forward<F>(f),
                        std::forward<decltype(self)>(self).my_value);
   }
 #  else
-  template <typename F, typename R = std::invoke_result_t<F, Ty>>
-    requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
-  auto and_then(F &&f) & -> std::
-      conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
-    if (!ok()) {
-      return {as_status()};
-    }
-    return std::invoke(std::forward<F>(f), my_value);
-  }
+  // template <typename F, typename R = std::invoke_result_t<F, Ty>>
+  //   requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
+  // auto and_then(F &&f) & -> std::
+  //     conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   return std::invoke(std::forward<F>(f), my_value);
+  // }
 
-  template <typename F, typename R = std::invoke_result_t<F, Ty>>
-    requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
-  auto and_then(F &&f) const & -> std::
-      conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
-    if (!ok()) {
-      return {as_status()};
-    }
-    return std::invoke(std::forward<F>(f), my_value);
-  }
+  // template <typename F, typename R = std::invoke_result_t<F, Ty>>
+  //   requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
+  // auto and_then(F &&f) const & -> std::
+  //     conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   return std::invoke(std::forward<F>(f), my_value);
+  // }
 
   template <typename F, typename R = std::invoke_result_t<F, Ty>>
     requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
@@ -281,6 +290,7 @@ public:
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
+    AC_STATUSOR_CONSUME_METHOD(or_else)
     if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
@@ -288,22 +298,22 @@ public:
                        std::forward<decltype(self)>(self).as_status());
   }
 #  else
-  template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
-  auto or_else(F &&f) & -> StatusOr<Ty> {
-    if (ok()) {
-      return *this;
-    }
-    return std::invoke(std::forward<F>(f), as_status());
-  }
-  template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
-  auto or_else(F &&f) const & -> StatusOr<Ty> {
-    if (ok()) {
-      return *this;
-    }
-    return std::invoke(std::forward<F>(f), as_status());
-  }
+  // template <typename F>
+  //   requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
+  // auto or_else(F &&f) & -> StatusOr<Ty> {
+  //   if (ok()) {
+  //     return *this;
+  //   }
+  //   return std::invoke(std::forward<F>(f), as_status());
+  // }
+  // template <typename F>
+  //   requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
+  // auto or_else(F &&f) const & -> StatusOr<Ty> {
+  //   if (ok()) {
+  //     return *this;
+  //   }
+  //   return std::invoke(std::forward<F>(f), as_status());
+  // }
   template <typename F>
     requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
   auto or_else(F &&f) && -> StatusOr<Ty> {
@@ -332,6 +342,7 @@ public:
   auto transform(this auto &&self, F &&f)
       -> StatusOr<std::invoke_result_t<F, Ty>> {
     AC_DOLL_ASSERT(transform)
+    AC_STATUSOR_CONSUME_METHOD(transform)
     if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
@@ -345,6 +356,7 @@ public:
     requires std::is_invocable_v<F, Ty> &&
              std::is_void_v<std::invoke_result_t<F, Ty>>
   auto transform(this auto &&self, F &&f) -> StatusOr<Monostate> {
+    AC_STATUSOR_CONSUME_METHOD(transform)
     if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
@@ -354,49 +366,49 @@ public:
   }
 
 #  else
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
-  auto transform(F &&f) & -> StatusOr<std::invoke_result_t<F, Ty>> {
-    AC_DOLL_ASSERT(transform)
-    if (!ok()) {
-      return {as_status()};
-    }
-    return {std::invoke(std::forward<F>(f), my_value)};
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, Ty> &&
+  //            (!std::is_void_v<std::invoke_result_t<F, Ty>>)
+  // auto transform(F &&f) & -> StatusOr<std::invoke_result_t<F, Ty>> {
+  //   AC_DOLL_ASSERT(transform)
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   return {std::invoke(std::forward<F>(f), my_value)};
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             std::is_void_v<std::invoke_result_t<F, Ty>>
-  auto transform(F &&f) & -> StatusOr<Monostate> {
-    if (!ok()) {
-      return {as_status()};
-    }
-    std::invoke(std::forward<F>(f), my_value);
-    return {};
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, Ty> &&
+  //            std::is_void_v<std::invoke_result_t<F, Ty>>
+  // auto transform(F &&f) & -> StatusOr<Monostate> {
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   std::invoke(std::forward<F>(f), my_value);
+  //   return {};
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
-  auto transform(F &&f) const & -> StatusOr<std::invoke_result_t<F, Ty>> {
-    AC_DOLL_ASSERT(transform)
-    if (!ok()) {
-      return {as_status()};
-    }
-    return {std::invoke(std::forward<F>(f), my_value)};
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, Ty> &&
+  //            (!std::is_void_v<std::invoke_result_t<F, Ty>>)
+  // auto transform(F &&f) const & -> StatusOr<std::invoke_result_t<F, Ty>> {
+  //   AC_DOLL_ASSERT(transform)
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   return {std::invoke(std::forward<F>(f), my_value)};
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             std::is_void_v<std::invoke_result_t<F, Ty>>
-  auto transform(F &&f) const & -> StatusOr<Monostate> {
-    if (!ok()) {
-      return {as_status()};
-    }
-    std::invoke(std::forward<F>(f), my_value);
-    return {};
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, Ty> &&
+  //            std::is_void_v<std::invoke_result_t<F, Ty>>
+  // auto transform(F &&f) const & -> StatusOr<Monostate> {
+  //   if (!ok()) {
+  //     return {as_status()};
+  //   }
+  //   std::invoke(std::forward<F>(f), my_value);
+  //   return {};
+  // }
 
   template <typename F>
     requires std::is_invocable_v<F, Ty> &&
@@ -453,6 +465,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              (!std::is_void_v<std::invoke_result_t<F, base_type>>)
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
+    static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
     if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
@@ -466,6 +479,7 @@ public:
     requires std::is_invocable_v<F, base_type> &&
              std::is_void_v<std::invoke_result_t<F, base_type>>
   auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
+    AC_STATUSOR_CONSUME_METHOD(transform_error)
     if (!self.ok()) {
       std::invoke(std::forward<F>(f),
                   std::forward<decltype(self)>(self).as_status());
@@ -473,45 +487,45 @@ public:
     return std::forward<decltype(self)>(self);
   }
 #  else
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
-  auto transform_error(F &&f) & -> StatusOr<Ty> {
-    if (ok()) {
-      return *this;
-    }
-    return std::invoke(std::forward<F>(f), as_status());
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, base_type> &&
+  //            (!std::is_void_v<std::invoke_result_t<F, base_type>>)
+  // auto transform_error(F &&f) & -> StatusOr<Ty> {
+  //   if (ok()) {
+  //     return *this;
+  //   }
+  //   return std::invoke(std::forward<F>(f), as_status());
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             std::is_void_v<std::invoke_result_t<F, base_type>>
-  auto transform_error(F &&f) & -> StatusOr<Ty> {
-    if (!ok()) {
-      std::invoke(std::forward<F>(f), as_status());
-    }
-    return *this;
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, base_type> &&
+  //            std::is_void_v<std::invoke_result_t<F, base_type>>
+  // auto transform_error(F &&f) & -> StatusOr<Ty> {
+  //   if (!ok()) {
+  //     std::invoke(std::forward<F>(f), as_status());
+  //   }
+  //   return *this;
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
-  auto transform_error(F &&f) const & -> StatusOr<Ty> {
-    if (ok()) {
-      return *this;
-    }
-    return std::invoke(std::forward<F>(f), as_status());
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, base_type> &&
+  //            (!std::is_void_v<std::invoke_result_t<F, base_type>>)
+  // auto transform_error(F &&f) const & -> StatusOr<Ty> {
+  //   if (ok()) {
+  //     return *this;
+  //   }
+  //   return std::invoke(std::forward<F>(f), as_status());
+  // }
 
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             std::is_void_v<std::invoke_result_t<F, base_type>>
-  auto transform_error(F &&f) const & -> StatusOr<Ty> {
-    if (!ok()) {
-      std::invoke(std::forward<F>(f), as_status());
-    }
-    return *this;
-  }
+  // template <typename F>
+  //   requires std::is_invocable_v<F, base_type> &&
+  //            std::is_void_v<std::invoke_result_t<F, base_type>>
+  // auto transform_error(F &&f) const & -> StatusOr<Ty> {
+  //   if (!ok()) {
+  //     std::invoke(std::forward<F>(f), as_status());
+  //   }
+  //   return *this;
+  // }
 
   template <typename F>
     requires std::is_invocable_v<F, base_type> &&
@@ -565,12 +579,7 @@ public:
   /// @brief Converts the StatusOr to a std::optional; ownership is transferred.
   constexpr inline auto to_optional(this auto &&self) AC_NOEXCEPT
       -> std::optional<value_type> {
-    static_assert(
-        std::is_rvalue_reference_v<decltype(self)>,
-        "This method exists as a shorthand to integrate StatusOr "
-        "with std::optional, so there's hardly the point to not to "
-        "`move` out of the underlying value. please move the object before "
-        "callying this function.");
+    AC_STATUSOR_CONSUME_METHOD(to_optional)
     if (self.ok()) {
       return std::make_optional(std::forward<decltype(self)>(self).my_value);
     } else {

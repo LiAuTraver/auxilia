@@ -142,8 +142,8 @@ class Parser {
 
   Parser() = default;
 
-  /// @brief Create a local parser,
-  ///        whose lifetime is limited to the current scope.
+  /// @brief Create a local parser, whose lifetime is limited to the current
+  /// scope.
   /// @returns the parser object.
   friend inline auto Local(const std::string_view program_name,
                            const std::string_view version) -> Parser {

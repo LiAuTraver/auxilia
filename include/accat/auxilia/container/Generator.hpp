@@ -21,7 +21,8 @@ namespace accat::auxilia {
 /// @note Code should use `std::generator` when it's widely provided; as said
 /// below, this class does not compilant with standard and lacks `Ref`/`RRef`
 /// yield type member types and more.
-/// @attention I used this in some cases where std::geneartor isn't available
+///
+/// I used this in some cases where `std::geneartor` isn't available
 /// yet. Currently there's no plan for me to implement standard-complient
 /// features, like: polymorphic resources(`std::pmr::meow`), or resursive
 /// generator, like:

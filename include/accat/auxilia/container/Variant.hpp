@@ -10,12 +10,14 @@
 #include "accat/auxilia/base/config.hpp"
 #include "accat/auxilia/base/format.hpp"
 #include "accat/auxilia/meta/Monostate.hpp"
+#include "accat/auxilia/meta/type_traits.hpp"
 
 EXPORT_AUXILIA
 namespace accat::auxilia {
-/// @brief A simple variant wrapper class around @link std::variant @endlink for
-/// convenience when evaluating expressions, especially when the operation was
-/// `to_string` or check the type's name when debugging.
+/// @brief A simple variant wrapper class around
+/// [std::variant](https://cppreference.com/cpp/utility/variant) for convenience
+/// when evaluating expressions, especially when the operation was `to_string`
+/// or check the type's name when debugging.
 /// @note exception-free variant wrapper
 template <typename... Types> class Variant : public Printable {
   static_assert(Variantable<Types...>, "Types must be variantable");
@@ -76,16 +78,19 @@ public:
   auto visit(this auto &&self, Callable &&callable) -> decltype(auto) {
     using ReturnType = decltype(std::visit(std::forward<Callable>(callable),
                                            std::declval<variant_type>()));
-    static_assert(std::is_default_constructible_v<ReturnType> ||
-                      std::is_void_v<ReturnType>,
-                  "ReturnType must be default constructible or void");
+
     if constexpr (std::is_void_v<ReturnType>) {
-      return std::visit(std::forward<Callable>(callable), self.my_variant);
-    } else {
+      return std::visit(std::forward<Callable>(callable),
+                        std::forward<decltype(self)>(self).my_variant);
+    } else if constexpr (std::is_default_constructible_v<ReturnType>) {
       return self.is_valid()
                  ? static_cast<ReturnType>(std::visit(
-                       std::forward<Callable>(callable), self.my_variant))
+                       std::forward<Callable>(callable),
+                       std::forward<decltype(self)>(self).my_variant))
                  : ReturnType{};
+    } else {
+      always_false<ReturnType>(
+          "ReturnType must be default constructible or void");
     }
   }
 #else
@@ -159,11 +164,12 @@ public:
   template <typename Ty>
   inline constexpr auto get(this auto &&self) noexcept(false)
       -> decltype(auto) {
-    return std::get<Ty>(self.my_variant);
+    return std::get<Ty>(std::forward<decltype(self)>(self).my_variant);
   }
   template <typename Ty>
-  inline constexpr auto get_if(this auto &&self) noexcept -> decltype(auto) {
-    return std::get_if<Ty>(&self.my_variant);
+  inline constexpr auto get_if(this auto &&self) noexcept(true)
+      -> decltype(auto) {
+    return std::get_if<Ty>(&std::forward<decltype(self)>(self).my_variant);
   }
 #else
   template <typename Ty>
@@ -175,11 +181,11 @@ public:
     return std::get<Ty>(my_variant);
   }
   template <typename Ty>
-  inline constexpr auto get_if() noexcept -> decltype(auto) {
+  inline constexpr auto get_if() noexcept(true) -> decltype(auto) {
     return std::get_if<Ty>(&my_variant);
   }
   template <typename Ty>
-  inline constexpr auto get_if() const noexcept -> decltype(auto) {
+  inline constexpr auto get_if() const noexcept(true) -> decltype(auto) {
     return std::get_if<Ty>(&my_variant);
   }
 #endif
@@ -192,17 +198,13 @@ public:
   [[clang::reinitializes]]
 #if AC_HAS_EXPLICIT_THIS_PARAMETER
   constexpr auto clear(this auto &&self) noexcept(
-      noexcept(self.my_variant.template emplace<monostate_like_type>()))
-      -> decltype(auto) {
+      noexcept(self.my_variant.template emplace<monostate_like_type>())) {
     self.my_variant.template emplace<monostate_like_type>();
-    return self;
   }
 #else
-  constexpr auto
-  clear() noexcept(noexcept(my_variant.template emplace<monostate_like_type>()))
-      -> decltype(auto) {
+  constexpr auto clear() noexcept(
+      noexcept(my_variant.template emplace<monostate_like_type>())) {
     my_variant.template emplace<monostate_like_type>();
-    return *this;
   }
 #endif
 

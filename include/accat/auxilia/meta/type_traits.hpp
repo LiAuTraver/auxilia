@@ -119,11 +119,33 @@ template <class Ty, class Uy> constexpr bool is_same_v = __is_same(Ty, Uy);
 template <class Ty, class Uy>
 struct is_same : bool_constant<__is_same(Ty, Uy)> {};
 #else
-template <class, class> constexpr bool is_same_v = false;
-template <class _Ty> constexpr bool is_same_v<_Ty, _Ty> = true;
+template <class, class> inline constexpr auto is_same_v = false;
+template <class Ty> inline constexpr auto is_same_v<Ty, Ty> = true;
 template <class Ty, class Uy>
 struct is_same : bool_constant<is_same_v<Ty, Uy>> {};
 #endif
+/// determine whether the type argument is an array.
+template <class> inline constexpr auto is_array_v = false;
+template <class Ty, size_t Nx> inline constexpr auto is_array_v<Ty[Nx]> = true;
+
+template <class Ty> inline constexpr auto is_array_v<Ty[]> = true;
+
+template <class Ty> struct is_array : bool_constant<is_array_v<Ty>> {};
+
+template <class> inline constexpr auto is_bounded_array_v = false;
+
+template <class Ty, size_t Nx>
+inline constexpr auto is_bounded_array_v<Ty[Nx]> = true;
+
+template <class Ty>
+struct is_bounded_array : bool_constant<is_bounded_array_v<Ty>> {};
+
+template <class> inline constexpr auto is_unbounded_array_v = false;
+
+template <class Ty> inline constexpr auto is_unbounded_array_v<Ty[]> = true;
+
+template <class Ty>
+struct is_unbounded_array : bool_constant<is_unbounded_array_v<Ty>> {};
 
 // in standard ^^^ / vvv custom type traits
 

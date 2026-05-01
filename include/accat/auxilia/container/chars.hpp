@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <iterator>
-#include <utility>
 
 #include "accat/auxilia/meta/type_traits.hpp"
 
@@ -65,6 +64,7 @@ public:
 
 private:
   value_type myArr[N] = {};
+  static_assert(is_bounded_array_v<decltype(myArr)>);
   static constexpr auto real_size = N - 1;
   static constexpr auto npos = static_cast<size_type>(-1);
 
@@ -76,6 +76,7 @@ private:
     });
   }
   constexpr void for_each_char(this auto &&self, auto &&func) noexcept {
+#pragma unroll
     for (size_type i = 0; i < self.real_size; ++i) {
       func(self.myArr[i], i);
     }

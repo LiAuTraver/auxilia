@@ -47,6 +47,9 @@ protected:
   constexpr void do_set_unchecked(this auto &&self,
                                   const size_t pos,
                                   const bool val) noexcept {
+    // `myArr` is a C-style array so the operator `[]` returns a copy `T`(or
+    // xvalue `T&&`, im actually not sure), hence no dangling ref problem when
+    // `self` is rvalue. no need to use `forward` or `forward_like`.
     auto &my_word = self.myArr[word_offset(pos)];
     const auto my_bit = storage_type{1} << bit_offset(pos);
 
@@ -116,6 +119,7 @@ public:
 
 protected:
   storage_type myArr[arr_length] = {};
+  static_assert(is_bounded_array_v<decltype(myArr)>);
 
 private:
   /// @{

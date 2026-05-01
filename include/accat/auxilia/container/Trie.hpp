@@ -67,7 +67,8 @@ private:
     bool is_empty() const noexcept { return !has_value() && children_.empty(); }
     auto &value(this auto &&self) {
       AC_PRECONDITION(self.has_value(), "Bad optional access")
-      return self.value_.value();
+      // `std::optional::value` has both overload.
+      return std::forward<decltype(self)>(self).value_.value();
     }
     auto &children(this auto &&self) { return self.children_; }
   };

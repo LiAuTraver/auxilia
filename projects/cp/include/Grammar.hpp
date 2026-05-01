@@ -40,11 +40,11 @@ public:
   static constexpr auto NilMarker = auxilia::epsilon;
 
 public:
-  decltype(auto) non_terminals_view(this auto &&self) {
+  auto non_terminals_view(this auto &&self) {
     return self.pieces_ | std::ranges::views::transform(&Piece::lhs_);
   }
-  decltype(auto) non_terminals(this auto &&self) { return (self.pieces_); }
-  decltype(auto) terminals(this auto &&self) {
+  auto &non_terminals(this auto &&self) { return (self.pieces_); }
+  auto terminals(this auto &&self) {
     return self.terminals_ | std::ranges::views::common;
   }
   decltype(auto) terminal(this auto &&self, const std::string &str) {

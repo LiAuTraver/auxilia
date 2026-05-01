@@ -76,7 +76,7 @@ TEST(StatusOr, Monadic) {
                     });
   EXPECT_TRUE(an_int.ok());
   EXPECT_EQ(an_int.value(), 43);
-  auto a_str = an_int.and_then(
+  auto a_str = an_int.rvalue().and_then(
       [](int value) -> StatusOr<std::string> { return std::to_string(value); });
   EXPECT_EQ(a_str.value(), "43");
 }

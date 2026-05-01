@@ -14,7 +14,8 @@ inline auto &_current_id() {
   return value;
 }
 
-constexpr size_t id_pool_size = std::numeric_limits<unsigned char>::max() + 1;
+inline constexpr size_t id_pool_size =
+    std::numeric_limits<unsigned char>::max() + 1;
 inline auto &_active_ids() {
   static std::array<std::atomic_bool, id_pool_size> ids{};
   return ids;

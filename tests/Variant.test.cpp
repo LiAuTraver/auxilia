@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 
-
 using namespace accat::auxilia;
 
 TEST(Variant, DefaultConstruction) {
@@ -26,19 +25,29 @@ TEST(Variant, CopyConstruction) {
   EXPECT_EQ(v1, v2);
 }
 
+struct Moveable {
+  Moveable() = default;
+  Moveable(const Moveable &) = delete;
+  Moveable(Moveable &&) = default;
+  Moveable &operator=(const Moveable &) = delete;
+  Moveable &operator=(Moveable &&) = default;
+};
+auto operator==(const Moveable &lhs, const Moveable &rhs) { return true; }
 TEST(Variant, MoveConstruction) {
-  Variant<Monostate, int, double> v1 = 42;
+  Variant<Monostate, int, double, Moveable> v1 = 42;
   auto v2 = std::move(v1);
   EXPECT_TRUE(v2.is_type<int>());
   EXPECT_EQ(v2.get<int>(), 42);
   EXPECT_EQ(v2.index(), 1);
-  EXPECT_TRUE(v1.empty());
+  auto &y = v2.emplace(Moveable{});
+  EXPECT_EQ(v2.get<Moveable>(), Moveable{});
 
+  EXPECT_TRUE(v1.empty());
   EXPECT_EQ(v1.index(), 0);
   EXPECT_TRUE(v1.is_type<Monostate>());
   EXPECT_EQ(v1.get_if<int>(), nullptr);
 }
-#include <../include/accat/auxilia/status/Status.hpp>
+#include <accat/auxilia/status/Status.hpp>
 using namespace std::literals;
 TEST(Variant, PatternMatching) {
   Variant<Monostate, Status, std::string> v1 =
