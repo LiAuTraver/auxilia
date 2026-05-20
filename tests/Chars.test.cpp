@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 
-
 using namespace accat::auxilia;
 
 TEST(BasicChars, DefaultCtor) {
