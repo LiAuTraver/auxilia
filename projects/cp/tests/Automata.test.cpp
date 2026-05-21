@@ -4,7 +4,7 @@
 #include "NFA.hpp"
 #include "DFA.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 using namespace accat::cp;
 
 TEST(NFA, EmptyRegex) {

@@ -1,9 +1,8 @@
-#include "accat/auxilia/utility/program_options.hpp"
+#include "auxilia/utility/program_options.hpp"
 
 #include <gtest/gtest.h>
 
-
-using namespace accat::auxilia::program_options;
+using namespace auxilia::program_options;
 
 TEST(Options, Parsing) {
   auto parser = Local("test", "1.0");
@@ -92,9 +91,8 @@ TEST(Options, HelpAndVersion) {
   EXPECT_NE(help_msg.find("Input file"), std::string::npos);
 
   std::vector<std::string_view> help_args = {"--help"};
-  EXPECT_EXIT(parser.parse(help_args),
-              testing::ExitedWithCode(0),
-              accat::auxilia::raw(R"(
+  EXPECT_EXIT(
+      parser.parse(help_args), testing::ExitedWithCode(0), auxilia::raw(R"(
   -h, --help        Show this help message and exit
   -v, --version     Show program's version number and exit
 )")) << "Program should print help and exit.";
@@ -103,7 +101,7 @@ TEST(Options, HelpAndVersion) {
   std::vector<std::string_view> version_args = {"--version"};
   EXPECT_EXIT(p2.parse(version_args),
               testing::ExitedWithCode(0),
-              accat::auxilia::raw(R"(my_app version 1.0.0)"))
+              auxilia::raw(R"(my_app version 1.0.0)"))
       << "Program should print version and exit.";
 }
 

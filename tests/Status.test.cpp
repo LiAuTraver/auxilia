@@ -1,9 +1,8 @@
-#include "accat/auxilia/status/Status.hpp"
+#include "auxilia/status/Status.hpp"
 
 #include <gtest/gtest.h>
 
-
-using namespace accat::auxilia;
+using namespace auxilia;
 
 TEST(Status, DefaultConstruction) {
   Status s;

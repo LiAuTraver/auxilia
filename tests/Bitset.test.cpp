@@ -1,4 +1,4 @@
-#include "accat/auxilia/container/bitset.hpp"
+#include "auxilia/container/bitset.hpp"
 
 #include <iostream>
 
@@ -13,7 +13,7 @@ inline static const auto msg = []() {
 #  include <gtest/gtest.h>
 #  include <bitset>
 
-using namespace accat::auxilia;
+using namespace auxilia;
 
 TEST(Bitset, BasicOperations) {
   constexpr auto lhs = 0b11001100ull;
@@ -30,7 +30,7 @@ TEST(Bitset, BasicOperations) {
   EXPECT_EQ(or_result.to_ullong(), lhs | rhs);
   EXPECT_EQ(xor_result.to_ullong(), lhs ^ rhs);
 
-  using namespace accat::auxilia::literals;
+  using namespace auxilia::literals;
   constexpr auto lhs_bs = "11001100"_bs;
   constexpr auto rhs_bs = "10101010"_bs;
 

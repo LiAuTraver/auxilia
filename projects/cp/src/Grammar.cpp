@@ -11,8 +11,8 @@
 #include <utility>
 #include <vector>
 
-#include <accat/auxilia/auxilia.hpp>
-#include <accat/auxilia/defines.hpp>
+#include <auxilia/auxilia.hpp>
+#include <auxilia/defines.hpp>
 
 #include "Lexing.hpp"
 #include "Grammar.hpp"

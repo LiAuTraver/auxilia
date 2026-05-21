@@ -1,8 +1,8 @@
-#include "accat/auxilia/container/chars.hpp"
+#include "auxilia/container/chars.hpp"
 
 #include <gtest/gtest.h>
 
-using namespace accat::auxilia;
+using namespace auxilia;
 
 TEST(BasicChars, DefaultCtor) {
   constexpr chars<5> c;
@@ -200,7 +200,7 @@ TEST(BasicChars, ToString) {
 }
 
 TEST(BasicChars, FromLiteral) {
-  using namespace accat::auxilia::literals;
+  using namespace auxilia::literals;
   constexpr auto s = "test\n"_c;
   EXPECT_EQ(s.size(), 5);
   EXPECT_EQ(s, "test\n");

@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "accat/auxilia/status/Status.hpp"
+#include "auxilia/status/Status.hpp"
 
 #include "Lexing.hpp"
 

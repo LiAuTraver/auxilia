@@ -14,13 +14,13 @@
 #include <vector>
 #include <optional>
 
-#include <accat/auxilia/defines.hpp>
+#include <auxilia/defines.hpp>
 
 #include "Lexing.hpp"
 #include "Grammar.hpp"
-#include "accat/auxilia/status/StatusOr.hpp"
+#include "auxilia/status/StatusOr.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 using namespace accat::cp;
 
 constexpr auto flight = R"(

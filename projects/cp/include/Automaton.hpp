@@ -13,11 +13,11 @@
 #include <utility>
 #include <vector>
 
-#include <accat/auxilia/defines.hpp>
-#include <accat/auxilia/auxfwd.hpp>
+#include <auxilia/defines.hpp>
+#include <auxilia/auxfwd.hpp>
 
-#include "accat/auxilia/base/format.hpp"
-#include "accat/auxilia/container/chars.hpp"
+#include "auxilia/base/format.hpp"
+#include "auxilia/container/chars.hpp"
 
 namespace accat::cp::details {
 class AutomatonBase : auxilia::Printable {

@@ -1,10 +1,10 @@
-#include "accat/auxilia/status/StatusOr.hpp"
+#include "auxilia/status/StatusOr.hpp"
 
 #include <gtest/gtest.h>
 
-#include "accat/auxilia/utility/Noise.hpp"
+#include "auxilia/utility/Noise.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 
 template <typename T>
 concept CanStore = requires { typename StatusOr<T>::value_type; };

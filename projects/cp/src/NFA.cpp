@@ -4,8 +4,8 @@
 #include "Automaton.hpp"
 #include "NFA.hpp"
 
-#include "accat/auxilia/status/Status.hpp"
-#include "accat/auxilia/status/StatusOr.hpp"
+#include "auxilia/status/Status.hpp"
+#include "auxilia/status/StatusOr.hpp"
 
 #pragma region Common
 

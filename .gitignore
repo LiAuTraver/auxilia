@@ -529,3 +529,5 @@ CppDependOut/
 CMakePresets.json
 .clangd
 clangd.bat
+
+.github

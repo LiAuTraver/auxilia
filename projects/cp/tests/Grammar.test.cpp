@@ -5,13 +5,13 @@
 
 #include "Grammar.hpp"
 
-#include "accat/auxilia/ranges/views.hpp"
-#include "accat/auxilia/status/StatusOr.hpp"
+#include "auxilia/ranges/views.hpp"
+#include "auxilia/status/StatusOr.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 using namespace accat::cp;
 using NonTerminal = Grammar::NonTerminal;
-using accat::auxilia::ranges::views::trim;
+using auxilia::ranges::views::trim;
 namespace rv = std::ranges::views;
 
 #define EXPECT_TRIMMED_STR_EQ(str1, str2) EXPECT_EQ(trim(str1), trim(str2))

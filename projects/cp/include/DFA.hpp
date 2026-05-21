@@ -2,8 +2,8 @@
 
 #include "Automaton.hpp"
 
-#include <accat/auxilia/defines.hpp>
-#include <accat/auxilia/auxfwd.hpp>
+#include <auxilia/defines.hpp>
+#include <auxilia/auxfwd.hpp>
 
 namespace accat::cp {
 class NFA;
@@ -68,7 +68,7 @@ private:
 public:
   static auxilia::StatusOr<DFA> FromNFA(const NFA &nfa);
   static auxilia::StatusOr<DFA> FromRegex(std::string_view sv);
-  template <const accat::auxilia::basic_chars_storage Option = "Hopcroft">
+  template <const auxilia::basic_chars_storage Option = "Hopcroft">
   DFA &minify() {
     dbg_only(const auto old_state_count = this->states.size();)
 

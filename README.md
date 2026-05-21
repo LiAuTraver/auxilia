@@ -39,7 +39,7 @@ add_dependencies(auxilia auxilia_download)
 
 ## Features
 
-name a few. All utilities are in the `accat::auxilia` namespace.
+name a few. All utilities are in the `auxilia` namespace.
 
 ### Useful utilities
 
@@ -109,9 +109,9 @@ v.visit(match(
     [](const auto&) { std::println("don't care"); } // catch-all
 ));
 // or when multiple variants are needed:
-accat::auxilia::visit(pattern, v1, v2, v3, ...);
+auxilia::visit(pattern, v1, v2, v3, ...);
 // printing:
-std::println("{}", v); // prints "class accat::auxilia::Variant<struct accat::auxilia::Monostate,int,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > "
+std::println("{}", v); // prints "class auxilia::Variant<struct auxilia::Monostate,int,class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > "
 std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!" depending on the type of `v`
 ```
 
@@ -143,7 +143,7 @@ std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!
 ```cpp
 struct MyStruct : Printable {
   // no need to override
-  auto to_string(const ::accat::auxilia::FormatPolicy policy = ::accat::auxilia::FormatPolicy::kDefault) const -> string_type {
+  auto to_string(const ::auxilia::FormatPolicy policy = ::auxilia::FormatPolicy::kDefault) const -> string_type {
     return "a string";
   }
 };

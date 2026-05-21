@@ -13,7 +13,7 @@
 
 #include "Grammar.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 using namespace accat::cp;
 
 using ranges::views::trim;
@@ -105,7 +105,7 @@ S' -> a S' | b S' | ε
 )",
 };
 
-using namespace accat::auxilia;
+using namespace auxilia;
 auto getStr(auto &&str) -> std::string {
 
   auto grammar = Grammar::Process(str);

@@ -9,13 +9,13 @@
 #include <vector>
 #include <unordered_set>
 
-#include "accat/auxilia/base/config.hpp"
-#include "accat/auxilia/base/format.hpp"
+#include "auxilia/base/config.hpp"
+#include "auxilia/base/format.hpp"
 
-namespace accat::auxilia {
+namespace auxilia {
 class Status;
 template <typename> class StatusOr;
-} // namespace accat::auxilia
+} // namespace auxilia
 namespace accat::cp {
 class Token;
 } // namespace accat::cp

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <accat/auxilia/defines.hpp>
-#include <accat/auxilia/auxfwd.hpp>
+#include <auxilia/defines.hpp>
+#include <auxilia/auxfwd.hpp>
 
 #include "Automaton.hpp"
 
-namespace accat::auxilia {
+namespace auxilia {
 enum class FormatPolicy : uint8_t;
 }
 

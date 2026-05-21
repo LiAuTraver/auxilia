@@ -1,11 +1,11 @@
-#include <accat/auxilia/auxilia.hpp>
-#include <accat/auxilia/defines.hpp>
-#include "accat/auxilia/utility/program_options.hpp"
+#include <auxilia/auxilia.hpp>
+#include <auxilia/defines.hpp>
+#include "auxilia/utility/program_options.hpp"
 
-using namespace accat::auxilia;
-using accat::auxilia::program_options::Option;
+using namespace auxilia;
+using auxilia::program_options::Option;
 int main(int argc, char **argv) {
-  auto argParser = accat::auxilia::program_options::Local("cp", "0.1");
+  auto argParser = auxilia::program_options::Local("cp", "0.1");
 
   argParser.add_option("nfa", " -n", "Convert input regex into a NFA").nargs(1);
   argParser.add_option("dfa", " -d", "Convert input regex into a DFA").nargs(1);

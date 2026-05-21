@@ -4,14 +4,14 @@
 #include <iostream>
 #include <stack>
 
-#include <accat/auxilia/auxilia.hpp>
-#include <accat/auxilia/defines.hpp>
+#include <auxilia/auxilia.hpp>
+#include <auxilia/defines.hpp>
 
 #include "Automaton.hpp"
 #include "NFA.hpp"
 #include "DFA.hpp"
 
-using namespace accat::auxilia;
+using namespace auxilia;
 using namespace accat::cp;
 
 int main() {

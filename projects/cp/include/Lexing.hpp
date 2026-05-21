@@ -16,10 +16,10 @@
 #include <variant>
 #include <vector>
 
-#include "accat/auxilia/base/config.hpp"
-#include "accat/auxilia/base/format.hpp"
-#include "accat/auxilia/container/Generator.hpp"
-#include "accat/auxilia/container/chars.hpp"
+#include "auxilia/base/config.hpp"
+#include "auxilia/base/format.hpp"
+#include "auxilia/container/Generator.hpp"
+#include "auxilia/container/chars.hpp"
 
 namespace accat::cp {
 

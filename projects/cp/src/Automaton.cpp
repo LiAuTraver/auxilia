@@ -13,8 +13,8 @@
 
 #include "Automaton.hpp"
 
-#include "accat/auxilia/container/chars.hpp"
-#include "accat/auxilia/status/Status.hpp"
+#include "auxilia/container/chars.hpp"
+#include "auxilia/status/Status.hpp"
 
 namespace accat::cp {
 using auxilia::as_chars;

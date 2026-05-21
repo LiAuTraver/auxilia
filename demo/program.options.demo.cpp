@@ -1,8 +1,8 @@
-#include <accat/auxilia/utility/program_options.hpp>
-#include <accat/auxilia/defines.hpp>
+#include <auxilia/utility/program_options.hpp>
+#include <auxilia/defines.hpp>
 
 int main(int argc, char **argv) {
-  using namespace accat::auxilia;
+  using namespace auxilia;
   auto parser = program_options::Global("demo", "0.1");
 
   defer { contract_assert(program_options::erase("demo") == true) };
