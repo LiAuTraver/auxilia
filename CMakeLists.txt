@@ -12,6 +12,9 @@ option(AUXILIA_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_DEMO "Build demo" ${PROJECT_IS_TOP_LEVEL})
 option(AUXILIA_BUILD_PROJECTS "Build mini projects" ${PROJECT_IS_TOP_LEVEL})
 
+# too lazy to use cli args, just set it off here.
+set(AUXILIA_BUILD_PROJECTS OFF)
+
 add_library(auxilia INTERFACE)
 add_library(auxilia::auxilia ALIAS auxilia)
 

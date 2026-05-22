@@ -7,6 +7,17 @@
 #include "auxilia/base/format.hpp"
 #include "auxilia/meta/type_traits.hpp"
 
+#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+#  include <expected>
+namespace auxilia::details {
+template <typename T> using numret = std::expected<T, std::errc>;
+}
+#else
+#  include <optional>
+namespace auxilia::details {
+template <typename T> using numret = std::optional<T>;
+}
+#endif
 namespace auxilia {
 namespace details {
 inline constexpr auto _is_valid_base(const char c) -> bool {
@@ -19,7 +30,7 @@ inline constexpr auto _get_base(const char c) -> int {
 
 template <typename Integer>
 inline constexpr auto to_integer(std::string_view value)
-    -> std::optional<Integer> {
+    -> details::numret<Integer> {
   static_assert(std::integral<Integer>);
   int Base = 10;
 
@@ -34,28 +45,36 @@ inline constexpr auto to_integer(std::string_view value)
       std::from_chars(value.data(), value.data() + value.size(), number, Base);
   if (res.ec == std::errc())
     return {number};
+#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+  return std::unexpected(res.ec);
+#else
   Println("Unable to convert string '{0}' to integer: at {1}, "
           "error: {2}",
           value,
           res.ptr,
           std::make_error_code(res.ec).message());
   return {};
+#endif
 }
 template <typename Floating>
 inline constexpr auto to_floating(std::string_view value)
-    -> std::optional<Floating> {
+    -> details::numret<Floating> {
   static_assert(std::floating_point<Floating>);
   Floating number;
   const auto res =
       std::from_chars(value.data(), value.data() + value.size(), number);
   if (res.ec == std::errc())
     return {number};
+#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
+  return std::unexpected(res.ec);
+#else
   Println("Unable to convert string '{0}' to floating-point number: at {1}, "
           "error: {2}",
           value,
           res.ptr,
           std::make_error_code(res.ec).message());
   return {};
+#endif
 }
 template <typename Num>
 inline constexpr auto to_number(std::string_view sv) noexcept {

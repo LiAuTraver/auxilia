@@ -46,3 +46,4 @@
 #include "container/chars.hpp"         // IWYU pragma: export
 #include "container/Trie.hpp"          // IWYU pragma: export
 #include "utility/Noise.hpp"           // IWYU pragma: export
+#include "networking/net.hpp"          // IWYU pragma: export

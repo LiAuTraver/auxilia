@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdlib>
@@ -18,6 +19,7 @@
 
 #include "auxilia/base/config.hpp"
 #include "auxilia/base/macros.hpp"
+#include "auxilia/meta/type_traits.hpp"
 #include "auxilia/status/Status.hpp"
 #include "auxilia/status/StatusOr.hpp"
 
@@ -45,7 +47,6 @@ inline auto check_file(const std::filesystem::path &path) noexcept {
 #pragma warning(disable : 4702)
 EXPORT_AUXILIA
 namespace auxilia {
-
 #if defined(__cpp_lib_ranges_chunk) && __cpp_lib_ranges_chunk >= 202202L
 template <typename TargetType,
           std::endian Endianess = std::endian::native,

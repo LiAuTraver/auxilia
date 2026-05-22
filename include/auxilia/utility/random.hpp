@@ -7,7 +7,7 @@
 #include "auxilia/base/macros.hpp"
 #include "auxilia/base/config.hpp"
 
-namespace auxilia::detail {
+namespace auxilia::details {
 /**
  * @brief A random integer generator for integral types.
  *
@@ -88,20 +88,20 @@ template <> struct _random_integer_generator<uint8_t> {
     return (((*this)() % ((max) - (min))) + (min));
   }
 };
-} // namespace auxilia::detail
+} // namespace auxilia::details
 
 EXPORT_AUXILIA
 namespace auxilia {
 /// @brief A random integer generator for 8-bit unsigned integers.
-inline constexpr detail::_random_integer_generator<uint8_t> rand_u8;
+inline constexpr details::_random_integer_generator<uint8_t> rand_u8;
 /// @brief A random integer generator for 16-bit unsigned integers.
-inline constexpr detail::_random_integer_generator<uint16_t> rand_u16;
+inline constexpr details::_random_integer_generator<uint16_t> rand_u16;
 /// @brief A random integer generator for 32-bit unsigned integers.
-inline constexpr detail::_random_integer_generator<uint32_t> rand_u32;
+inline constexpr details::_random_integer_generator<uint32_t> rand_u32;
 /// @brief A random integer generator for 64-bit unsigned integers.
-inline constexpr detail::_random_integer_generator<uint64_t> rand_u64;
+inline constexpr details::_random_integer_generator<uint64_t> rand_u64;
 #if defined(__SIZEOF_INT128__)
 /// @brief A random integer generator for 128-bit unsigned integers.
-inline constexpr detail::_random_integer_generator<uint128_t> rand_u128;
+inline constexpr details::_random_integer_generator<uint128_t> rand_u128;
 #endif
 } // namespace auxilia
