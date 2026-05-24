@@ -342,7 +342,7 @@ public:
 
   public:
     constexpr reference(const reference &) = default;
-    constexpr ~reference() noexcept {}
+    constexpr ~reference() noexcept = default;
 
     constexpr operator bool() const noexcept {
       // no need to check whether the position is in range,

@@ -74,3 +74,5 @@ InsertTrailingCommas: Wrapped
 IndentPPDirectives: AfterHash
 BinPackArguments: false
 BinPackParameters: false
+PenaltyBreakString: 120
+BreakStringLiterals: false

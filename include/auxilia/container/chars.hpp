@@ -76,7 +76,7 @@ private:
     });
   }
   constexpr void for_each_char(this auto &&self, auto &&func) noexcept {
-#pragma unroll
+#pragma unroll N - 1
     for (size_type i = 0; i < self.real_size; ++i) {
       func(self.myArr[i], i);
     }
@@ -217,10 +217,10 @@ public:
     return *this;
   }
   constexpr auto &reverse() noexcept {
-    for (size_type i = 0; i < (real_size) / 2; ++i) {
+    for (size_type i = 0; i < real_size / 2; ++i) {
       auto temp = myArr[i];
-      Traits::assign(myArr[i], myArr[(real_size - 1) - i]);
-      Traits::assign(myArr[(real_size - 1) - i], temp);
+      Traits::assign(myArr[i], myArr[real_size - 1 - i]);
+      Traits::assign(myArr[real_size - 1 - i], temp);
     }
     return *this;
   }
@@ -234,7 +234,7 @@ public:
     return true;
   }
   constexpr auto starts_with(const value_type c) const noexcept {
-    return (real_size) > 0 && Traits::eq(myArr[0], c);
+    return real_size > 0 && Traits::eq(myArr[0], c);
   }
   template <size_t M>
   constexpr auto starts_with(const value_type (&arr)[M]) const noexcept {
@@ -315,7 +315,7 @@ public:
     }
 
     constexpr difference_type operator-(const iterator &other) const noexcept {
-      return (index) - (other.index);
+      return index - other.index;
     }
 
     constexpr bool operator==(const iterator &other) const noexcept {
@@ -398,7 +398,7 @@ public:
 
     constexpr difference_type
     operator-(const const_iterator &other) const noexcept {
-      return (index) - (other.index);
+      return index - other.index;
     }
     constexpr bool operator==(const const_iterator &other) const noexcept {
       return container == other.container && index == other.index;

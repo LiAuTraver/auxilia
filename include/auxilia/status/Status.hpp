@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <iostream>
 
 // NOTE:
 // The contents of this header are derived in part from Googles' Abseil library under the following license:
@@ -94,7 +95,7 @@ public:
   enum class AC_NODISCARD_REASON(
       "Discarding Status Code is strongly discouraged.") Code : uint8_t {
 
-  /// kOK (gRPC code "OK") does not indicate an error; this value is returned on
+  /// kOK (gRPC code `OK`) does not indicate an error; this value is returned on
   /// success. It is typical to check for this value before proceeding on any
   /// given call across an API or RPC boundary.
   ///
@@ -102,17 +103,17 @@ public:
   /// `absl::Status::ok()` member function rather than inspecting the raw code.
   kOk = 0,
 
-  /// kCancelled (gRPC code "CANCELLED") indicates the operation was cancelled,
+  /// kCancelled (gRPC code `CANCELLED`) indicates the operation was cancelled,
   /// typically by the caller.
   kCancelled = 1,
 
-  /// kUnknown (gRPC code "UNKNOWN") indicates an unknown error occurred. In
+  /// kUnknown (gRPC code `UNKNOWN`) indicates an unknown error occurred. In
   /// general, more specific errors should be raised, if possible. Errors raised
   /// by APIs that do not return enough error information may be converted to
   /// this error.
   kUnknown = 2,
 
-  /// kInvalidArgument (gRPC code "INVALID_ARGUMENT") indicates the caller
+  /// kInvalidArgument (gRPC code `INVALID_ARGUMENT`) indicates the caller
   /// specified an invalid argument, such as a malformed filename. Note that use
   /// of such errors should be narrowly limited to indicate the invalid nature of
   /// the arguments themselves. Errors with validly formed arguments that may
@@ -120,7 +121,7 @@ public:
   /// `kFailedPrecondition` instead.
   kInvalidArgument = 3,
 
-  /// kDeadlineExceeded (gRPC code "DEADLINE_EXCEEDED") indicates a deadline
+  /// kDeadlineExceeded (gRPC code `DEADLINE_EXCEEDED`) indicates a deadline
   /// expired before the operation could complete.
   ///
   /// @note For operations that may change state within a system, this error may be
@@ -129,7 +130,7 @@ public:
   /// could have been delayed long enough for the deadline to expire.
   kDeadlineExceeded = 4,
 
-  /// kNotFound (gRPC code "NOT_FOUND") indicates some requested entity (such as
+  /// kNotFound (gRPC code `NOT_FOUND`) indicates some requested entity (such as
   /// a file or directory) was not found.
   ///
   /// @remark `kNotFound` is useful if a request should be denied for an entire class of
@@ -138,12 +139,12 @@ public:
   /// user-based access control, use `kPermissionDenied` instead.
   kNotFound = 5,
 
-  /// kAlreadyExists (gRPC code "ALREADY_EXISTS") indicates that the entity a
+  /// kAlreadyExists (gRPC code `ALREADY_EXISTS`) indicates that the entity a
   /// caller attempted to create (such as a file or directory) is already
   /// present.
   kAlreadyExists = 6,
 
-  /// kPermissionDenied (gRPC code "PERMISSION_DENIED") indicates that the caller
+  /// kPermissionDenied (gRPC code `PERMISSION_DENIED`) indicates that the caller
   /// does not have permission to execute the specified operation. Note that this
   /// error is different than an error due to an *un*authenticated user. This
   /// error code does not imply the request is valid or the requested entity
@@ -155,15 +156,15 @@ public:
   /// Instead, use `kUnauthenticated` for those errors.
   kPermissionDenied = 7,
 
-  /// kResourceExhausted (gRPC code "RESOURCE_EXHAUSTED") indicates some resource
+  /// kResourceExhausted (gRPC code `RESOURCE_EXHAUSTED`) indicates some resource
   /// has been exhausted, perhaps a per-user quota, or perhaps the entire file
   /// system is out of space.
   kResourceExhausted = 8,
 
-  /// kFailedPrecondition (gRPC code "FAILED_PRECONDITION") indicates that the
+  /// kFailedPrecondition (gRPC code `FAILED_PRECONDITION`) indicates that the
   /// operation was rejected because the system is not in a state required for
   /// the operation's execution. For example, a directory to be deleted may be
-  /// non-empty, an "rmdir" operation is applied to a non-directory, etc.
+  /// non-empty, an `rmdir` operation is applied to a non-directory, etc.
   ///
   /// @remark Some guidelines that may help a service implementer in deciding between
   /// `kFailedPrecondition`, `kAborted`, and `kUnavailable`:
@@ -173,13 +174,13 @@ public:
   ///      level (such as when a client-specified test-and-set fails, indicating
   ///      the client should restart a read-modify-write sequence).
   ///  - Use `kFailedPrecondition` if the client should not retry until
-  ///      the system state has been explicitly fixed. For example, if a "rmdir"
+  ///      the system state has been explicitly fixed. For example, if a `rmdir`
   ///      fails because the directory is non-empty, `kFailedPrecondition`
   ///      should be returned since the client should not retry unless
   ///      the files are deleted from the directory.
   kFailedPrecondition = 9,
 
-  /// kAborted (gRPC code "ABORTED") indicates the operation was aborted,
+  /// kAborted (gRPC code `ABORTED`) indicates the operation was aborted,
   /// typically due to a concurrency issue such as a sequencer check failure or a
   /// failed transaction.
   ///
@@ -187,7 +188,7 @@ public:
   /// `kAborted`, and `kUnavailable`.
   kAborted = 10,
 
-  /// kOutOfRange (gRPC code "OUT_OF_RANGE") indicates the operation was
+  /// kOutOfRange (gRPC code `OUT_OF_RANGE`) indicates the operation was
   /// attempted past the valid range, such as seeking or reading past an
   /// end-of-file.
   ///
@@ -205,17 +206,17 @@ public:
   /// they are done.
   kOutOfRange = 11,
 
-  /// kUnimplemented (gRPC code "UNIMPLEMENTED") indicates the operation is not
+  /// kUnimplemented (gRPC code `UNIMPLEMENTED`) indicates the operation is not
   /// implemented or supported in this service. In this case, the operation
   /// should not be re-attempted.
   kUnimplemented = 12,
 
-  /// kInternal (gRPC code "INTERNAL") indicates an internal error has occurred
+  /// kInternal (gRPC code `INTERNAL`) indicates an internal error has occurred
   /// and some invariants expected by the underlying system have not been
   /// satisfied. This error code is reserved for serious errors.
   kInternal = 13,
 
-  /// kUnavailable (gRPC code "UNAVAILABLE") indicates the service is currently
+  /// kUnavailable (gRPC code `UNAVAILABLE`) indicates the service is currently
   /// unavailable and that this is most likely a transient condition. An error
   /// such as this can be corrected by retrying with a backoff scheme. Note that
   /// it is not always safe to retry non-idempotent operations.
@@ -224,19 +225,19 @@ public:
   /// `kAborted`, and `kUnavailable`.
   kUnavailable = 14,
 
-  /// kDataLoss (gRPC code "DATA_LOSS") indicates that unrecoverable data loss or
+  /// kDataLoss (gRPC code `DATA_LOSS`) indicates that unrecoverable data loss or
   /// corruption has occurred. As this error is serious, proper alerting should
   /// be attached to errors such as this.
   kDataLoss = 15,
 
-  /// kUnauthenticated (gRPC code "UNAUTHENTICATED") indicates that the request
+  /// kUnauthenticated (gRPC code `UNAUTHENTICATED`) indicates that the request
   /// does not have valid authentication credentials for the operation. Correct
   /// the authentication and try again.
   kUnauthenticated = 16,
 
   /// The purpose of this enumerated value is to force people who handle status
   /// codes with `switch()` statements to *not* simply enumerate all possible
-  /// values, but instead provide a "default:" case. Providing such a default
+  /// values, but instead provide a `default:` case. Providing such a default
   /// case ensures that code will compile when new codes are added.
   ///
   /// @note this error code entry should not be used and you should not rely on
@@ -255,6 +256,52 @@ public:
   kMovedFrom = (std::numeric_limits<uint8_t>::max)()
   };
   // clang-format on
+  static constexpr const char *to_string(const Code code) noexcept {
+    switch (code) {
+    case kOk:
+      return "OK";
+    case kCancelled:
+      return "Cancelled";
+    case kUnknown:
+      return "Unknown";
+    case kInvalidArgument:
+      return "Invalid Argument";
+    case kDeadlineExceeded:
+      return "Deadline Exceeded";
+    case kNotFound:
+      return "Not Found";
+    case kAlreadyExists:
+      return "Already Exists";
+    case kPermissionDenied:
+      return "Permission Denied";
+    case kResourceExhausted:
+      return "Resource Exhausted";
+    case kFailedPrecondition:
+      return "Failed Precondition";
+    case kAborted:
+      return "Aborted";
+    case kOutOfRange:
+      return "Out of Range";
+    case kUnimplemented:
+      return "Unimplemented";
+    case kInternal:
+      return "Internal";
+    case kUnavailable:
+      return "Unavailable";
+    case kDataLoss:
+      return "Data Loss";
+    case kUnauthenticated:
+      return "Unauthenticated";
+    case kReturning:
+      return "Returning";
+    case kParseError:
+      return "Parse Error";
+    case kLexError:
+      return "Lex Error";
+    default:
+      AC_UNREACHABLE("unknown status code");
+    }
+  }
 
 public:
   using enum Code;
@@ -264,10 +311,14 @@ public:
   constexpr Status() = default;
   AC_NODISCARD AC_CONSTEXPR20 Status(const Code code,
                                      const std::string_view message = {})
-      : my_code(code), my_message(message) {}
+      : my_message(message), my_code(code) {}
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::string &&message)
+      : my_message(message), my_code(code) {}
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, const char *const message)
+      : my_message(message), my_code(code) {}
   AC_NODISCARD
   Status(Status &&that) noexcept
-      : my_code(that.my_code), my_message(std::move(that.my_message)) {
+      : my_message(std::move(that.my_message)), my_code(that.my_code) {
     that.my_code = kMovedFrom;
     AC_DEBUG_ONLY(that.my_message = "This status has been moved from.");
   }
@@ -335,20 +386,40 @@ public:
             warn, "Ignoring a Status which is not ok: {}", my_message);)
     // else do nothing
   }
+  /// @brief Logs the error message if the status is not ok.
+  /// @note This function **consumes** the status.
+  inline void log_if_err(auto &&logger) && {
+    if (ok())
+      return;
+    if constexpr (requires { logger << my_message; })
+      logger << std::move(my_message) << '\n';
+    else if constexpr (requires { logger.error(my_message); })
+      logger.error(std::move(my_message));
+    else if constexpr (requires { logger->error(my_message); })
+      logger->error(std::move(my_message));
+    else
+      static_assert(false, "unsupported");
+  }
+  inline void log_if_err() && {
+#  if __has_include(<spdlog/spdlog.h>)
+    std::move(*this).log_if_err(spdlog::default_logger());
+#  else
+    std::move(*this).log_if_err(std::cerr);
+#  endif
+  }
 
   AC_CONSTEXPR20 inline auto
-  swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::string_type>)
+  swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::Code> &&
+                              std::is_nothrow_swappable_v<Status::string_type>)
       -> void {
-    using ::std::swap;
-    AC_STATIC_ASSERT(std::is_nothrow_swappable_v<Status::Code>, "not fail");
-    swap(my_code, that.my_code);
-    swap(my_message, that.my_message);
+    std::swap(my_code, that.my_code);
+    std::swap(my_message, that.my_message);
   }
 
 public:
   inline auto to_string(const FormatPolicy = FormatPolicy::kDefault) const
       -> string_type {
-    return Format("Status {}: {}", raw_code(), my_message);
+    return Format("{}: {}", to_string(code()), my_message);
   }
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   /// @brief just a shorthand to move the StatusOr object.
@@ -361,109 +432,311 @@ public:
 #  endif
 
 protected:
-  Code my_code{};
   string_type my_message{};
+  Code my_code{};
 };
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OkStatus(std::string_view message = "") AC_NOEXCEPT {
+OkStatus(std::string_view message) AC_NOEXCEPT {
   return {Status::kOk, message};
 }
 
 // New overloads for other status codes using std::string_view messages:
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-Cancelled(std::string_view message = "") AC_NOEXCEPT {
+Cancelled(std::string_view message) AC_NOEXCEPT {
   return {Status::kCancelled, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnknownError(std::string_view message = "") AC_NOEXCEPT {
+UnknownError(std::string_view message) AC_NOEXCEPT {
   return {Status::kUnknown, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InvalidArgumentError(std::string_view message = "") AC_NOEXCEPT {
+InvalidArgumentError(std::string_view message) AC_NOEXCEPT {
   return {Status::kInvalidArgument, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DeadlineExceededError(std::string_view message = "") AC_NOEXCEPT {
+DeadlineExceededError(std::string_view message) AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-NotFoundError(std::string_view message = "") AC_NOEXCEPT {
+NotFoundError(std::string_view message) AC_NOEXCEPT {
   return {Status::kNotFound, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AlreadyExistsError(std::string_view message = "") AC_NOEXCEPT {
+AlreadyExistsError(std::string_view message) AC_NOEXCEPT {
   return {Status::kAlreadyExists, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-PermissionDeniedError(std::string_view message = "") AC_NOEXCEPT {
+PermissionDeniedError(std::string_view message) AC_NOEXCEPT {
   return {Status::kPermissionDenied, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ResourceExhaustedError(std::string_view message = "") AC_NOEXCEPT {
+ResourceExhaustedError(std::string_view message) AC_NOEXCEPT {
   return {Status::kResourceExhausted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-FailedPreconditionError(std::string_view message = "") AC_NOEXCEPT {
+FailedPreconditionError(std::string_view message) AC_NOEXCEPT {
   return {Status::kFailedPrecondition, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AbortedError(std::string_view message = "") AC_NOEXCEPT {
+AbortedError(std::string_view message) AC_NOEXCEPT {
   return {Status::kAborted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OutOfRangeError(std::string_view message = "") AC_NOEXCEPT {
+OutOfRangeError(std::string_view message) AC_NOEXCEPT {
   return {Status::kOutOfRange, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnimplementedError(std::string_view message = "") AC_NOEXCEPT {
+UnimplementedError(std::string_view message) AC_NOEXCEPT {
   return {Status::kUnimplemented, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InternalError(std::string_view message = "") AC_NOEXCEPT {
+InternalError(std::string_view message) AC_NOEXCEPT {
   return {Status::kInternal, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnavailableError(std::string_view message = "") AC_NOEXCEPT {
+UnavailableError(std::string_view message) AC_NOEXCEPT {
   return {Status::kUnavailable, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DataLossError(std::string_view message = "") AC_NOEXCEPT {
+DataLossError(std::string_view message) AC_NOEXCEPT {
   return {Status::kDataLoss, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnauthenticatedError(std::string_view message = "") AC_NOEXCEPT {
+UnauthenticatedError(std::string_view message) AC_NOEXCEPT {
   return {Status::kUnauthenticated, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(std::string_view message = "") AC_NOEXCEPT {
+ReturnMe(std::string_view message) AC_NOEXCEPT {
   return {Status::kReturning, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(std::string_view message = "") AC_NOEXCEPT {
+ParseError(std::string_view message) AC_NOEXCEPT {
   return {Status::kParseError, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(std::string_view message = "") AC_NOEXCEPT {
+LexError(std::string_view message) AC_NOEXCEPT {
   return {Status::kLexError, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+OkStatus(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kOk, message};
+}
+
+// New overloads for other status codes using std::string_view messages:
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+Cancelled(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kCancelled, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnknownError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kUnknown, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+InvalidArgumentError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kInvalidArgument, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+DeadlineExceededError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kDeadlineExceeded, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+NotFoundError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kNotFound, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+AlreadyExistsError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kAlreadyExists, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+PermissionDeniedError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kPermissionDenied, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ResourceExhaustedError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kResourceExhausted, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+FailedPreconditionError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kFailedPrecondition, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+AbortedError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kAborted, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+OutOfRangeError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kOutOfRange, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnimplementedError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kUnimplemented, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+InternalError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kInternal, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnavailableError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kUnavailable, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+DataLossError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kDataLoss, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnauthenticatedError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kUnauthenticated, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ReturnMe(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kReturning, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ParseError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kParseError, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+LexError(const char *const message = nullptr) AC_NOEXCEPT {
+  return {Status::kLexError, message};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+OkStatus(std::string &&message) AC_NOEXCEPT {
+  return {Status::kOk, std::forward<std::string>(message)};
+}
+
+// New overloads for other status codes using std::string_view messages:
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+Cancelled(std::string &&message) AC_NOEXCEPT {
+  return {Status::kCancelled, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnknownError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kUnknown, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+InvalidArgumentError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kInvalidArgument, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+DeadlineExceededError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kDeadlineExceeded, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+NotFoundError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kNotFound, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+AlreadyExistsError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kAlreadyExists, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+PermissionDeniedError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kPermissionDenied, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ResourceExhaustedError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kResourceExhausted, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+FailedPreconditionError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kFailedPrecondition, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+AbortedError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kAborted, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+OutOfRangeError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kOutOfRange, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnimplementedError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kUnimplemented, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+InternalError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kInternal, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnavailableError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kUnavailable, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+DataLossError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kDataLoss, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+UnauthenticatedError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kUnauthenticated, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ReturnMe(std::string &&message) AC_NOEXCEPT {
+  return {Status::kReturning, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+ParseError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kParseError, std::forward<std::string>(message)};
+}
+
+AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
+LexError(std::string &&message) AC_NOEXCEPT {
+  return {Status::kLexError, std::forward<std::string>(message)};
 }
 
 template <typename... Args>

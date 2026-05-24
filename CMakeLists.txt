@@ -23,6 +23,7 @@ target_include_directories(auxilia INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
 )
 add_compile_definitions(_ENABLE_STL_INTERNAL_CHECK=1)
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 if(DEFINED ENV{AC_CPP_DEBUG} AND "$ENV{AC_CPP_DEBUG}" STREQUAL "ON" AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   message(STATUS "Enabling debug mode macros")

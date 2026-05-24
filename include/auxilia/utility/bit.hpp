@@ -223,8 +223,7 @@ inline constexpr auto sign_extend(const OrigTy value) noexcept {
   static_assert(std::is_integral_v<NewWidthTy>,
                 "NewWidthTy must be an integral type");
 
-  const auto signBit = (value >> (OrigWidth - 1)) & 1;
-  if (signBit) {
+  if ((value >> (OrigWidth - 1)) & 1) {
     // if the sign bit is set, extend the sign bit to the left
     return value | ~((static_cast<OrigTy>(1) << OrigWidth) - 1);
   } else {
@@ -238,8 +237,7 @@ inline constexpr auto sign_extend(const OrigTy value) noexcept {
 template <typename T>
 inline constexpr std::make_signed_t<T> two_complement(const T value) noexcept {
   static_assert(std::is_integral_v<T>, "T must be an integral type");
-  const auto signBit = (value >> (sizeof(T) * 8 - 1)) & 1;
-  if (signBit) {
+  if ((value >> (sizeof(T) * 8 - 1)) & 1) {
     return value;
   } else {
     return ~value + 1;

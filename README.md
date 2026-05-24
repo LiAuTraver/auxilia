@@ -12,7 +12,7 @@ If MSVC is used, make sure to turn on standard preprocessor via `/Zc:preprocesso
 
 ### Quick start
 
-Add the following lines to your `CMakeLists.txt` file; since its a header-only library, no need to build it(or use `FetchContent`).:
+Add the following lines to your `CMakeLists.txt` file; since it's a header-only library, no need to build it(or use `FetchContent`).:
 
 ```cmake
 include(ExternalProject)

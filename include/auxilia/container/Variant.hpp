@@ -214,8 +214,8 @@ public:
   auto
   to_string(const FormatPolicy format_policy = FormatPolicy::kDefault) const
       -> string_type {
-    return this->visit([format_policy](const auto &value) -> string_type {
-      using T = std::decay_t<decltype(value)>;
+    return this->visit([format_policy]<typename T>(
+                           const T &value) -> string_type {
 
       if constexpr (requires { value.to_string(format_policy); }) {
         return value.to_string(format_policy);
@@ -227,7 +227,7 @@ public:
         return value->to_string();
       } else if constexpr (requires { Format("{}", value); }) {
         return Format("{}", value);
-      } else if constexpr (std::is_convertible_v<T, string_type>) {
+      } else if constexpr (std::is_convertible_v<std::decay_t<T>, string_type>) {
         return static_cast<string_type>(value);
       } else {
         return typeid(value).name(); // no rtti, compile time type info

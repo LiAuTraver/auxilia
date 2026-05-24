@@ -233,12 +233,27 @@ public:
   auto and_then(this auto &&self, F &&f)
       -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
     AC_STATUSOR_CONSUME_METHOD(and_then)
-    if (!self.ok()) {
+    if (!self.ok())
       // `forward` is sufficient since `as_status` is a perfect function itself.
       return {std::forward<decltype(self)>(self).as_status()};
-    }
-    return std::invoke(std::forward<F>(f),
-                       std::forward<decltype(self)>(self).my_value);
+    else
+      return std::invoke(std::forward<F>(f),
+                         std::forward<decltype(self)>(self).my_value);
+  }
+  /// @brief NTTP version of `and_then` above.
+  /// @tparam F NTTP callable (e.g., a member function pointer)
+  /// @return a StatusOr<Uy> that is the result of the function call
+  template <auto F, typename R = std::invoke_result_t<decltype(F), Ty>>
+    requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
+  auto and_then(this auto &&self)
+      -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
+
+    AC_STATUSOR_CONSUME_METHOD(and_then)
+
+    if (!self.ok())
+      return {std::forward<decltype(self)>(self).as_status()};
+    else
+      return std::invoke(F, std::forward<decltype(self)>(self).my_value);
   }
 #  else
   // template <typename F, typename R = std::invoke_result_t<F, Ty>>
@@ -567,7 +582,6 @@ public:
     return std::move(*this);
   }
 #  endif
-#  undef AC_DOLL_ASSERT
   /// @deprecated just uses operator=(StatusOr &&that) instead.
   [[clang::reinitializes]] constexpr inline auto reset(const Ty &value = {})
       AC_NOEXCEPT {
@@ -586,31 +600,31 @@ public:
       return std::nullopt;
     }
   }
+
+#  undef AC_STATUSOR_CONSUME_METHOD
+#  undef AC_STATUSOR_DELETE
+#  undef AC_DOLL_ASSERT
+public:
   /// this is not optimized at all -- use with caution.
   constexpr inline void
   swap(StatusOr &that) noexcept(std::is_nothrow_swappable_v<value_type> &&
                                 std::is_nothrow_swappable_v<base_type>) {
     if constexpr (std::is_swappable_v<value_type>) {
       base_type::swap(that.as_status());
-      using ::std::swap;
-      swap(my_value, that.my_value);
+      std::swap(my_value, that.my_value);
+      return *this;
     } else {
       always_false<value_type>("value_type is not swappable");
     }
-    return *this;
   }
 
-public:
   auto to_string(FormatPolicy policy = FormatPolicy::kDefault) const
       -> string_type {
     if (!this->ok()) {
       if (policy == FormatPolicy::kBrief)
         return my_message;
       else
-        return Format("StatusOr<{}> {{ code: {}, message: \"{}\" }}",
-                      typeid(Ty).name(),
-                      raw_code(),
-                      my_message);
+        return Format("{}: {}", base_type::to_string(code()), my_message);
     }
 
     if constexpr (std::is_base_of_v<Printable, Ty>)

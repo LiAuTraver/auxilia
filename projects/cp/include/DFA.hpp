@@ -18,15 +18,16 @@ namespace accat::cp {
 /// @brief Deterministic Finite Automaton
 ///
 /// A DFA can be represented by a 5-tuple (Q, Σ, δ, q0, F) where:
-/// - Q: finite set of states: @link details::AutomatonBase::states @endlink
-/// - Σ: finite set of input symbols: @link
-/// details::AutomatonBase::input_alphabet @endlink
+/// - Q: finite set of states:
+///     @link details::AutomatonBase::states @endlink
+/// - Σ: finite set of input symbols:
+///     @link details::AutomatonBase::input_alphabet @endlink
 /// - δ: Q × Σ → Q is the transition function, represented by
-///        @link details::AutomatonBase::State::edges @endlink
-/// - q0 ∈ Q is the start state: @link details::AutomatonBase::start_id
-/// @endlink
-/// - F ⊆ Q is the set of accept states: @link
-/// details::AutomatonBase::accept_ids @endlink
+///     @link details::AutomatonBase::State::edges @endlink
+/// - q0 ∈ Q is the start state:
+///     @link details::AutomatonBase::start_id @endlink
+/// - F ⊆ Q is the set of accept states:
+///     @link details::AutomatonBase::accept_ids @endlink
 class DFA : details::AutomatonBase {
   using MyBase = details::AutomatonBase;
   friend MyBase;

@@ -306,10 +306,10 @@ public:
   };
 };
 } // namespace auxilia
-
+namespace std {
 template <typename Derived>
-  requires ::std::is_base_of_v<::auxilia::Printable, Derived>
-struct ::std::formatter<Derived> {
+  requires is_base_of_v<::auxilia::Printable, Derived>
+struct formatter<Derived> {
   inline constexpr auto parse(format_parse_context &ctx) const noexcept {
     return ctx.begin();
   }
@@ -319,3 +319,4 @@ struct ::std::formatter<Derived> {
         ctx.out(), "{}", p.to_string(::auxilia::FormatPolicy::kDefault));
   }
 };
+} // namespace std
