@@ -228,9 +228,11 @@ public:
   /// if it is OK, otherwise do nothing and return the StatusOr itself.
   /// @param f Ty -> StatusOr<Uy>
   /// @return a StatusOr<Uy> that is the result of the function call
-  template <typename F, typename R = std::invoke_result_t<F, Ty>>
+  template <typename F,
+            typename... Args,
+            typename R = std::invoke_result_t<F, Ty, Args...>>
     requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
-  auto and_then(this auto &&self, F &&f)
+  auto and_then(this auto &&self, F &&f, Args &&...args)
       -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
     AC_STATUSOR_CONSUME_METHOD(and_then)
     if (!self.ok())
@@ -238,14 +240,17 @@ public:
       return {std::forward<decltype(self)>(self).as_status()};
     else
       return std::invoke(std::forward<F>(f),
-                         std::forward<decltype(self)>(self).my_value);
+                         std::forward<decltype(self)>(self).my_value,
+                         std::forward<Args>(args)...);
   }
   /// @brief NTTP version of `and_then` above.
-  /// @tparam F NTTP callable (e.g., a member function pointer)
+  /// @tparam CPO NTTP callable (e.g., a member function pointer)
   /// @return a StatusOr<Uy> that is the result of the function call
-  template <auto F, typename R = std::invoke_result_t<decltype(F), Ty>>
+  template <auto CPO,
+            typename... Args,
+            typename R = std::invoke_result_t<decltype(CPO), Ty, Args...>>
     requires is_specialization_v<R, StatusOr> || std::is_same_v<R, Status>
-  auto and_then(this auto &&self)
+  auto and_then(this auto &&self, Args &&...args)
       -> std::conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<Ty>> {
 
     AC_STATUSOR_CONSUME_METHOD(and_then)
@@ -253,7 +258,9 @@ public:
     if (!self.ok())
       return {std::forward<decltype(self)>(self).as_status()};
     else
-      return std::invoke(F, std::forward<decltype(self)>(self).my_value);
+      return std::invoke(CPO,
+                         std::forward<decltype(self)>(self).my_value,
+                         std::forward<Args>(args)...);
   }
 #  else
   // template <typename F, typename R = std::invoke_result_t<F, Ty>>
@@ -302,16 +309,30 @@ public:
   /// if it is not OK, otherwise do nothing and return the StatusOr itself.
   /// @param f Status -> StatusOr<Ty>, or simply Ty.
   /// @return a StatusOr<Ty> that is the result of/from the function call
-  template <typename F>
-    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
-  auto or_else(this auto &&self, F &&f) -> StatusOr<Ty> {
+  template <typename F, typename... Args>
+    requires std::is_invocable_r_v<StatusOr<Ty>, F, Status, Args...>
+  auto or_else(this auto &&self, F &&f, Args &&...args) -> StatusOr<Ty> {
     AC_STATUSOR_CONSUME_METHOD(or_else)
     if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
     return std::invoke(std::forward<F>(f),
-                       std::forward<decltype(self)>(self).as_status());
+                       std::forward<decltype(self)>(self).as_status(),
+                       std::forward<Args>(args)...);
   }
+
+  template <auto CPO, typename... Args>
+    requires std::is_invocable_r_v<StatusOr<Ty>, decltype(CPO), Status, Args...>
+  auto or_else(this auto &&self, Args &&...args) -> StatusOr<Ty> {
+    AC_STATUSOR_CONSUME_METHOD(or_else)
+    if (self.ok()) {
+      return std::forward<decltype(self)>(self);
+    }
+    return std::invoke(CPO,
+                       std::forward<decltype(self)>(self).as_status(),
+                       std::forward<Args>(args)...);
+  }
+
 #  else
   // template <typename F>
   //   requires std::is_invocable_r_v<StatusOr<Ty>, F, Status>
@@ -351,32 +372,66 @@ public:
   /// if it is OK, otherwise do nothing and return the StatusOr itself.
   /// @param f Ty -> Uy, where Uy cannot be a StatusOr<Ry>
   /// @return a StatusOr<Uy> that is the result of the function call
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             (!std::is_void_v<std::invoke_result_t<F, Ty>>)
-  auto transform(this auto &&self, F &&f)
-      -> StatusOr<std::invoke_result_t<F, Ty>> {
+  template <typename F, typename... Args>
+    requires std::is_invocable_v<F, Ty, Args...> &&
+             (!std::is_void_v<std::invoke_result_t<F, Ty, Args...>>)
+  auto transform(this auto &&self, F &&f, Args &&...args)
+      -> StatusOr<std::invoke_result_t<F, Ty, Args...>> {
     AC_DOLL_ASSERT(transform)
     AC_STATUSOR_CONSUME_METHOD(transform)
     if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     return {std::invoke(std::forward<F>(f),
-                        std::forward<decltype(self)>(self).my_value)};
+                        std::forward<decltype(self)>(self).my_value,
+                        std::forward<Args>(args)...)};
   }
   /// @copydoc transform
   /// @param f Ty -> void
   /// @return StatusOr<Monostate>
-  template <typename F>
-    requires std::is_invocable_v<F, Ty> &&
-             std::is_void_v<std::invoke_result_t<F, Ty>>
-  auto transform(this auto &&self, F &&f) -> StatusOr<Monostate> {
+  template <typename F, typename... Args>
+    requires std::is_invocable_v<F, Ty, Args...> &&
+             std::is_void_v<std::invoke_result_t<F, Ty, Args...>>
+  auto transform(this auto &&self, F &&f, Args &&...args)
+      -> StatusOr<Monostate> {
     AC_STATUSOR_CONSUME_METHOD(transform)
     if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     std::invoke(std::forward<F>(f),
-                std::forward<decltype(self)>(self).my_value);
+                std::forward<decltype(self)>(self).my_value,
+                std::forward<Args>(args)...);
+    return {};
+  }
+
+  template <auto CPO, typename... Args>
+    requires std::is_invocable_v<decltype(CPO), Ty, Args...> &&
+             (!std::is_void_v<std::invoke_result_t<decltype(CPO), Ty, Args...>>)
+  auto transform(this auto &&self, Args &&...args)
+      -> StatusOr<std::invoke_result_t<decltype(CPO), Ty, Args...>> {
+    using F = decltype(CPO);
+    AC_DOLL_ASSERT(transform)
+    AC_STATUSOR_CONSUME_METHOD(transform)
+    if (!self.ok()) {
+      return {std::forward<decltype(self)>(self).as_status()};
+    }
+    return {std::invoke(CPO,
+                        std::forward<decltype(self)>(self).my_value,
+                        std::forward<Args>(args)...)};
+  }
+
+  template <auto CPO, typename... Args>
+    requires std::is_invocable_v<decltype(CPO), Ty, Args...> &&
+             std::is_void_v<std::invoke_result_t<decltype(CPO), Ty, Args...>>
+  auto transform(this auto &&self, Args &&...args) -> StatusOr<Monostate> {
+    using F = decltype(CPO);
+    AC_STATUSOR_CONSUME_METHOD(transform)
+    if (!self.ok()) {
+      return {std::forward<decltype(self)>(self).as_status()};
+    }
+    std::invoke(CPO,
+                std::forward<decltype(self)>(self).my_value,
+                std::forward<Args>(args)...);
     return {};
   }
 
@@ -476,28 +531,62 @@ public:
   /// if it is not OK, otherwise do nothing and return the StatusOr itself.
   /// @param f Status -> Status
   /// @return a StatusOr<Ty> that is the result of the function call
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             (!std::is_void_v<std::invoke_result_t<F, base_type>>)
-  auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
+  template <typename F, typename... Args>
+    requires std::is_invocable_v<F, base_type, Args...> &&
+             (!std::is_void_v<std::invoke_result_t<F, base_type, Args...>>)
+  auto transform_error(this auto &&self, F &&f, Args &&...args)
+      -> StatusOr<Ty> {
     static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
     if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
     return std::invoke(std::forward<F>(f),
-                       std::forward<decltype(self)>(self).as_status());
+                       std::forward<decltype(self)>(self).as_status(),
+                       std::forward<Args>(args)...);
   }
   /// @copydoc transform_error
   /// @param f Status -> void
   /// @return StatusOr<Ty> with err unmodified
-  template <typename F>
-    requires std::is_invocable_v<F, base_type> &&
-             std::is_void_v<std::invoke_result_t<F, base_type>>
-  auto transform_error(this auto &&self, F &&f) -> StatusOr<Ty> {
+  template <typename F, typename... Args>
+    requires std::is_invocable_v<F, base_type, Args...> &&
+             std::is_void_v<std::invoke_result_t<F, base_type, Args...>>
+  auto transform_error(this auto &&self, F &&f, Args &&...args)
+      -> StatusOr<Ty> {
     AC_STATUSOR_CONSUME_METHOD(transform_error)
     if (!self.ok()) {
       std::invoke(std::forward<F>(f),
-                  std::forward<decltype(self)>(self).as_status());
+                  std::forward<decltype(self)>(self).as_status(),
+                  std::forward<Args>(args)...);
+    }
+    return std::forward<decltype(self)>(self);
+  }
+
+  template <auto CPO, typename... Args>
+    requires std::is_invocable_v<decltype(CPO), base_type, Args...> &&
+             (!std::is_void_v<
+                 std::invoke_result_t<decltype(CPO), base_type, Args...>>)
+  auto transform_error(this auto &&self, Args &&...args) -> StatusOr<Ty> {
+    using F = decltype(CPO);
+    static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
+    if (self.ok()) {
+      return std::forward<decltype(self)>(self);
+    }
+    return std::invoke(CPO,
+                       std::forward<decltype(self)>(self).as_status(),
+                       std::forward<Args>(args)...);
+  }
+
+  template <auto CPO, typename... Args>
+    requires std::is_invocable_v<decltype(CPO), base_type, Args...> &&
+             std::is_void_v<
+                 std::invoke_result_t<decltype(CPO), base_type, Args...>>
+  auto transform_error(this auto &&self, Args &&...args) -> StatusOr<Ty> {
+    using F = decltype(CPO);
+    AC_STATUSOR_CONSUME_METHOD(transform_error)
+    if (!self.ok()) {
+      std::invoke(CPO,
+                  std::forward<decltype(self)>(self).as_status(),
+                  std::forward<Args>(args)...);
     }
     return std::forward<decltype(self)>(self);
   }

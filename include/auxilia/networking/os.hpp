@@ -1,22 +1,28 @@
 #pragma once
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <WinSock2.h>
+#  include <ws2ipdef.h>
+#  include <io.h>
+#  include <ws2tcpip.h>
+#  include <winerror.h>
+// Windows
+#  pragma comment(lib, "Ws2_32.lib")
+#elif defined(__linux__)
+#  include <sys/socket.h>
+#  include <sys/types.h>
+#else
+#  error unsupported
+#endif
 
 #include <type_traits>
 #include <algorithm>
 #include <string>
 #include <utility>
 
-#include <WinSock2.h>
-#include <ws2ipdef.h>
-#include <io.h>
-#include <ws2tcpip.h>
-#include <winerror.h>
-
 #include "auxilia/base/macros.hpp"
 
-// Windows
-#pragma comment(lib, "Ws2_32.lib")
 namespace auxilia::net::ip {
 enum class family { v4 = AF_INET, v6 = AF_INET6 };
 }

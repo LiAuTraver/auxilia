@@ -25,9 +25,11 @@ template <typename Protocol> class socket : Printable {
   static_assert(InternetProtocol<Protocol>);
   // functional chaining methods. since function with default arguments cannot
   // be used as &Class::method, this is an overloaded one.
-#define AC_SOCKET_FUNCTIONAL_METHOD(_name_, modifier)                          \
+#define AC_SOCKET_FUNCTIONAL_METHOD(_name_)                                    \
   /* functional chaining method */                                             \
-  AC_FORCEINLINE inline auto _name_##_() modifier { return _name_(); }
+  static constexpr inline auto _name_##_ = [](auto &&self) {                   \
+    return self._name_();                                                      \
+  }
 
 public:
   using native_handle_type = details::raw_socket_t;
@@ -50,11 +52,11 @@ public:
       : context_(&context), handle_(handle), remote_endpoint_(std::nullopt) {}
   inline socket(io_context *context, const ip::family family)
       : context_(context),
-        handle_(details::socket(family, protocol_type::socket_type)),
+        handle_(details::socket(family, protocol_type::socket_type())),
         remote_endpoint_(std::nullopt) {}
   inline socket(io_context &context, const ip::family family)
       : context_(&context),
-        handle_(details::socket(family, protocol_type::socket_type)),
+        handle_(details::socket(family, protocol_type::socket_type())),
         remote_endpoint_(std::nullopt) {}
   socket(const socket &) = delete;
   socket &operator=(const socket &) = delete;
@@ -106,7 +108,7 @@ public:
     else [[unlikely]]
       return details::make_listen_error();
   }
-  AC_SOCKET_FUNCTIONAL_METHOD(listen, )
+  AC_SOCKET_FUNCTIONAL_METHOD(listen);
   Status connect(const endpoint_type &address) {
     if (details::connect(handle_, address.data(), address.size()) != -1)
         [[likely]]
@@ -151,7 +153,7 @@ public:
     else
       return details::make_recv_error();
   }
-  AC_SOCKET_FUNCTIONAL_METHOD(recv, const)
+  AC_SOCKET_FUNCTIONAL_METHOD(recv);
   AC_NODISCARD_REASON(
       "the `accept` method returns a new socket that you should use to communicate with the client.")
   inline StatusOr<socket> accept() {

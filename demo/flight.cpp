@@ -24,7 +24,7 @@ void server() {
   auto s = net::socket<tcp>(ctx, ip::family::v4);
   s.bind(e).log_if_err();
   s.listen().log_if_err();
-  std::cout << "received: " << s.accept().and_then<&net::socket<tcp>::recv_>();
+  std::cout << "received: " << s.accept().and_then<net::socket<tcp>::recv_>();
 }
 int main() {
   Println(e);
