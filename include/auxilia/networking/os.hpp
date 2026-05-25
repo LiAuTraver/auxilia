@@ -10,8 +10,10 @@
 // Windows
 #  pragma comment(lib, "Ws2_32.lib")
 #elif defined(__linux__)
+#  include <netinet/in.h>
 #  include <sys/socket.h>
 #  include <sys/types.h>
+#  include <unistd.h>
 #else
 #  error unsupported
 #endif
@@ -30,6 +32,7 @@ namespace auxilia::net {
 enum class socket_type { stream = SOCK_STREAM, datagram = SOCK_DGRAM };
 }
 namespace auxilia::net::details::inline os {
+#ifdef _WIN32
 
 using raw_socket_t = ::SOCKET;
 using socket_len_type = ::socklen_t;
@@ -47,8 +50,27 @@ using in6_mreq_type = ::ipv6_mreq;
 using sockaddr_in6_t = ::sockaddr_in6;
 using sockaddr_storage_t = ::sockaddr_storage;
 using addrinfo_t = ::addrinfo;
+#elif defined(__linux__)
+using raw_socket_t = int;
+using socket_len_type = socklen_t;
+using socket_storage_type = sockaddr_storage;
+static constexpr auto invalid_socket = -1;
+static constexpr auto socket_error = -1;
+using sockaddr_t = ::sockaddr;
+using sockaddr_in4_t = ::sockaddr_in;
+using sockaddr_in6_t = ::sockaddr_in6;
+using sockaddr_storage_t = ::sockaddr_storage;
+using in4_addr_t = ::in_addr;
+using in4_mreq_type = ::ip_mreq;
+using in6_addr_t = ::in6_addr;
+using in6_mreq_type = ::ipv6_mreq;
+// using addrinfo_t = ::addrinfo;
+#else
+#  error unsupported
+#endif
 using port_type = unsigned short;
-
+} // namespace auxilia::net::details::inline os
+namespace auxilia::net::details::inline os {
 AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
                                           const socket_type socket_type,
                                           const int protocol = 0) {
@@ -65,7 +87,11 @@ AC_FORCEINLINE inline auto listen(const raw_socket_t s, const int backlog = 0) {
 }
 
 AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
+#ifdef _WIN32
   return ::closesocket(s);
+#else
+  return ::close(s);
+#endif
 }
 
 using ::accept;
@@ -77,18 +103,18 @@ using ::recv;
 using ::recvfrom;
 using ::sendto;
 
-using ::read;  // C lib func
-using ::write; // C lib func
+// using ::read;  // C lib func
+// using ::write; // C lib func
 
 using ::select;
 // using ::poll;
 
-using ::close;
+// using ::close;
 
 // using ::getaddrinfo;
 // using ::setaddrinfo;
-using ::gethostbyaddr;
-using ::gethostbyname;
+// using ::gethostbyaddr;
+// using ::gethostbyname;
 
 using ::getsockopt;
 using ::setsockopt;
@@ -352,5 +378,8 @@ namespace auxilia::net::details {
   return UnknownError(::strerror(errno));
 }
 [[gnu::cold]] static inline Status make_send_error() { AC_TODO_(); }
+[[gnu::cold]] static inline Status make_close_error() { AC_TODO_(); }
+[[gnu::cold]] static inline Status make_accept_error() { AC_TODO_(); }
+[[gnu::cold]] static inline Status make_recv_error() { AC_TODO_(); }
 } // namespace auxilia::net::details
 #endif

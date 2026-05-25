@@ -139,7 +139,8 @@ public:
     bytes_type buffer;
     bool success = true;
     buffer.resize_and_overwrite(
-        max_size, [this, &success](char *buf, const size_t buf_size) noexcept {
+        max_size,
+        [this, &success](char *buf, const size_t buf_size) noexcept -> size_t {
           // NOLINTNEXTLINE
           auto res = details::recv(handle_, buf, buf_size, 0);
           if (res < 0) {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "os.hpp"
-
+#ifdef _WIN32
 namespace auxilia::net {
 class io_context {
 public:
@@ -33,3 +33,15 @@ public:
   auto &&native_handle(this auto &&self) noexcept { return self.wsa_data_; }
 };
 } // namespace auxilia::net
+#elif defined(__linux__)
+namespace auxilia::net {
+class io_context {
+public:
+  using native_handle_type = void;
+  Status initialize() noexcept { return {}; }
+  auto &&native_handle(this auto &&self) noexcept { return self; }
+};
+} // namespace auxilia::net
+#else
+#  error "unsupported"
+#endif

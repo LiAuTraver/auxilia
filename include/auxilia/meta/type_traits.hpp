@@ -1,9 +1,5 @@
 #pragma once
 
-namespace std {
-template <class Ty, size_t Size> class array;
-}
-
 namespace auxilia {
 /// @brief helper aggregate struct for NTTP
 template <typename CharT, size_t N> struct basic_chars_storage {
@@ -159,15 +155,6 @@ inline constexpr size_t array_size_v =
     extent_v<remove_reference_t<decltype(Chars)>>;
 template <const auto &Chars>
 struct array_size : integral_constant<size_t, array_size_v<Chars>> {};
-
-template <typename Ty> struct fixed_array_size;
-
-template <typename Ty, size_t Size>
-struct fixed_array_size<std::array<Ty, Size>>
-    : integral_constant<size_t, Size> {};
-
-template <typename Ty>
-inline constexpr size_t fixed_array_size_v = fixed_array_size<Ty>::value;
 
 /// @see Microsoft STL's @link std::_Is_specialization_v @endlink.
 template <class Ty, template <class...> class Template>

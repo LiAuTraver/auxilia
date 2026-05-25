@@ -42,8 +42,8 @@
 #  endif
 #endif
 
-/// @note I use Source Code Annotation sometimes; but libstdc++
-/// doesn't support; so we manually define it here.
+/// @note I use Source Code Annotation sometimes; but only msvc support;
+/// so manually defined it here.
 #if __has_include(<sal.h>)
 #  include <sal.h> // IWYU pragma: export
 #else
@@ -205,12 +205,13 @@
 
 #define AC_FORMAT(...) (AC_STD_OR_FMT format("" __VA_ARGS__))
 
-/// @note by current time the library was written, GNU on Windows seems failed
-/// to perform linking for `stacktrace` and `spdlog`.
-
-#if __has_include(<stacktrace>)
-#  include <stacktrace>
-#  if !AC_USE_STD_FMT
+/// @note by current time the library was written, stacktrace is still
+/// expreimental hence additional flag needed for stacktrace for GCC and clang
+/// on linux. just @def AC_STACKTRACE to bypass this if problem occurrs
+#ifndef AC_STACKTRACE
+#  if __has_include(<stacktrace>)
+#    include <stacktrace>
+#    if !AC_USE_STD_FMT
 template <> struct ::fmt::formatter<::std::stacktrace> {
   constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
 
@@ -230,11 +231,13 @@ template <> struct ::fmt::formatter<::std::stacktrace> {
     return out;
   }
 };
+#    endif
+#    define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
+#  else
+#    define AC_STACKTRACE ("Stacktrace unavailable")
 #  endif
-#  define AC_STACKTRACE AC_FORMAT("\n{}", ::std::stacktrace::current())
-#else
-#  define AC_STACKTRACE ("Stacktrace unavailable")
 #endif
+
 #define AC_UNREACHABLE_IMPL                                                    \
   [[assume(false)]];                                                           \
   [[unlikely]] std::unreachable(); // 'not all control paths return a value'

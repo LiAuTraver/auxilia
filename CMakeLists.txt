@@ -45,6 +45,12 @@ if(PROJECT_IS_TOP_LEVEL)
   endif()
 
   include(cmake/prelude.cmake)
+
+  if(LINUX AND CXX_FLAGS_STYLES_CLANG)
+    message(STATUS "Enabling C++23 stacktrace support for Clang w/ -libstdc++")
+    target_link_libraries(auxilia INTERFACE stdc++exp)
+  endif(LINUX AND CXX_FLAGS_STYLES_CLANG)
+
   target_compile_features(auxilia INTERFACE cxx_std_23)
 else()
   target_compile_features(auxilia INTERFACE cxx_std_20)

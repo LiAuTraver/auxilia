@@ -77,7 +77,7 @@ public:
   constexpr explicit(false) operator details::in4_addr_t() const noexcept {
     return native_handle();
   }
-  constexpr explicit operator address() const noexcept;
+  constexpr explicit operator class address() const noexcept;
 };
 static_assert(std::is_trivially_destructible_v<address_v4>);
 class address_v6 : Printable {

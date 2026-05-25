@@ -465,7 +465,7 @@ public:
   AC_NODISCARD constexpr auto operator[](const size_t pos) const AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[] const");
     AC_PRECONDITION(pos < N, "subscript out of range")
-    return do_subscript_unchecked(pos);
+    return myBase::do_subscript_unchecked(pos);
   }
   AC_NODISCARD constexpr auto operator[](const size_t pos) AC_NOEXCEPT {
     AC_BITSET_ZERO(N > 0, "bitset<0> does not support operator[]");
