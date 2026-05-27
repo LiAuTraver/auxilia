@@ -74,6 +74,13 @@ public:
     else
       return endpoint(std::move(storage), len);
   }
+  template <ip::family family = ip::family::v4>
+  static constexpr auto unspecified(const port_type port = 0) noexcept {
+    if constexpr (family == ip::family::v4)
+      return endpoint(ip::address_v4::unspecified(), port);
+    else
+      return endpoint(ip::address_v6::unspecified(), port);
+  }
   auto to_string(const FormatPolicy policy) const {
     if (is_v4())
       return Format("{}:{}", address().to_string(policy), port());

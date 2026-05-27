@@ -48,6 +48,7 @@ public:
   static consteval address_v4 broadcast() noexcept {
     return {{255, 255, 255, 255}};
   }
+  static consteval address_v4 unspecified() noexcept { return {{0, 0, 0, 0}}; }
   static consteval auto family() noexcept { return family::v4; }
 
 public:
@@ -185,6 +186,13 @@ public:
   address(address &&) = default;
   address &operator=(const address &) = default;
   address &operator=(address &&) = default;
+  template <family family = family::v4>
+  static consteval address unspecified() noexcept {
+    if constexpr (family == family::v4)
+      return address_v4::unspecified();
+    else
+      return address_v6::unspecified();
+  }
 
 public:
   constexpr auto is_ipv4() const noexcept { return type_ == ipv4; }

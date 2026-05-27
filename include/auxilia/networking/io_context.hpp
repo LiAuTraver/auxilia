@@ -1,5 +1,6 @@
 #pragma once
 
+#include "auxilia/status/Status.hpp"
 #include "os.hpp"
 #ifdef _WIN32
 namespace auxilia::net {
@@ -14,10 +15,7 @@ private:
 public:
   constexpr io_context() noexcept
       : wsa_data_(native_handle_type{}), initialized_(false) {}
-  ~io_context() noexcept {
-    if (initialized_)
-      ::WSACleanup();
-  }
+  ~io_context() noexcept { shutdown(); }
 
 public:
   Status initialize() noexcept {
@@ -30,6 +28,15 @@ public:
     initialized_ = true;
     return {};
   }
+  Status shutdown() noexcept {
+    if (!initialized_)
+      return UnavailableError(
+          "io_context is not initialized, or failed to initialize.");
+    if (::WSACleanup() != 0)
+      return details::wsa_error();
+    initialized_ = false;
+    return {};
+  }
   auto &&native_handle(this auto &&self) noexcept { return self.wsa_data_; }
 };
 } // namespace auxilia::net
@@ -38,8 +45,9 @@ namespace auxilia::net {
 class io_context {
 public:
   using native_handle_type = void;
-  Status initialize() noexcept { return {}; }
-  auto &&native_handle(this auto &&self) noexcept { return self; }
+  inline Status initialize() noexcept { return {}; }
+  inline Status shutdown() noexcept { return {}; }
+  inline auto &&native_handle(this auto &&self) noexcept { return self; }
 };
 } // namespace auxilia::net
 #else

@@ -5,6 +5,7 @@
 
 namespace auxilia::net {
 template <typename> class endpoint;
+template <typename> class socket;
 template <typename Protocol>
 concept InternetProtocol = requires {
   { Protocol::v4() } -> std::same_as<Protocol>;
@@ -17,6 +18,7 @@ struct tcp {
   static consteval auto socket_type() { return socket_type::stream; };
 
   using endpoint_type = endpoint<tcp>;
+  using socket_t = socket<tcp>;
 
 private:
   consteval tcp(const ip::family family) : family_(family) {}
@@ -29,6 +31,7 @@ struct udp {
   static consteval auto socket_type() { return socket_type::datagram; };
 
   using endpoint_type = endpoint<udp>;
+  using socket_t = socket<udp>;
 
 private:
   consteval udp(const ip::family family) : family_(family) {}

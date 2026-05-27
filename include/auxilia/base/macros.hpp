@@ -118,8 +118,7 @@
 /// @def AC_NODISCARD
 /// @brief nodiscard attribute
 /// @note why this macro? mostly because attribute with `[[]]` costs more
-/// typing,
-///       especially if clangd is used. ;)
+/// typing, especially if clangd is used. ;)
 #  define AC_NODISCARD [[nodiscard]]
 #elif __has_cpp_attribute(nodiscard) >= 201603L
 #  define AC_NODISCARD_REASON(...) [[nodiscard]]

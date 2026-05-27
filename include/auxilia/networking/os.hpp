@@ -78,14 +78,24 @@ AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
       std::to_underlying(family), std::to_underlying(socket_type), protocol);
 }
 
-AC_FORCEINLINE inline auto
-send(const raw_socket_t s, std::string &&str, const int flags = 0) {
-  return ::send(s, str.c_str(), str.size(), flags); // NOLINT
-}
 AC_FORCEINLINE inline auto listen(const raw_socket_t s, const int backlog = 0) {
   return ::listen(s, backlog);
 }
-
+AC_FORCEINLINE inline auto recv(const raw_socket_t s,
+                                char *const buf,
+                                const size_t len,
+                                const int flags = 0,
+                                sockaddr_t *from = nullptr,
+                                socket_len_type *fromlen = nullptr) {
+  return ::recvfrom(s, buf, len, flags, from, fromlen); // NOLINT
+}
+AC_FORCEINLINE inline auto send(const raw_socket_t s,
+                                std::string &&str,
+                                const int flags = 0,
+                                const sockaddr_t *to = nullptr,
+                                const socket_len_type tolen = 0) {
+  return ::sendto(s, str.c_str(), str.size(), flags, to, tolen); // NOLINT
+}
 AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
 #ifdef _WIN32
   return ::closesocket(s);
@@ -97,8 +107,6 @@ AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
 using ::accept;
 using ::bind;
 using ::connect;
-
-using ::recv;
 
 using ::recvfrom;
 using ::sendto;
@@ -154,28 +162,32 @@ static inline constexpr Unsigned net2host(const Unsigned net) noexcept {
 #ifdef _WIN32
 namespace auxilia::net::details {
 [[gnu::cold]] static inline Status wsa_error() {
-  LPSTR message_buffer = nullptr;
-  AC_DEFER {
-    ::LocalFree(message_buffer);
-    ::WSASetLastError(ERROR_SUCCESS);
-  };
+  AC_DEFER { ::WSASetLastError(ERROR_SUCCESS); };
 
-  const auto size = ::FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                                        FORMAT_MESSAGE_FROM_SYSTEM |
-                                        FORMAT_MESSAGE_IGNORE_INSERTS,
-                                    nullptr,
-                                    ::WSAGetLastError(),
-                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                    reinterpret_cast<LPSTR>(&message_buffer),
-                                    0,
-                                    nullptr);
+  std::string message;
 
-  auto result = std::string(message_buffer, size);
+  constexpr auto max_size = 0x0200ULL;
 
-  if (result.empty())
-    result = "Error code unrecognized";
+  message.resize_and_overwrite(max_size, [](char *buf, size_t size) -> size_t {
+    return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
+                               FORMAT_MESSAGE_IGNORE_INSERTS,
+                           nullptr,
+                           ::WSAGetLastError(),
+                           MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                           buf,
+                           static_cast<DWORD>(size),
+                           nullptr);
+  });
 
-  return UnknownError(std::move(result));
+  if (message.empty()) {
+    if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+      ::SetLastError(ERROR_SUCCESS);
+      message = "insufficient memory for error message";
+    } else
+      message = "Error code unrecognized";
+  }
+
+  return UnknownError(std::move(message));
 }
 [[gnu::cold]] AC_FORCEINLINE static inline Status make_ctor_error() {
   return wsa_error();
