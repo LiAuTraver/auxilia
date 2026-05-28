@@ -13,7 +13,7 @@
 #include "os.hpp"
 #include "ip.hpp"
 
-#include "tcp.hpp"
+#include "protocol.hpp"
 
 namespace auxilia::net {
 template <typename> class socket;

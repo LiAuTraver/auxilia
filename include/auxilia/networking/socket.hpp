@@ -16,7 +16,7 @@
 
 #include "os.hpp"
 #include "ip.hpp"
-#include "tcp.hpp"
+#include "protocol.hpp"
 #include "endpoint.hpp"
 namespace auxilia::net {
 class io_context;
@@ -140,16 +140,23 @@ public:
       return details::make_connect_error();
   }
 
-protected:
-  struct _recv {
+public:
+  struct {
     static auto operator()(auto &&self) { return self.recv(); }
     static auto operator()(auto &&self, const size_t max_size) {
       return self.recv(max_size);
     }
-  };
+  }
 
-public:
-  static constexpr inline _recv recv_;
+  static constexpr inline recv_;
+
+  struct {
+    static auto operator()(auto &&self, bytes_type &&bytes) {
+      return self.send_bytes(std::move(bytes));
+    }
+  }
+
+  static constexpr inline send_bytes_;
 
 protected:
   io_context *context_;
@@ -172,14 +179,6 @@ public:
   }
   ~socket() = default;
 
-private:
-  struct _listen {
-    static auto operator()(auto &&self) { return self.listen(); }
-    static auto operator()(auto &&self, const int backlog) {
-      return self.listen(backlog);
-    }
-  };
-
 public:
   Status listen(const int backlog = 0) {
     if (details::listen(handle_, backlog) != -1) [[likely]]
@@ -187,7 +186,15 @@ public:
     else [[unlikely]]
       return details::make_listen_error();
   }
-  static constexpr inline _listen listen_;
+
+  struct {
+    static auto operator()(auto &&self) { return self.listen(); }
+    static auto operator()(auto &&self, const int backlog) {
+      return self.listen(backlog);
+    }
+  }
+
+  static constexpr inline listen_;
 
 protected:
   StatusOr<bytes_type> do_recv(const size_t max_size) {
