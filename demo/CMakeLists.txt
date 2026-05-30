@@ -14,4 +14,12 @@ target_link_libraries(flight
   auxilia::auxilia
 )
 
+add_executable(udp_chat
+  udp_chat.cpp
+)
+target_link_libraries(udp_chat
+  PRIVATE
+  auxilia::auxilia
+)
+
 add_folder_if_auxilia_top_level("Demo")

@@ -30,7 +30,7 @@ public:
   using key_type = KeyT;
   using mapped_type = ValueT;
   using value_type = std::pair<key_type, mapped_type>;
-  using size_type = std::size_t;
+  using size_type = size_t;
   using difference_type = std::ptrdiff_t;
   using key_container_type = KeyContainer;
   using mapped_container_type = MappedContainer;

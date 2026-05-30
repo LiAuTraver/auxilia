@@ -17,21 +17,22 @@
 #include "os.hpp"
 #include "ip.hpp"
 #include "protocol.hpp"
+#include <cstring>
+#include <functional>
+
+#include "io_context.hpp"
 #include "endpoint.hpp"
-namespace auxilia::net {
-class io_context;
-}
 namespace auxilia::net::details {
 
 template <typename Protocol> class socket_base : Printable {
 
 public:
-  using native_handle_type = details::raw_socket_t;
   using protocol_type = Protocol;
+  using native_handle_type = details::raw_socket_t;
   using endpoint_type = protocol_type::endpoint_type;
   using address_type = ip::address;
   using bytes_view_type = std::string_view;
-  using bytes_type = std::string;
+  using bytes_type = std::string; // a vec of bytes
   using socket_type = protocol_type::socket_t;
   static_assert(InternetProtocol<protocol_type>);
   static_assert(container_traits<bytes_type>::is_reservable);
@@ -41,24 +42,23 @@ public:
   constexpr socket_base(
       io_context *context = nullptr,
       const native_handle_type handle = invalid_socket) noexcept
-      : context_(context), handle_(handle), remote_endpoint_(std::nullopt) {}
+      : context_(context), handle_(handle) {}
   constexpr socket_base(
       io_context &context,
       const native_handle_type handle = invalid_socket) noexcept
-      : context_(&context), handle_(handle), remote_endpoint_(std::nullopt) {}
+      : context_(&context), handle_(handle) {}
   inline socket_base(io_context *context, const ip::family family)
       : context_(context),
-        handle_(details::socket(family, protocol_type::socket_type())),
-        remote_endpoint_(std::nullopt) {}
+        handle_(details::socket(family, protocol_type::socket_type())) {}
   inline socket_base(io_context &context, const ip::family family)
       : context_(&context),
-        handle_(details::socket(family, protocol_type::socket_type())),
-        remote_endpoint_(std::nullopt) {}
+        handle_(details::socket(family, protocol_type::socket_type())) {}
   socket_base(const socket_base &) = delete;
   socket_base &operator=(const socket_base &) = delete;
   socket_base(socket_base &&that) noexcept
       : context_(std::exchange(that.context_, nullptr)),
         handle_(std::exchange(that.handle_, invalid_socket)),
+        associated_(std::exchange(that.associated_, false)),
         remote_endpoint_(std::move(that.remote_endpoint_)) {}
 
   socket_base &operator=(socket_base &&that) noexcept {
@@ -66,14 +66,15 @@ public:
       close();
       context_ = std::exchange(that.context_, nullptr);
       handle_ = std::exchange(that.handle_, invalid_socket);
+      associated_ = std::exchange(that.associated_, false);
       remote_endpoint_ = std::move(that.remote_endpoint_);
     }
     return *this;
   }
 
   AC_NODISCARD_REASON("the `recv` method returns the received bytes. ")
-  inline decltype(auto) recv(const size_t max_size = 0x0400) {
-    return static_cast<socket_type *>(this)->do_recv(max_size);
+  inline decltype(auto) recv(this auto &&self, const size_t max_size = 0x0400) {
+    return self.do_recv(max_size);
   }
 
 protected:
@@ -107,7 +108,7 @@ public:
         return {};
       else [[unlikely]]
         return details::make_close_error();
-    else [[unlikely]]
+    else
       return {};
   }
   constexpr auto native_handle() const noexcept { return handle_; }
@@ -140,6 +141,20 @@ public:
       return details::make_connect_error();
   }
 
+protected:
+  Status associate() {
+    if (!context_)
+      return UnavailableError("io_context is not set.");
+    if (!is_valid())
+      return details::make_ctor_error();
+    if (associated_)
+      return {};
+    if (auto status = context_->associate(handle_); !status)
+      return status;
+    associated_ = true;
+    return {};
+  }
+
 public:
   struct {
     static auto operator()(auto &&self) { return self.recv(); }
@@ -148,6 +163,7 @@ public:
     }
   }
 
+  /// monadic shorthand
   static constexpr inline recv_;
 
   struct {
@@ -156,16 +172,21 @@ public:
     }
   }
 
+  /// monadic shorthand
   static constexpr inline send_bytes_;
 
 protected:
   io_context *context_;
   native_handle_type handle_;
-  std::optional<endpoint_type> remote_endpoint_;
+  bool associated_{false};
+  /// FIXME: race condition in async operations
+  std::optional<endpoint_type> remote_endpoint_{std::nullopt};
 };
 } // namespace auxilia::net::details
 namespace auxilia::net {
-template <typename> class socket;
+template <typename FakeT> class socket {
+  consteval socket() noexcept { always_false<socket<FakeT>>("not supported"); }
+};
 template <> class socket<tcp> : public details::socket_base<tcp> {
 
 public:
@@ -193,7 +214,7 @@ public:
       return self.listen(backlog);
     }
   }
-
+  /// monadic shorthand
   static constexpr inline listen_;
 
 protected:
@@ -283,6 +304,169 @@ public:
       return details::make_send_error();
   }
 
+public:
+  using recv_handler =
+      std::move_only_function<void(StatusOr<bytes_type>, endpoint_type)>;
+  using send_handler = std::move_only_function<void(StatusOr<size_t>)>;
+
+  Status async_recv_from(const size_t max_size, recv_handler handler) {
+#ifdef _WIN32
+    if (auto status = associate(); !status)
+      return status;
+
+    auto *op = new udp_recv_op{};
+    op->op.complete = &socket::handle_recv;
+    op->self = this;
+    op->buffer.resize(max_size);
+    op->storage_len = sizeof(op->storage);
+    op->handler = std::move(handler);
+    op->wsa_buf.buf = op->buffer.data();
+    op->wsa_buf.len = static_cast<ULONG>(op->buffer.size());
+
+    DWORD bytes = 0;
+    op->flags = 0;
+
+    if (::WSARecvFrom(handle_,
+                      &op->wsa_buf,
+                      1,
+                      &bytes,
+                      &op->flags,
+                      reinterpret_cast<details::sockaddr_t *>(&op->storage),
+                      &op->storage_len,
+                      &op->op.overlapped,
+                      nullptr) == SOCKET_ERROR &&
+        ::WSAGetLastError() != WSA_IO_PENDING) {
+      delete op;
+      return details::make_recv_error();
+    }
+
+    return {};
+#else
+    (void)max_size;
+    (void)handler;
+    return UnavailableError("async_recv_from is Windows-only.");
+#endif
+  }
+
+  Status async_send_to(bytes_type bytes,
+                       const endpoint_type &endpoint,
+                       send_handler handler) {
+#ifdef _WIN32
+    if (auto status = associate(); !status)
+      return status;
+
+    auto *op = new udp_send_op{};
+    op->op.complete = &socket::handle_send;
+    op->self = this;
+    op->buffer = std::move(bytes);
+    op->endpoint = endpoint;
+    op->handler = std::move(handler);
+    op->wsa_buf.buf = op->buffer.data();
+    op->wsa_buf.len = static_cast<ULONG>(op->buffer.size());
+    // remote_endpoint_.emplace(endpoint);
+
+    DWORD bytes_sent = 0;
+
+    if (::WSASendTo(handle_,
+                    &op->wsa_buf,
+                    1,
+                    &bytes_sent,
+                    0,
+                    op->endpoint.data(),
+                    op->endpoint.size(),
+                    &op->op.overlapped,
+                    nullptr) == SOCKET_ERROR &&
+        ::WSAGetLastError() != WSA_IO_PENDING) {
+      delete op;
+      return details::make_send_error();
+    }
+
+    return {};
+#else
+    (void)bytes;
+    (void)endpoint;
+    (void)handler;
+    return UnavailableError("async_send_to is Windows-only.");
+#endif
+  }
+
+  Status async_send(bytes_type bytes, send_handler handler) {
+    if (!remote_endpoint_)
+      return UnavailableError("Remote endpoint cache not available.");
+    return async_send_to(
+        std::move(bytes), *remote_endpoint_, std::move(handler));
+  }
+
+private:
+#ifdef _WIN32
+  struct udp_recv_op {
+    details::iocp_operation op;
+    socket *self = nullptr;
+    bytes_type buffer;
+    details::sockaddr_storage_t storage{};
+    details::socket_len_type storage_len = 0;
+    DWORD flags = 0;
+    WSABUF wsa_buf{};
+    recv_handler handler;
+  };
+  struct udp_send_op {
+    details::iocp_operation op;
+    socket *self = nullptr;
+    bytes_type buffer;
+    endpoint_type endpoint{};
+    WSABUF wsa_buf{};
+    send_handler handler;
+  };
+
+  static void handle_recv(details::iocp_operation *base,
+                          DWORD bytes,
+                          DWORD error) noexcept {
+    auto *op = reinterpret_cast<udp_recv_op *>(base);
+    auto handler = std::move(op->handler);
+    if (error != ERROR_SUCCESS) {
+      ::WSASetLastError(static_cast<int>(error));
+      if (handler)
+        handler(StatusOr<bytes_type>{details::make_recv_error()},
+                endpoint_type{});
+      delete op;
+      return;
+    }
+    if (op->storage_len != sizeof(details::sockaddr_in4_t) &&
+        op->storage_len != sizeof(details::sockaddr_in6_t)) {
+      if (handler)
+        handler(
+            UnavailableError("Unknown address family of the accepted socket."),
+            endpoint_type{});
+      delete op;
+      return;
+    }
+    op->buffer.resize(bytes);
+    endpoint_type sender(std::move(op->storage), op->storage_len);
+    if (op->self)
+      op->self->remote_endpoint_.emplace(sender);
+    if (handler)
+      handler(StatusOr<bytes_type>{std::move(op->buffer)}, std::move(sender));
+    delete op;
+  }
+
+  static void handle_send(details::iocp_operation *base,
+                          DWORD bytes,
+                          DWORD error) noexcept {
+    auto *op = reinterpret_cast<udp_send_op *>(base);
+
+    if (error != ERROR_SUCCESS) {
+      ::WSASetLastError(static_cast<int>(error));
+      if (op->handler)
+        op->handler(StatusOr<size_t>{details::make_send_error()});
+      delete op;
+      return;
+    }
+    if (op->handler)
+      op->handler(StatusOr<size_t>{bytes});
+    delete op;
+  }
+#endif
+
 protected:
   StatusOr<bytes_type> do_recv(const size_t max_size) {
     details::socket_len_type len = sizeof(details::socket_storage_type);
@@ -303,7 +487,7 @@ protected:
           if (res < 0) {
             success = false;
             return 0;
-          } else if (len != sizeof(details::sockaddr_in4_t) ||
+          } else if (len != sizeof(details::sockaddr_in4_t) &&
                      len != sizeof(details::sockaddr_in6_t)) {
             success = false;
             return 0;

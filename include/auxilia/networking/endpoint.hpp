@@ -48,9 +48,9 @@ public:
   }
   constexpr endpoint(const ip::address &ip, const port_type port) noexcept {
     if (ip.is_ipv4())
-      endpoint(ip.to_v4(), port);
+      *this = endpoint(ip.to_v4(), port);
     else
-      endpoint(ip.to_v6(), port);
+      *this = endpoint(ip.to_v6(), port);
   }
   constexpr endpoint(details::sockaddr_storage_t &&storage,
                      const details::socket_len_type len) noexcept {
@@ -68,7 +68,7 @@ public:
   constexpr StatusOr<endpoint>
   from_native(details::sockaddr_storage_t &&storage,
               const details::socket_len_type len) noexcept {
-    if (len != sizeof(details::sockaddr_in4_t) ||
+    if (len != sizeof(details::sockaddr_in4_t) &&
         len != sizeof(details::sockaddr_in6_t))
       return UnavailableError("Unknown address family of the accepted socket.");
     else
@@ -123,6 +123,21 @@ public:
       return details::net2host(v4_.sin_port);
     else
       return details::net2host(v6_.sin6_port);
+  }
+
+public:
+  constexpr auto operator==(const endpoint &that) const noexcept {
+    if (family() != that.family())
+      return false;
+    if (is_v4()) {
+      return v4_.sin_port == that.v4_.sin_port &&
+             v4_.sin_addr.s_addr == that.v4_.sin_addr.s_addr;
+    }
+    return v6_.sin6_port == that.v6_.sin6_port &&
+           v6_.sin6_scope_id == that.v6_.sin6_scope_id &&
+           ::memcmp(v6_.sin6_addr.s6_addr,
+                    that.v6_.sin6_addr.s6_addr,
+                    sizeof(v6_.sin6_addr.s6_addr)) == 0;
   }
 };
 static_assert(std::is_trivially_destructible_v<endpoint<tcp>>);

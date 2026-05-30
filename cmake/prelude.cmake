@@ -31,7 +31,10 @@ set(CXX_FLAGS_STYLES_MSVC OFF CACHE BOOL "Enable MSVC style C++ flags")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   set(CXX_FLAGS_STYLES_GNU ON)
+  add_compile_options(-Wunused-variable)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wunused-variable)
+
   if(CMAKE_CXX_COMPILER MATCHES "clang-cl")
     set(CXX_FLAGS_STYLES_CLANGCL ON)
   else()

@@ -170,10 +170,10 @@ inline constexpr details::_surround_fn surround;
 /// @brief trims the leading and trailing whitespace-like characters
 /// from given range(char-like elements)
 inline constexpr auto trim(std::string_view sv) -> std::string_view {
-  std::size_t i = 0;
+  size_t i = 0;
   while (i < sv.size() && isspacelike(sv[i]))
     ++i;
-  std::size_t j = sv.size();
+  size_t j = sv.size();
   while (j > i && isspacelike(sv[j - 1]))
     --j;
   return sv.substr(i, j - i);

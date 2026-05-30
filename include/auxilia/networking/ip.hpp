@@ -10,6 +10,7 @@
 
 #include "auxilia/base/config.hpp"
 #include "auxilia/base/format.hpp"
+#include "auxilia/status/StatusOr.hpp"
 
 #include "os.hpp"
 namespace auxilia::net::ip {
@@ -50,6 +51,36 @@ public:
   }
   static consteval address_v4 unspecified() noexcept { return {{0, 0, 0, 0}}; }
   static consteval auto family() noexcept { return family::v4; }
+  static constexpr StatusOr<address_v4>
+  from_str(const std::string_view str) noexcept {
+    if (str == "localhost" || str == "127.0.0.1")
+      return net::ip::address_v4::loopback();
+
+    bytes_type bytes;
+    size_t part = 0;
+    unsigned value = 0;
+    bool has_digit = false;
+    for (const char ch : str) {
+      if (ch >= '0' && ch <= '9') {
+        has_digit = true;
+        value = value * 10 + static_cast<unsigned>(ch - '0');
+        if (value > 255)
+          return InvalidArgumentError("{} exceeds 255", value);
+      } else if (ch == '.') {
+        if (!has_digit || part >= 3)
+          return InvalidArgumentError("invalid IPv4 address format '{}'", str);
+        bytes[part++] = static_cast<std::byte>(value);
+        value = 0;
+        has_digit = false;
+      } else {
+        return InvalidArgumentError("invalid IPv4 address format '{}'", str);
+      }
+    }
+    if (!has_digit || part != 3)
+      return InvalidArgumentError("invalid IPv4 address format '{}'", str);
+    bytes[part] = static_cast<std::byte>(value);
+    return address_v4(bytes);
+  }
 
 public:
   constexpr auto to_uint() const noexcept {
