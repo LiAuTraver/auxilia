@@ -27,10 +27,13 @@
 #include "auxilia/status/Status.hpp"
 
 namespace auxilia::net::ip {
-enum class family { v4 = AF_INET, v6 = AF_INET6 };
+enum class family : decltype(AF_INET) { v4 = AF_INET, v6 = AF_INET6 };
 }
 namespace auxilia::net {
-enum class socket_type { stream = SOCK_STREAM, datagram = SOCK_DGRAM };
+enum class socket_kind : decltype(SOCK_STREAM) {
+  stream = SOCK_STREAM,
+  datagram = SOCK_DGRAM
+};
 namespace details {
 using port_type = unsigned short;
 }

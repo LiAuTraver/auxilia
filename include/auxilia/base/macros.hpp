@@ -521,6 +521,7 @@ AC_FORCEINLINE AC_FLATTEN static inline void _debugbreak() noexcept {
 }
 } // namespace auxilia::details
 
+/// (almost) identical to `wil::scope_exit`, `gsl::finally`.
 #define AC_DEFER                                                               \
   [[maybe_unused]] const auto AC_EXPAND_COUNTER(                               \
       _auxilia_details_defer_block_at) =                                       \

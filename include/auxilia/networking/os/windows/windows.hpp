@@ -38,7 +38,7 @@ using addrinfo_t = ::addrinfo;
 } // namespace auxilia::net::details::inline os
 namespace auxilia::net::details::inline os {
 AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
-                                          const socket_type socket_type,
+                                          const socket_kind socket_type,
                                           const int protocol = 0) {
   return ::WSASocketW(std::to_underlying(family),
                       std::to_underlying(socket_type),

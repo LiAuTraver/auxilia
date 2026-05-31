@@ -10,12 +10,12 @@
 #if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L
 #  include <expected>
 namespace auxilia::details {
-template <typename T> using numret = std::expected<T, std::errc>;
+template <typename T> using maybe = std::expected<T, std::errc>;
 }
 #else
 #  include <optional>
 namespace auxilia::details {
-template <typename T> using numret = std::optional<T>;
+template <typename T> using maybe = std::optional<T>;
 }
 #endif
 namespace auxilia {
@@ -30,7 +30,7 @@ inline constexpr auto _get_base(const char c) -> int {
 
 template <typename Integer>
 inline constexpr auto to_integer(std::string_view value)
-    -> details::numret<Integer> {
+    -> details::maybe<Integer> {
   static_assert(std::integral<Integer>);
   int Base = 10;
 
@@ -58,7 +58,7 @@ inline constexpr auto to_integer(std::string_view value)
 }
 template <typename Floating>
 inline constexpr auto to_floating(std::string_view value)
-    -> details::numret<Floating> {
+    -> details::maybe<Floating> {
   static_assert(std::floating_point<Floating>);
   Floating number;
   const auto res =

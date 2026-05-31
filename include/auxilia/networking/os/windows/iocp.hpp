@@ -7,13 +7,15 @@
 #  endif
 
 namespace auxilia::net::details {
-struct iocp_operation {
-  OVERLAPPED overlapped{};
+struct AC_EMPTY_BASES AC_NOVTABLE iocp_operation {
   using complete_fn = void (*)(iocp_operation *, DWORD, DWORD) noexcept;
-  complete_fn complete = nullptr;
+  constexpr iocp_operation(complete_fn complete = nullptr) noexcept
+      : overlapped({}), complete(complete) {}
+  OVERLAPPED overlapped;
+  complete_fn complete;
 };
 
-struct iocp_completion {
+struct AC_EMPTY_BASES AC_NOVTABLE iocp_completion {
   iocp_operation *op = nullptr;
   DWORD bytes = 0;
   DWORD error = ERROR_SUCCESS;

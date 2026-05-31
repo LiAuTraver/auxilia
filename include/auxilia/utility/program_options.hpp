@@ -107,13 +107,13 @@ public:
 private:
   AC_NODISCARD std::string help() const {
     std::string help_text = "  ";
-    if (!shortname_.empty()) {
+    if (!shortname_.empty())
       help_text += Format("{}, ", shortname_);
-    }
+
     help_text += Format("{}", name_);
-    if (nargs_ != 0) {
+    if (nargs_ != 0)
       help_text += " <value>";
-    }
+
     help_text += Format("\t\t{}\n", desc_);
     return help_text;
   }
