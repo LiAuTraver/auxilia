@@ -14,10 +14,10 @@ target_link_libraries(flight
   auxilia::auxilia
 )
 
-add_executable(udp_chat
-  udp_chat.cpp
+add_executable(chatroom
+  chatroom.cpp
 )
-target_link_libraries(udp_chat
+target_link_libraries(chatroom
   PRIVATE
   auxilia::auxilia
 )
