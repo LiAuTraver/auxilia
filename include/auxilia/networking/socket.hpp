@@ -66,7 +66,6 @@ public:
   socket_base(socket_base &&that) noexcept
       : context_(std::exchange(that.context_, nullptr)),
         handle_(std::exchange(that.handle_, invalid_socket)),
-        associated_(std::exchange(that.associated_, false)),
         remote_endpoint_(std::move(that.remote_endpoint_)) {}
 
   socket_base &operator=(socket_base &&that) noexcept {
@@ -74,7 +73,6 @@ public:
       close().log_err();
       context_ = std::exchange(that.context_, nullptr);
       handle_ = std::exchange(that.handle_, invalid_socket);
-      associated_ = std::exchange(that.associated_, false);
       remote_endpoint_ = std::move(that.remote_endpoint_);
     }
     return *this;
@@ -167,7 +165,6 @@ public:
 protected:
   io_context *context_;
   native_handle_type handle_;
-  bool associated_{false};
   /// FIXME: race condition in async operations
   std::optional<endpoint_type> remote_endpoint_{std::nullopt};
 };
@@ -255,6 +252,123 @@ public:
     else [[unlikely]]
       return details::make_send_error();
   }
+
+public:
+  using recv_handler = std::move_only_function<void(StatusOr<bytes_type>)>;
+  using send_handler = std::move_only_function<void(StatusOr<size_t>)>;
+
+  Status async_recv(const size_t max_size, recv_handler handler) {
+#ifdef _WIN32
+    auto *op = new tcp_recv_op{};
+    op->op.complete = &socket::handle_recv;
+    op->self = this;
+    op->buffer.resize(max_size);
+    op->handler = std::move(handler);
+    op->wsa_buf.buf = op->buffer.data();
+    op->wsa_buf.len = static_cast<ULONG>(op->buffer.size());
+    op->flags = 0;
+
+    DWORD bytes = 0;
+    if (::WSARecv(handle_,
+                  &op->wsa_buf,
+                  1,
+                  &bytes,
+                  &op->flags,
+                  &op->op.overlapped,
+                  nullptr) == SOCKET_ERROR &&
+        ::WSAGetLastError() != WSA_IO_PENDING) {
+      delete op;
+      return details::make_recv_error();
+    }
+    return {};
+#else
+    (void)max_size;
+    (void)handler;
+    return UnavailableError("async_recv is Windows-only.");
+#endif
+  }
+
+  Status async_send(bytes_type bytes, send_handler handler) {
+#ifdef _WIN32
+    auto *op = new tcp_send_op{};
+    op->op.complete = &socket::handle_send;
+    op->self = this;
+    op->buffer = std::move(bytes);
+    op->handler = std::move(handler);
+    op->wsa_buf.buf = op->buffer.data();
+    op->wsa_buf.len = static_cast<ULONG>(op->buffer.size());
+
+    DWORD bytes_sent = 0;
+    if (::WSASend(handle_,
+                  &op->wsa_buf,
+                  1,
+                  &bytes_sent,
+                  0,
+                  &op->op.overlapped,
+                  nullptr) == SOCKET_ERROR &&
+        ::WSAGetLastError() != WSA_IO_PENDING) {
+      delete op;
+      return details::make_send_error();
+    }
+    return {};
+#else
+    (void)bytes;
+    (void)handler;
+    return UnavailableError("async_send is Windows-only.");
+#endif
+  }
+
+private:
+#ifdef _WIN32
+  struct tcp_recv_op {
+    details::iocp_operation op;
+    socket *self = nullptr;
+    bytes_type buffer;
+    DWORD flags = 0;
+    WSABUF wsa_buf{};
+    recv_handler handler;
+  };
+  struct tcp_send_op {
+    details::iocp_operation op;
+    socket *self = nullptr;
+    bytes_type buffer;
+    WSABUF wsa_buf{};
+    send_handler handler;
+  };
+
+  static void handle_recv(details::iocp_operation *base,
+                          DWORD bytes,
+                          DWORD error) noexcept {
+    auto *op = reinterpret_cast<tcp_recv_op *>(base);
+    if (error != ERROR_SUCCESS) {
+      ::WSASetLastError(static_cast<int>(error));
+      if (op->handler)
+        op->handler(StatusOr<bytes_type>{details::make_recv_error()});
+      delete op;
+      return;
+    }
+    op->buffer.resize(bytes);
+    if (op->handler)
+      op->handler(StatusOr<bytes_type>{std::move(op->buffer)});
+    delete op;
+  }
+
+  static void handle_send(details::iocp_operation *base,
+                          DWORD bytes,
+                          DWORD error) noexcept {
+    auto *op = reinterpret_cast<tcp_send_op *>(base);
+    if (error != ERROR_SUCCESS) {
+      ::WSASetLastError(static_cast<int>(error));
+      if (op->handler)
+        op->handler(StatusOr<size_t>{details::make_send_error()});
+      delete op;
+      return;
+    }
+    if (op->handler)
+      op->handler(StatusOr<size_t>{bytes});
+    delete op;
+  }
+#endif
 };
 template <> class socket<udp> : public details::socket_base<udp> {
 
