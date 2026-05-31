@@ -39,20 +39,28 @@ public:
   static_assert(container_traits<bytes_type>::is_contiguous);
 
 public:
-  constexpr socket_base(
+  inline socket_base(
       io_context *context = nullptr,
-      const native_handle_type handle = invalid_socket) noexcept
-      : context_(context), handle_(handle) {}
-  constexpr socket_base(
-      io_context &context,
-      const native_handle_type handle = invalid_socket) noexcept
-      : context_(&context), handle_(handle) {}
-  inline socket_base(io_context *context, const ip::family family)
-      : context_(context),
-        handle_(details::socket(family, protocol_type::socket_type())) {}
-  inline socket_base(io_context &context, const ip::family family)
-      : context_(&context),
-        handle_(details::socket(family, protocol_type::socket_type())) {}
+      const native_handle_type handle = invalid_socket,
+      std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept
+      : context_(context), handle_(handle) {
+    if (handle == invalid_socket)
+      return;
+    AC_RUNTIME_ASSERT(context, "no context while handle is valid")
+    context->associate(handle).rvalue().log_err();
+    context_ = context;
+    handle_ = handle;
+    remote_endpoint_ = std::move(remote_endpoint);
+  }
+  inline socket_base(io_context &context,
+                     const native_handle_type handle = invalid_socket) noexcept
+      : socket_base(&context, handle) {}
+  inline socket_base(io_context *context, const ip::family family) noexcept
+      : socket_base(context,
+                    details::socket(family, protocol_type::socket_type())) {}
+  inline socket_base(io_context &context, const ip::family family) noexcept
+      : socket_base(&context,
+                    details::socket(family, protocol_type::socket_type())) {}
   socket_base(const socket_base &) = delete;
   socket_base &operator=(const socket_base &) = delete;
   socket_base(socket_base &&that) noexcept
@@ -63,7 +71,7 @@ public:
 
   socket_base &operator=(socket_base &&that) noexcept {
     if (this != &that) {
-      close();
+      close().log_err();
       context_ = std::exchange(that.context_, nullptr);
       handle_ = std::exchange(that.handle_, invalid_socket);
       associated_ = std::exchange(that.associated_, false);
@@ -78,12 +86,7 @@ public:
   }
 
 protected:
-  inline ~socket_base() noexcept { close(); }
-  socket_base(io_context *context,
-              const native_handle_type handle,
-              endpoint_type &&remote_endpoint) noexcept
-      : context_(context), handle_(handle),
-        remote_endpoint_(std::move(remote_endpoint)) {}
+  inline ~socket_base() noexcept { close().log_err(); }
 
 public:
   inline static StatusOr<socket_type> v4(io_context *context = nullptr) {
@@ -141,20 +144,6 @@ public:
       return details::make_connect_error();
   }
 
-protected:
-  Status associate() {
-    if (!context_)
-      return UnavailableError("io_context is not set.");
-    if (!is_valid())
-      return details::make_ctor_error();
-    if (associated_)
-      return {};
-    if (auto status = context_->associate(handle_); !status)
-      return status;
-    associated_ = true;
-    return {};
-  }
-
 public:
   struct {
     static auto operator()(auto &&self) { return self.recv(); }
@@ -193,8 +182,9 @@ public:
   using base_type = socket_base<tcp>;
   using base_type::socket_base;
   friend base_type;
-  socket(socket &&socket) : base_type::socket_base(std::move(socket)) {}
-  socket &operator=(socket &&socket) {
+  socket(socket &&socket) noexcept
+      : base_type::socket_base(std::move(socket)) {}
+  socket &operator=(socket &&socket) noexcept {
     base_type::operator=(std::move(socket));
     return *this;
   }
@@ -272,9 +262,9 @@ public:
   using base_type = socket_base<udp>;
   using base_type::socket_base;
   friend base_type;
-  socket(socket &&socket)
+  socket(socket &&socket) noexcept
       : base_type::socket_base(std::move(static_cast<base_type &&>(socket))) {}
-  socket &operator=(socket &&socket) {
+  socket &operator=(socket &&socket) noexcept {
     base_type::operator=(std::move(static_cast<base_type &&>(socket)));
     return *this;
   }
@@ -311,8 +301,6 @@ public:
 
   Status async_recv_from(const size_t max_size, recv_handler handler) {
 #ifdef _WIN32
-    if (auto status = associate(); !status)
-      return status;
 
     auto *op = new udp_recv_op{};
     op->op.complete = &socket::handle_recv;
@@ -352,8 +340,6 @@ public:
                        const endpoint_type &endpoint,
                        send_handler handler) {
 #ifdef _WIN32
-    if (auto status = associate(); !status)
-      return status;
 
     auto *op = new udp_send_op{};
     op->op.complete = &socket::handle_send;

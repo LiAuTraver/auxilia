@@ -13,24 +13,21 @@
 
 namespace auxilia::net::details {
 [[gnu::cold]] static inline Status win_error() {
-  const auto err = ::GetLastError();
-  if (err == ERROR_SUCCESS)
-    return {};
-
   AC_DEFER { ::SetLastError(ERROR_SUCCESS); };
+
   std::string message;
-  constexpr auto max_size = 0x1000ULL;
-  message.resize_and_overwrite(
-      max_size, [err](char *buf, size_t size) -> size_t {
-        return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
-                                   FORMAT_MESSAGE_IGNORE_INSERTS,
-                               nullptr,
-                               err,
-                               MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                               buf,
-                               static_cast<DWORD>(size),
-                               nullptr);
-      });
+  constexpr auto max_size = 0x0400ULL;
+
+  message.resize_and_overwrite(max_size, [](char *buf, size_t size) -> size_t {
+    return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
+                               FORMAT_MESSAGE_IGNORE_INSERTS,
+                           nullptr,
+                           ::GetLastError(),
+                           MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                           buf,
+                           static_cast<DWORD>(size),
+                           nullptr);
+  });
   if (message.empty()) {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
       ::SetLastError(ERROR_SUCCESS);
@@ -90,9 +87,6 @@ namespace auxilia::net::details {
   return wsa_error();
 }
 [[gnu::cold]] AC_FORCEINLINE static inline Status make_recv_error() {
-  if (::WSAGetLastError() == ERROR_SUCCESS)
-    return {};
-  else
-    return wsa_error();
+  return wsa_error();
 }
 } // namespace auxilia::net::details

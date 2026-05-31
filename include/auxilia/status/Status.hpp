@@ -422,12 +422,12 @@ public:
   }
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   /// @brief just a shorthand to move the StatusOr object.
-  inline auto rvalue(this auto &&self) { return std::move(self); }
+  inline decltype(auto) rvalue(this auto &&self) noexcept {
+    return std::move(self);
+  }
 #  else
-  inline auto rvalue() & { return std::move(*this); }
-  inline auto rvalue() const & { return *this; }
-  inline auto rvalue() && { return std::move(*this); }
-  inline auto rvalue() const && { return std::move(*this); }
+  inline decltype(auto) rvalue() & noexcept { return std::move(*this); }
+  inline decltype(auto) rvalue() && noexcept { return std::move(*this); }
 #  endif
 
 protected:
@@ -940,7 +940,7 @@ LexError(const fmt::text_style &ts,
     if (auto _ac_auxilia_status_return_ = (_status_))                          \
       ;                                                                        \
     else {                                                                     \
-      return _ac_auxilia_status_return_;                                       \
+      return std::move(_ac_auxilia_status_return_);                            \
     }
 } // namespace auxilia
 #endif // AUXILIA_STATUS_HPP

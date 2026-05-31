@@ -43,7 +43,7 @@ AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
   return ::WSASocketW(std::to_underlying(family),
                       std::to_underlying(socket_type),
                       protocol,
-                      0, // too complex...
+                      nullptr, // too complex...
                       0, // no group
                       WSA_FLAG_OVERLAPPED);
 }
