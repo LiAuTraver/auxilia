@@ -1,6 +1,10 @@
 #pragma once
 #ifdef __linux__
+#  include <cstdint>
+#  include <fcntl.h>
 #  include <netinet/in.h>
+#  include <sys/epoll.h>
+#  include <sys/eventfd.h>
 #  include <sys/socket.h>
 #  include <sys/types.h>
 #  include <unistd.h>
@@ -26,13 +30,14 @@ using in6_mreq_type = ::ipv6_mreq;
 } // namespace auxilia::net::details::inline os
 
 #  include "error.hpp" // IWYU pragma: export
+#  include "epoll.hpp" // IWYU pragma: export
 
 namespace auxilia::net::details::inline os {
 AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
-                                          const socket_type socket_type,
+                                          const socket_kind socket_kind,
                                           const int protocol = 0) {
   return ::socket(
-      std::to_underlying(family), std::to_underlying(socket_type), protocol);
+      std::to_underlying(family), std::to_underlying(socket_kind), protocol);
 }
 
 AC_FORCEINLINE inline auto listen(const raw_socket_t s, const int backlog = 0) {
@@ -53,6 +58,14 @@ AC_FORCEINLINE inline auto send(const raw_socket_t s,
                                 const socket_len_type tolen = 0) {
   return ::sendto(s, str.c_str(), str.size(), flags, to, tolen); // NOLINT
 }
+AC_FORCEINLINE inline auto send(const raw_socket_t s,
+                                const char *const buf,
+                                const size_t len,
+                                const int flags = 0,
+                                const sockaddr_t *to = nullptr,
+                                const socket_len_type tolen = 0) {
+  return ::sendto(s, buf, len, flags, to, tolen); // NOLINT
+}
 AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
   return ::close(s);
 }
@@ -63,19 +76,6 @@ using ::connect;
 
 using ::recvfrom;
 using ::sendto;
-
-// using ::read;  // C lib func
-// using ::write; // C lib func
-
-using ::select;
-// using ::poll;
-
-// using ::close;
-
-// using ::getaddrinfo;
-// using ::setaddrinfo;
-// using ::gethostbyaddr;
-// using ::gethostbyname;
 
 using ::getsockopt;
 using ::setsockopt;

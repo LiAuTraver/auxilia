@@ -1,15 +1,15 @@
 #pragma once
+#if _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <WinSock2.h>
+#  include <ws2ipdef.h>
+#  include <io.h>
+#  include <ws2tcpip.h>
+#  include <winerror.h>
+#  pragma comment(lib, "Ws2_32.lib")
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <WinSock2.h>
-#include <ws2ipdef.h>
-#include <io.h>
-#include <ws2tcpip.h>
-#include <winerror.h>
-#pragma comment(lib, "Ws2_32.lib")
-
-#include "auxilia/status/Status.hpp"
+#  include "auxilia/status/Status.hpp"
 
 namespace auxilia::net::details {
 [[gnu::cold]] static inline Status win_error() {
@@ -90,3 +90,4 @@ namespace auxilia::net::details {
   return wsa_error();
 }
 } // namespace auxilia::net::details
+#endif

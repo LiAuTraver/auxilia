@@ -1,8 +1,12 @@
 #pragma once
 
+#include <atomic>
 #include <cerrno>
 #include <cstddef>
 #include <cstring>
+#include <deque>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -10,6 +14,7 @@
 
 #include "auxilia/base/macros.hpp"
 #include "auxilia/base/format.hpp"
+#include "auxilia/networking/os/linux/epoll.hpp"
 #include "auxilia/status/Status.hpp"
 #include "auxilia/status/StatusOr.hpp"
 #include "auxilia/meta/container_traits.hpp"
@@ -26,6 +31,11 @@
 namespace auxilia::net::details {
 
 template <typename Protocol> class socket_base : Printable {
+
+protected:
+#ifdef __linux__
+  struct linux_socket_state;
+#endif
 
 public:
   using protocol_type = Protocol;
@@ -44,14 +54,20 @@ public:
       io_context *context = nullptr,
       const native_handle_type handle = invalid_socket,
       std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept
-      : context_(context), handle_(handle) {
-    if (handle == invalid_socket)
+      : context_(context), handle_(handle),
+        remote_endpoint_(std::move(remote_endpoint)) {
+    if (handle_ == invalid_socket)
       return;
-    AC_RUNTIME_ASSERT(context, "no context while handle is valid")
-    context->associate(handle).log_err();
-    context_ = context;
-    handle_ = handle;
-    remote_endpoint_ = std::move(remote_endpoint);
+    AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
+#ifdef __linux__
+    linux_state_ = std::make_unique<linux_socket_state>(handle_);
+    context_
+        ->associate(handle_,
+                    reinterpret_cast<size_t>(&linux_state_->dispatcher))
+        .log_err();
+#else
+    context_->associate(handle_).log_err();
+#endif
   }
   inline socket_base(io_context &context,
                      const native_handle_type handle = invalid_socket) noexcept
@@ -67,7 +83,13 @@ public:
   socket_base(socket_base &&that) noexcept
       : context_(std::exchange(that.context_, nullptr)),
         handle_(std::exchange(that.handle_, invalid_socket)),
-        remote_endpoint_(std::move(that.remote_endpoint_)) {}
+        remote_endpoint_(std::move(that.remote_endpoint_))
+#ifdef __linux__
+        ,
+        linux_state_(std::exchange(that.linux_state_, nullptr))
+#endif
+  {
+  }
 
   socket_base &operator=(socket_base &&that) noexcept {
     if (this != &that) {
@@ -75,6 +97,9 @@ public:
       context_ = std::exchange(that.context_, nullptr);
       handle_ = std::exchange(that.handle_, invalid_socket);
       remote_endpoint_ = std::move(that.remote_endpoint_);
+#ifdef __linux__
+      linux_state_ = std::exchange(that.linux_state_, nullptr);
+#endif
     }
     return *this;
   }
@@ -105,12 +130,18 @@ public:
 
 public:
   Status close() const {
-    if (is_valid()) [[likely]]
+    if (is_valid()) [[likely]] {
+#ifdef __linux__
+      if (linux_state_)
+        linux_state_->cancel_all(UnavailableError("socket closed"));
+      if (context_ && context_->native_handle() != details::epoll::invalid)
+        details::epoll::del(context_->native_handle(), handle_);
+#endif
       if (details::closesocket(handle_) != -1) [[likely]]
         return {};
       else [[unlikely]]
         return details::make_close_error();
-    else
+    } else
       return {};
   }
   constexpr auto native_handle() const noexcept { return handle_; }
@@ -258,6 +289,142 @@ protected:
       (*op)(static_cast<size_t>(bytes));
     }
   }
+#elif defined(__linux__)
+  struct AC_EMPTY_BASES AC_NOVTABLE read_op {
+    virtual ~read_op() = default;
+    virtual bool on_read(const raw_socket_t fd,
+                         const uint32_t events) noexcept = 0;
+    virtual void cancel(const Status &error) noexcept = 0;
+  };
+  struct AC_EMPTY_BASES AC_NOVTABLE write_op {
+    virtual ~write_op() = default;
+    virtual bool on_write(const raw_socket_t fd,
+                          const uint32_t events) noexcept = 0;
+    virtual void cancel(const Status &error) noexcept = 0;
+  };
+
+  struct linux_socket_state {
+    raw_socket_t fd = invalid_socket;
+    std::mutex mutex;
+    std::deque<std::unique_ptr<read_op>> read_ops;
+    std::deque<std::unique_ptr<write_op>> write_ops;
+    std::atomic_flag busy = ATOMIC_FLAG_INIT;
+    std::atomic<bool> non_blocking{false};
+    bool closing = false;
+    details::epoll::dispatcher dispatcher{};
+
+    explicit linux_socket_state(const raw_socket_t handle) noexcept
+        : fd(handle) {
+      dispatcher.self = this;
+      dispatcher.dispatch = &linux_socket_state::dispatch;
+    }
+
+    Status ensure_nonblocking() noexcept {
+      bool expected = false;
+      if (!non_blocking.compare_exchange_strong(
+              expected, true, std::memory_order::acq_rel))
+        return {};
+      if (details::epoll::set_nonblocking(fd, true) != 0) {
+        non_blocking.store(false, std::memory_order::release);
+        return UnknownError(::strerror(errno));
+      }
+      return {};
+    }
+    void enqueue_read(std::unique_ptr<read_op> op) noexcept {
+      {
+        std::scoped_lock lock(mutex);
+        if (closing) {
+          op->cancel(UnavailableError("socket closed"));
+          return;
+        }
+        read_ops.emplace_back(std::move(op));
+      }
+      on_event(EPOLLIN);
+    }
+    void enqueue_write(std::unique_ptr<write_op> op) noexcept {
+      {
+        std::scoped_lock lock(mutex);
+        if (closing) {
+          op->cancel(UnavailableError("socket closed"));
+          return;
+        }
+        write_ops.emplace_back(std::move(op));
+      }
+      on_event(EPOLLOUT);
+    }
+    void cancel_all(const Status &error) noexcept {
+      std::deque<std::unique_ptr<read_op>> reads;
+      std::deque<std::unique_ptr<write_op>> writes;
+      {
+        std::scoped_lock lock(mutex);
+        if (closing)
+          return;
+        closing = true;
+        reads.swap(read_ops);
+        writes.swap(write_ops);
+      }
+      for (auto &op : reads)
+        op->cancel(error);
+      for (auto &op : writes)
+        op->cancel(error);
+    }
+
+    static void dispatch(void *self, const uint32_t events) noexcept {
+      if (!self)
+        return;
+      static_cast<linux_socket_state *>(self)->on_event(events);
+    }
+    void on_event(const uint32_t events) noexcept {
+      if (closing)
+        return;
+      if (busy.test_and_set(std::memory_order::acquire))
+        return;
+      AC_DEFER { busy.clear(std::memory_order::release); };
+
+      constexpr uint32_t read_mask = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
+      constexpr uint32_t write_mask = EPOLLOUT | EPOLLERR | EPOLLHUP;
+
+      if (events & read_mask)
+        drain_reads(events);
+      if (events & write_mask)
+        drain_writes(events);
+    }
+
+    void drain_reads(const uint32_t events) noexcept {
+      for (;;) {
+        std::unique_ptr<read_op> op;
+        {
+          std::scoped_lock lock(mutex);
+          if (read_ops.empty())
+            break;
+          op = std::move(read_ops.front());
+          read_ops.pop_front();
+        }
+        if (!op->on_read(fd, events)) {
+          std::scoped_lock lock(mutex);
+          read_ops.emplace_front(std::move(op));
+          break;
+        }
+      }
+    }
+    void drain_writes(const uint32_t events) noexcept {
+      for (;;) {
+        std::unique_ptr<write_op> op;
+        {
+          std::scoped_lock lock(mutex);
+          if (write_ops.empty())
+            break;
+          op = std::move(write_ops.front());
+          write_ops.pop_front();
+        }
+        if (!op->on_write(fd, events)) {
+          std::scoped_lock lock(mutex);
+          write_ops.emplace_front(std::move(op));
+          break;
+        }
+      }
+    }
+  };
 #endif
 
 protected:
@@ -265,6 +432,9 @@ protected:
   native_handle_type handle_;
   /// FIXME: race condition in async operations
   std::optional<endpoint_type> remote_endpoint_;
+#ifdef __linux__
+  mutable std::unique_ptr<linux_socket_state> linux_state_;
+#endif
 };
 } // namespace auxilia::net::details
 namespace auxilia::net {
@@ -374,10 +544,18 @@ public:
                            nullptr);
         },
         details::make_recv_error);
+#elif defined(__linux__)
+    if (!context_ || !linux_state_ || !is_valid())
+      return UnavailableError("io_context is not available.");
+    if (auto status = linux_state_->ensure_nonblocking(); !status)
+      return status;
+    linux_state_->enqueue_read(
+        std::make_unique<recv_operation>(this, std::move(handler), max_size));
+    return {};
 #else
     (void)max_size;
     (void)handler;
-    return UnavailableError("async_recv is Windows-only.");
+    return UnavailableError("async_recv is not supported.");
 #endif
   }
 
@@ -403,10 +581,19 @@ public:
                            nullptr);
         },
         details::make_recv_error);
+#elif defined(__linux__)
+    if (!context_ || !linux_state_ || !is_valid())
+      return UnavailableError("io_context is not available.");
+    if (auto status = linux_state_->ensure_nonblocking(); !status)
+      return status;
+
+    linux_state_->enqueue_write(std::make_unique<send_operation>(
+        this, std::move(handler), std::move(bytes)));
+    return {};
 #else
     (void)bytes;
     (void)handler;
-    return UnavailableError("async_send is Windows-only.");
+    return UnavailableError("async_send is not supported.");
 #endif
   }
 
@@ -442,6 +629,81 @@ private:
     auto *op = static_cast<send_operation *>(base);
     base_type::finish_send(op, bytes, error);
   }
+#elif defined(__linux__)
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation : base_type::read_op {
+    socket_type *self = nullptr;
+    recv_handler handler;
+    bytes_type buffer;
+
+    inline recv_operation(socket_type *const self,
+                          recv_handler &&handler,
+                          const size_t max_size) noexcept
+        : self(self), handler(std::move(handler)) {
+      buffer.resize(max_size);
+    }
+
+    bool on_read(const details::raw_socket_t fd,
+                 const uint32_t events) noexcept override {
+      (void)events;
+      const auto res = details::recv(fd, buffer.data(), buffer.size(), 0);
+      if (res < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          return false;
+        if (handler)
+          handler(details::make_recv_error());
+        return true;
+      }
+      buffer.resize(static_cast<size_t>(res));
+      if (handler)
+        handler(std::move(buffer));
+      return true;
+    }
+    void cancel(const Status &error) noexcept override {
+      if (handler)
+        handler(error);
+    }
+  };
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation : base_type::write_op {
+    socket_type *self = nullptr;
+    send_handler handler;
+    bytes_type buffer;
+    size_t offset = 0;
+
+    inline send_operation(socket_type *const self,
+                          send_handler &&handler,
+                          bytes_type &&buffer) noexcept
+        : self(self), handler(std::move(handler)), buffer(std::move(buffer)) {}
+
+    bool on_write(const details::raw_socket_t fd,
+                  const uint32_t events) noexcept override {
+      (void)events;
+      if (buffer.empty()) {
+        if (handler)
+          handler(static_cast<size_t>(0));
+        return true;
+      }
+      const auto remaining = buffer.size() - offset;
+      const auto res =
+          details::send(fd, buffer.data() + offset, remaining, 0, nullptr, 0);
+      if (res < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          return false;
+        if (handler)
+          handler(details::make_send_error());
+        return true;
+      }
+      offset += static_cast<size_t>(res);
+      if (offset < buffer.size())
+        return false;
+      if (handler)
+        handler(static_cast<size_t>(buffer.size()));
+      return true;
+    }
+    void cancel(const Status &error) noexcept override {
+      if (handler)
+        handler(error);
+    }
+  };
 #endif
 };
 template <> class socket<udp> : public details::socket_base<udp> {
@@ -511,10 +773,19 @@ public:
               nullptr);
         },
         details::make_recv_error);
+#elif defined(__linux__)
+    if (!context_ || !linux_state_ || !is_valid())
+      return UnavailableError("io_context is not available.");
+    if (auto status = linux_state_->ensure_nonblocking(); !status)
+      return status;
+    auto op =
+        std::make_unique<recv_operation>(this, std::move(handler), max_size);
+    linux_state_->enqueue_read(std::move(op));
+    return {};
 #else
     (void)max_size;
     (void)handler;
-    return UnavailableError("async_recv_from is Windows-only.");
+    return UnavailableError("async_recv_from is not supported.");
 #endif
   }
 
@@ -547,11 +818,20 @@ public:
                              nullptr);
         },
         details::make_recv_error);
+#elif defined(__linux__)
+    if (!context_ || !linux_state_ || !is_valid())
+      return UnavailableError("io_context is not available.");
+    if (auto status = linux_state_->ensure_nonblocking(); !status)
+      return status;
+
+    linux_state_->enqueue_write(std::make_unique<send_operation>(
+        this, std::move(handler), std::move(bytes), endpoint));
+    return {};
 #else
     (void)bytes;
     (void)endpoint;
     (void)handler;
-    return UnavailableError("async_send_to is Windows-only.");
+    return UnavailableError("async_send_to is not supported.");
 #endif
   }
 
@@ -615,6 +895,108 @@ private:
                           const DWORD error) noexcept {
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
+#elif defined(__linux__)
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation : base_type::read_op {
+    socket_type *self = nullptr;
+    recv_handler handler;
+    bytes_type buffer;
+    details::sockaddr_storage_t storage{};
+    details::socket_len_type storage_len = sizeof(details::socket_storage_type);
+
+    inline recv_operation(socket_type *const self,
+                          recv_handler &&handler,
+                          const size_t max_size) noexcept
+        : self(self), handler(std::move(handler)) {
+      buffer.resize(max_size);
+    }
+
+    bool on_read(const details::raw_socket_t fd,
+                 const uint32_t events) noexcept override {
+      (void)events;
+      storage_len = sizeof(details::socket_storage_type);
+      const auto res =
+          details::recv(fd,
+                        buffer.data(),
+                        buffer.size(),
+                        0,
+                        reinterpret_cast<details::sockaddr_t *>(&storage),
+                        &storage_len);
+      if (res < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          return false;
+        if (handler)
+          handler(details::make_recv_error(), endpoint_type::unspecified());
+        return true;
+      }
+      if (storage_len != sizeof(details::sockaddr_in4_t) &&
+          storage_len != sizeof(details::sockaddr_in6_t)) {
+        if (handler)
+          handler(UnavailableError(
+                      "Unknown address family of the accepted socket."),
+                  endpoint_type::unspecified());
+        return true;
+      }
+      buffer.resize(static_cast<size_t>(res));
+      endpoint_type sender(std::move(storage), storage_len);
+      if (self)
+        self->remote_endpoint_.emplace(sender);
+      if (handler)
+        handler(std::move(buffer), std::move(sender));
+      return true;
+    }
+    void cancel(const Status &error) noexcept override {
+      if (handler)
+        handler(error, endpoint_type::unspecified());
+    }
+  };
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation : base_type::write_op {
+    socket_type *self = nullptr;
+    send_handler handler;
+    bytes_type buffer;
+    endpoint_type endpoint;
+    size_t offset = 0;
+
+    inline send_operation(socket_type *const self,
+                          send_handler &&handler,
+                          bytes_type &&buffer,
+                          const endpoint_type &endpoint) noexcept
+        : self(self), handler(std::move(handler)), buffer(std::move(buffer)),
+          endpoint(endpoint) {}
+
+    bool on_write(const details::raw_socket_t fd,
+                  const uint32_t events) noexcept override {
+      (void)events;
+      if (buffer.empty()) {
+        if (handler)
+          handler(static_cast<size_t>(0));
+        return true;
+      }
+      const auto remaining = buffer.size() - offset;
+      const auto res = details::send(fd,
+                                     buffer.data() + offset,
+                                     remaining,
+                                     0,
+                                     endpoint.data(),
+                                     endpoint.size());
+      if (res < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          return false;
+        if (handler)
+          handler(details::make_send_error());
+        return true;
+      }
+      offset += static_cast<size_t>(res);
+      if (offset < buffer.size())
+        return false;
+      if (handler)
+        handler(static_cast<size_t>(buffer.size()));
+      return true;
+    }
+    void cancel(const Status &error) noexcept override {
+      if (handler)
+        handler(error);
+    }
+  };
 #endif
 
 protected:

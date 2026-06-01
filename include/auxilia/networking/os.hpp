@@ -27,12 +27,22 @@
 #include "auxilia/status/Status.hpp"
 
 namespace auxilia::net::ip {
-enum class family : decltype(AF_INET) { v4 = AF_INET, v6 = AF_INET6 };
+enum class family : std::conditional_t<
+    std::is_enum_v<decltype(AF_INET)>,
+    std::underlying_type<decltype(AF_INET)>,
+    std::type_identity<decltype(AF_INET)>>::type {
+  v4 = AF_INET,
+  v6 = AF_INET6
+};
 }
 namespace auxilia::net {
-enum class socket_kind : decltype(SOCK_STREAM) {
+enum class socket_kind : std::conditional_t<
+    std::is_enum_v<decltype(SOCK_STREAM)>,
+    std::underlying_type<decltype(SOCK_STREAM)>,
+    std::type_identity<decltype(SOCK_STREAM)>>::type {
   stream = SOCK_STREAM,
-  datagram = SOCK_DGRAM
+  datagram = SOCK_DGRAM,
+  raw = SOCK_RAW
 };
 namespace details {
 using port_type = unsigned short;

@@ -16,6 +16,10 @@
 #include <utility>
 #include <iostream>
 
+#if !__has_include(<spdlog/spdlog.h>)
+#include <syncstream>
+#endif
+
 // NOTE:
 // The contents of this header are derived in part from Googles' Abseil library under the following license:
 /////////////////////////////////////// Apache License 2.0 ////////////////////////////////////////////////
@@ -83,11 +87,9 @@
 EXPORT_AUXILIA
 namespace auxilia {
 /// @brief A class that represents the status of a function call. it's
-/// designed to be as identical as possible to the `absl::Status`
-/// class, for `absl::Status` seems to fail to compile with clang++ on
-/// Windows.
-/// @todo We should implement a <Val, Err, Ret> pattern; `Ret` just
-/// like `throw` or `return to ...`
+/// designed to be as similiar as possible to the `absl::Status` class, for
+/// `absl::Status` shipped in my vcpkg seems to mysteriously fail to compile
+/// with clang++ on Windows.
 class Status : public Printable {
 public:
   /// @enum Code
@@ -244,13 +246,10 @@ public:
   /// its value, which may change.
   kDoNotUseReservedForFutureExpansionUseDefaultInSwitchInstead_ = 20,
 
-  /// kReturning indicates that the function is returning.
-  /// @note This is just a workaround, for I don't come up with an idea to
-  ///   handle the returning status. Use with caution.
-  kReturning = 21,
 
-  kParseError = 22,
-  kLexError = 23,
+  kReturning  /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 21,
+  kParseError /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 22,
+  kLexError   /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 23,
 
   /// kMovedFrom indicates that the status has been moved from.
   kMovedFrom = (std::numeric_limits<uint8_t>::max)()
@@ -386,24 +385,23 @@ public:
     // else do nothing
   }
   /// @brief Logs the error message if the status is not ok.
-  /// @note This function **consumes** the status.
-  inline void log_err(auto &&logger) && {
+  inline void log_err(auto &&logger) const {
     if (ok())
       return;
     if constexpr (requires { logger << my_message; })
-      logger << std::move(my_message) << '\n';
+      logger << my_message << '\n';
     else if constexpr (requires { logger.error(my_message); })
-      logger.error(std::move(my_message));
+      logger.error(my_message);
     else if constexpr (requires { logger->error(my_message); })
-      logger->error(std::move(my_message));
+      logger->error(my_message);
     else
       static_assert(false, "unsupported");
   }
-  inline void log_err() && {
+  inline void log_err() const {
 #  if __has_include(<spdlog/spdlog.h>)
-    std::move(*this).log_err(spdlog::default_logger());
+    log_err(spdlog::default_logger());
 #  else
-    std::move(*this).log_err(std::cerr);
+    log_err(std::osyncstream(std::cerr));
 #  endif
   }
 
@@ -421,13 +419,20 @@ public:
     return Format("{}: {}", to_string(code()), my_message);
   }
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
+  [[deprecated("use std::move instead")]]
   /// @brief just a shorthand to move the StatusOr object.
   inline decltype(auto) rvalue(this auto &&self) noexcept {
     return std::move(self);
   }
 #  else
-  inline decltype(auto) rvalue() & noexcept { return std::move(*this); }
-  inline decltype(auto) rvalue() && noexcept { return std::move(*this); }
+  [[deprecated("use std::move instead")]]
+  inline decltype(auto) rvalue() & noexcept {
+    return std::move(*this);
+  }
+  [[deprecated("use std::move instead")]]
+  inline decltype(auto) rvalue() && noexcept {
+    return std::move(*this);
+  }
 #  endif
 
 protected:
@@ -436,103 +441,103 @@ protected:
 };
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OkStatus(const char *const message = nullptr) AC_NOEXCEPT {
+OkStatus(const char *const message = "") AC_NOEXCEPT {
   return {Status::kOk, message};
 }
 
 // New overloads for other status codes using std::string_view messages:
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-Cancelled(const char *const message = nullptr) AC_NOEXCEPT {
+Cancelled(const char *const message = "") AC_NOEXCEPT {
   return {Status::kCancelled, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnknownError(const char *const message = nullptr) AC_NOEXCEPT {
+UnknownError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kUnknown, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InvalidArgumentError(const char *const message = nullptr) AC_NOEXCEPT {
+InvalidArgumentError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kInvalidArgument, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DeadlineExceededError(const char *const message = nullptr) AC_NOEXCEPT {
+DeadlineExceededError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-NotFoundError(const char *const message = nullptr) AC_NOEXCEPT {
+NotFoundError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kNotFound, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AlreadyExistsError(const char *const message = nullptr) AC_NOEXCEPT {
+AlreadyExistsError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kAlreadyExists, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-PermissionDeniedError(const char *const message = nullptr) AC_NOEXCEPT {
+PermissionDeniedError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kPermissionDenied, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ResourceExhaustedError(const char *const message = nullptr) AC_NOEXCEPT {
+ResourceExhaustedError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kResourceExhausted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-FailedPreconditionError(const char *const message = nullptr) AC_NOEXCEPT {
+FailedPreconditionError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kFailedPrecondition, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AbortedError(const char *const message = nullptr) AC_NOEXCEPT {
+AbortedError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kAborted, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OutOfRangeError(const char *const message = nullptr) AC_NOEXCEPT {
+OutOfRangeError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kOutOfRange, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnimplementedError(const char *const message = nullptr) AC_NOEXCEPT {
+UnimplementedError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kUnimplemented, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InternalError(const char *const message = nullptr) AC_NOEXCEPT {
+InternalError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kInternal, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnavailableError(const char *const message = nullptr) AC_NOEXCEPT {
+UnavailableError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kUnavailable, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DataLossError(const char *const message = nullptr) AC_NOEXCEPT {
+DataLossError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kDataLoss, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnauthenticatedError(const char *const message = nullptr) AC_NOEXCEPT {
+UnauthenticatedError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(const char *const message = nullptr) AC_NOEXCEPT {
+ReturnMe(const char *const message = "") AC_NOEXCEPT {
   return {Status::kReturning, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(const char *const message = nullptr) AC_NOEXCEPT {
+ParseError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kParseError, message};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(const char *const message = nullptr) AC_NOEXCEPT {
+LexError(const char *const message = "") AC_NOEXCEPT {
   return {Status::kLexError, message};
 }
 

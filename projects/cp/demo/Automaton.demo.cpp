@@ -15,7 +15,7 @@ using namespace auxilia;
 using namespace accat::cp;
 
 int main() {
-  auto dfa = NFA::FromRegex("a|ba").and_then(DFA::FromNFA).rvalue().value();
+  auto dfa = NFA::FromRegex("a|ba").and_then(DFA::FromNFA).value();
 
   std::cout << "\nTesting strings:\n";
   auto test_strings = {

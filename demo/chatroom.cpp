@@ -128,7 +128,7 @@ static void start_server_receive(udp_server_state &state) {
           [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
                    net::endpoint<net::udp> sender) {
             if (!result) {
-              result.rvalue().log_err(state.logger);
+              result.log_err(state.logger);
               start_server_receive(state);
               return;
             }
@@ -153,7 +153,7 @@ static void start_server_receive(udp_server_state &state) {
                       peer,
                       [logger = state.logger](StatusOr<size_t> send_res) {
                         if (!send_res)
-                          send_res.rvalue().log_err(logger);
+                          send_res.log_err(logger);
                       })
                   .log_err(state.logger);
             }
@@ -177,7 +177,7 @@ static void start_client_receive(udp_client_state &state) {
           [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
                    net::endpoint<net::udp> sender) {
             if (!result) {
-              result.rvalue().log_err(state.logger);
+              result.log_err(state.logger);
               start_client_receive(state);
               return;
             }
@@ -214,7 +214,7 @@ static void start_tcp_receive(tcp_server_state &state,
           [&state,
            session](StatusOr<net::socket<net::tcp>::bytes_type> result) {
             if (!result) {
-              result.rvalue().log_err(state.logger);
+              result.log_err(state.logger);
               remove_tcp_session(state, session);
               return;
             }
@@ -240,7 +240,7 @@ static void start_tcp_receive(tcp_server_state &state,
                       net::socket<net::tcp>::bytes_type(message),
                       [logger = state.logger](StatusOr<size_t> send_res) {
                         if (!send_res)
-                          send_res.rvalue().log_err(logger);
+                          send_res.log_err(logger);
                       })
                   .log_err(state.logger);
             }
@@ -261,7 +261,7 @@ static void start_tcp_client_receive(tcp_client_state &state) {
       .async_recv(0x800,
                   [&state](StatusOr<net::socket<net::tcp>::bytes_type> result) {
                     if (!result) {
-                      result.rvalue().log_err(state.logger);
+                      result.log_err(state.logger);
                       return;
                     }
 
@@ -291,7 +291,7 @@ static int run_udp_server(net::io_context &ctx, const options &opts) {
   auto sock = net::socket<net::udp>(ctx, net::ip::family::v4);
   auto bind_status = sock.bind(net::endpoint<net::udp>(host, opts.port));
   if (!bind_status) {
-    bind_status.rvalue().log_err(logger);
+    bind_status.log_err(logger);
     return 1;
   }
 
@@ -331,7 +331,7 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
                      state.server,
                      [logger](StatusOr<size_t> send_res) {
                        if (!send_res)
-                         send_res.rvalue().log_err(logger);
+                         send_res.log_err(logger);
                      })
       .log_err(logger);
 
@@ -343,11 +343,10 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
       break;
     auto payload = state.name.empty() ? line : ("[" + state.name + "] " + line);
     state.socket
-        .async_send_to(std::move(payload),
-                       state.server,
-                       [logger](StatusOr<size_t> send_res) {
-                         send_res.rvalue().log_err(logger);
-                       })
+        .async_send_to(
+            std::move(payload),
+            state.server,
+            [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
         .log_err(logger);
   }
 
@@ -362,11 +361,11 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
 
   if (auto status = listener.bind(net::endpoint<net::tcp>(host, opts.port));
       !status) {
-    status.rvalue().log_err(logger);
+    status.log_err(logger);
     return 1;
   }
   if (auto status = listener.listen(); !status) {
-    status.rvalue().log_err(logger);
+    status.log_err(logger);
     return 1;
   }
 
@@ -380,7 +379,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
       if (!acc) {
         if (st.stop_requested())
           break;
-        acc.rvalue().log_err(state.logger);
+        acc.log_err(state.logger);
         continue;
       }
 
@@ -420,7 +419,7 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
 
   if (auto status = sock.connect(net::endpoint<net::tcp>(host, opts.port));
       !status) {
-    status.rvalue().log_err(logger);
+    status.log_err(logger);
     return 1;
   }
 
@@ -440,7 +439,7 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
         .async_send(std::move(payload),
                     [logger](StatusOr<size_t> send_res) {
                       if (!send_res)
-                        send_res.rvalue().log_err(logger);
+                        send_res.log_err(logger);
                     })
         .log_err(logger);
   }
@@ -468,7 +467,7 @@ int main(int argc, char **argv) {
   auto base_logger = spdlog::stdout_color_mt("chat");
 
   if (auto status = ctx.initialize(); !status) {
-    status.rvalue().log_err(base_logger);
+    status.log_err(base_logger);
     return 1;
   }
 

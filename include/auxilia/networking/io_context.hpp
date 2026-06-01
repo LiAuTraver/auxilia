@@ -2,7 +2,13 @@
 
 #include <atomic>
 #include <cstddef>
+#include <optional>
 
+#include <cerrno>
+#include <cstring>
+
+#include "auxilia/networking/os/linux/epoll.hpp"
+#include "auxilia/networking/os/linux/error.hpp"
 #include "auxilia/status/Status.hpp"
 #include "os.hpp"
 
@@ -10,12 +16,11 @@
 namespace auxilia::net {
 class io_context {
 public:
-  using native_handle_type = ::WSADATA;
-  using iocp_handle_type = ::HANDLE;
+  using native_handle_type = ::HANDLE;
 
 private:
-  native_handle_type wsa_data_;
-  iocp_handle_type iocp_;
+  ::WSADATA wsa_data_;
+  native_handle_type iocp_;
   std::atomic<bool> stopped_;
   bool initialized_;
 
@@ -39,7 +44,7 @@ public:
       return details::win_error();
     }
 
-    stopped_.store(false, std::memory_order_release);
+    stopped_.store(false, std::memory_order::release);
     initialized_ = true;
     return {};
   }
@@ -64,7 +69,8 @@ public:
       return UnavailableError(
           "io_context is not initialized or IOCP is not available.");
     if (socket == details::invalid_socket)
-      return details::make_ctor_error();
+      return InvalidArgumentError("socket is in a invalid state.");
+
     auto handle = ::CreateIoCompletionPort(
         reinterpret_cast<HANDLE>(socket), iocp_, key, 0);
     if (!handle)
@@ -107,31 +113,148 @@ public:
       ::PostQueuedCompletionStatus(iocp_, 0, 0, nullptr);
   }
   bool stopped() const noexcept {
-    return stopped_.load(std::memory_order_acquire);
+    return stopped_.load(std::memory_order::acquire);
   }
-  auto &&native_handle(this auto &&self) noexcept { return self.wsa_data_; }
-  auto iocp_handle() const noexcept { return iocp_; }
+  auto &&native_handle(this auto &&self) noexcept { return self.iocp_; }
 };
 } // namespace auxilia::net
 #elif defined(__linux__)
 namespace auxilia::net {
 class io_context {
 public:
-  using native_handle_type = void;
-  using iocp_handle_type = void;
-  inline Status initialize() noexcept { return {}; }
-  inline Status shutdown() noexcept { return {}; }
-  inline Status associate(details::raw_socket_t, size_t = 0) noexcept {
+  using native_handle_type = details::epoll::handle_t;
+
+private:
+  native_handle_type epoll_ = details::epoll::invalid;
+  details::epoll::fd_t wake_fd_ = details::epoll::invalid_eventfd;
+  std::atomic<bool> stopped_ = true;
+  bool initialized_ = false;
+  details::epoll::dispatcher wake_dispatcher_{};
+
+  static void wake_dispatch(void *self, uint32_t) noexcept {
+    if (!self)
+      return;
+    const auto *ctx = static_cast<io_context *>(self);
+    if (ctx->wake_fd_ == details::epoll::invalid_eventfd)
+      return;
+    details::epoll::eventfd_drain(ctx->wake_fd_);
+  }
+
+public:
+  constexpr io_context() noexcept = default;
+  ~io_context() noexcept { shutdown(); }
+
+public:
+  Status initialize() noexcept {
+    if (initialized_)
+      return AlreadyExistsError("io_context is already initialized.");
+
+    if (auto epoll = details::epoll::create())
+      epoll_ = *std::move(epoll);
+    else
+      return std::move(epoll).as_status();
+
+    if (auto wake_fd = details::epoll::eventfd_create()) {
+      wake_fd_ = *std::move(wake_fd);
+    } else {
+      AC_DEFER { ::close(epoll_); };
+      epoll_ = details::epoll::invalid;
+      return std::move(wake_fd).as_status();
+    }
+
+    wake_dispatcher_.self = this;
+    wake_dispatcher_.dispatch = &io_context::wake_dispatch;
+    const auto wake_events = static_cast<uint32_t>(EPOLLIN);
+    if (auto status = details::epoll::add(
+            epoll_, wake_fd_, wake_events, &wake_dispatcher_);
+        !status) {
+
+      AC_DEFER {
+        ::close(wake_fd_);
+        ::close(epoll_);
+      };
+      wake_fd_ = details::epoll::invalid_eventfd;
+      epoll_ = details::epoll::invalid;
+      return std::move(status).as_status();
+    }
+
+    stopped_.store(false, std::memory_order::release);
+    initialized_ = true;
     return {};
   }
-  inline bool wait(details::iocp_completion &, unsigned long = 0) noexcept {
-    return false;
+  Status shutdown() noexcept {
+    if (!initialized_)
+      return UnavailableError(
+          "io_context is not initialized, or failed to initialize.");
+    stop();
+    if (wake_fd_ != details::epoll::invalid_eventfd) {
+      ::close(wake_fd_);
+      wake_fd_ = details::epoll::invalid_eventfd;
+    }
+    if (epoll_ != details::epoll::invalid) {
+      ::close(epoll_);
+      epoll_ = details::epoll::invalid;
+    }
+    stopped_.store(true, std::memory_order::release);
+    initialized_ = false;
+    return {};
   }
-  inline void run() noexcept {}
-  inline void stop(size_t = 1) noexcept {}
-  inline bool stopped() const noexcept { return true; }
-  inline auto &&native_handle(this auto &&self) noexcept { return self; }
-  inline auto iocp_handle() const noexcept { return nullptr; }
+  Status associate(const details::raw_socket_t socket,
+                   const size_t key = 0) noexcept {
+    if (!initialized_ || epoll_ == details::epoll::invalid)
+      return UnavailableError(
+          "io_context is not initialized or epoll is not available.");
+    if (socket == details::invalid_socket)
+      return InvalidArgumentError("socket is in a invalid state.");
+
+    const uint32_t events =
+        EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP | EPOLLET;
+
+    if (auto status = details::epoll::add(
+            epoll_, socket, events, reinterpret_cast<void *>(key));
+        !status)
+      return std::move(status).as_status();
+
+    return {};
+  }
+  std::optional<details::epoll::completion>
+  wait(const int timeout_ms = -1) noexcept {
+    if (!initialized_ || epoll_ == details::epoll::invalid)
+      return std::nullopt;
+
+    ::epoll_event event{};
+    if (auto result = details::epoll::wait_one(epoll_, &event, timeout_ms)) {
+      return std::make_optional<details::epoll::completion>({
+          .dispatcher =
+              static_cast<details::epoll::dispatcher *>(event.data.ptr),
+          .events = event.events,
+      });
+    } else {
+      result.log_err();
+      return std::nullopt;
+    }
+  }
+  void run() noexcept {
+    while (!stopped_.load(std::memory_order::acquire)) {
+      if (auto completion = wait(); completion && completion->dispatcher &&
+                                    completion->dispatcher->dispatch)
+        completion->dispatcher->dispatch(completion->dispatcher->self,
+                                         completion->events);
+    }
+  }
+  void stop(const size_t wake_count = 1) noexcept {
+    if (!initialized_ || epoll_ == details::epoll::invalid)
+      return;
+    stopped_.store(true, std::memory_order::release);
+    if (wake_fd_ == details::epoll::invalid_eventfd)
+      return;
+    for (size_t i = 0; i < wake_count; ++i)
+      details::epoll::eventfd_signal(wake_fd_, 1);
+  }
+  [[nodiscard]] bool stopped() const noexcept {
+    return stopped_.load(std::memory_order::acquire);
+  }
+  auto &&native_handle(this auto &&self) noexcept { return self.epoll_; }
 };
 } // namespace auxilia::net
 #else

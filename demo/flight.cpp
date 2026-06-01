@@ -21,11 +21,11 @@ void tcp_client() {
   logger->info("sent!");
   std::this_thread::sleep_for(1s);
 
-  if (auto maybe_bytes = s.recv()) {
+  if (auto maybe_bytes = s.recv())
     logger->info("recerived: {}", *maybe_bytes);
-  } else {
-    maybe_bytes.rvalue().log_err(logger);
-  }
+  else
+    maybe_bytes.log_err(logger);
+
   logger->info("closing!");
 }
 void tcp_server() {
@@ -47,7 +47,7 @@ void tcp_server() {
               .and_then<net::socket<net::tcp>::recv_>()) {
     logger->info("received: {}", *maybe_bytes);
   } else {
-    maybe_bytes.rvalue().log_err(logger);
+    maybe_bytes.log_err(logger);
   }
   logger->info("closing!");
 }
@@ -72,7 +72,7 @@ void udp_server() {
   if (auto maybe_bytes = s.recv()) {
     logger->info("recerived: {}", *maybe_bytes);
   } else {
-    maybe_bytes.rvalue().log_err(logger);
+    maybe_bytes.log_err(logger);
   }
 }
 int main() {
