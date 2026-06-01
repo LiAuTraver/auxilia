@@ -76,7 +76,8 @@ wait_one(const handle_t ep, ::epoll_event *const event, const int timeout_ms) {
 }
 
 AC_FORCEINLINE inline StatusOr<fd_t> eventfd_create() {
-  if (auto fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); fd == invalid_eventfd)
+  if (auto fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC | EFD_SEMAPHORE);
+      fd == invalid_eventfd)
     return {make_eventfd_create_error()};
   else
     return fd;

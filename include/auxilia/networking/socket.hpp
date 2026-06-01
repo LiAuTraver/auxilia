@@ -34,7 +34,7 @@ template <typename Protocol> class socket_base : Printable {
 
 protected:
 #ifdef __linux__
-  struct linux_socket_state;
+  struct epoll_socket_state;
 #endif
 
 public:
@@ -60,7 +60,7 @@ public:
       return;
     AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
 #ifdef __linux__
-    linux_state_ = std::make_unique<linux_socket_state>(handle_);
+    linux_state_ = std::make_unique<epoll_socket_state>(handle_);
     context_
         ->associate(handle_,
                     reinterpret_cast<size_t>(&linux_state_->dispatcher))
@@ -196,15 +196,6 @@ public:
 
 protected:
 #ifdef _WIN32
-  struct AC_EMPTY_BASES AC_NOVTABLE CallableMixin {
-    template <typename... Args>
-    inline constexpr decltype(auto)
-    operator()(this auto &&self, Args &&...args) noexcept(
-        noexcept(self.handler(std::forward<Args>(args)...))) {
-      if (self.handler)
-        self.handler(std::forward<Args>(args)...);
-    }
-  };
   template <typename Handler>
   struct AC_EMPTY_BASES AC_NOVTABLE iocp_base : details::iocp_operation {
     static_assert(
@@ -290,33 +281,157 @@ protected:
     }
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE read_op {
-    virtual ~read_op() = default;
-    virtual bool on_read(const raw_socket_t fd,
-                         const uint32_t events) noexcept = 0;
-    virtual void cancel(const Status &error) noexcept = 0;
+  struct AC_EMPTY_BASES read_op {
+    using on_fn = bool (*)(void *, details::raw_socket_t, uint32_t) noexcept;
+    using cancel_fn = void (*)(void *, const Status &) noexcept;
+    using destroy_fn = void (*)(void *) noexcept;
+
+    void *self = nullptr;
+    on_fn on_read = nullptr;
+    cancel_fn on_cancel = nullptr;
+    destroy_fn on_destroy = nullptr;
+
+    read_op() noexcept = default;
+    read_op(const read_op &) = delete;
+    read_op &operator=(const read_op &) = delete;
+    read_op(read_op &&that) noexcept
+        : self(std::exchange(that.self, nullptr)),
+          on_read(std::exchange(that.on_read, nullptr)),
+          on_cancel(std::exchange(that.on_cancel, nullptr)),
+          on_destroy(std::exchange(that.on_destroy, nullptr)) {}
+    read_op &operator=(read_op &&that) noexcept {
+      if (this != &that) {
+        reset();
+        self = std::exchange(that.self, nullptr);
+        on_read = std::exchange(that.on_read, nullptr);
+        on_cancel = std::exchange(that.on_cancel, nullptr);
+        on_destroy = std::exchange(that.on_destroy, nullptr);
+      }
+      return *this;
+    }
+    ~read_op() { reset(); }
+
+    void reset() noexcept {
+      if (on_destroy && self)
+        on_destroy(self);
+      AC_DEBUG_ONLY([&] {
+        self = nullptr;
+        on_read = nullptr;
+        on_cancel = nullptr;
+        on_destroy = nullptr;
+      }();)
+    }
+    bool call_on_read(const details::raw_socket_t fd,
+                      const uint32_t events) noexcept {
+      return on_read ? on_read(self, fd, events) : true;
+    }
+    void call_cancel(const Status &error) noexcept {
+      if (on_cancel)
+        on_cancel(self, error);
+    }
+
+    template <typename Op, typename... Args>
+    static read_op make(Args &&...args) {
+      auto *op = new Op(std::forward<Args>(args)...);
+      read_op out;
+      out.self = op;
+      out.on_read = [](void *self,
+                       const details::raw_socket_t fd,
+                       const uint32_t events) noexcept {
+        return static_cast<Op *>(self)->on_read(fd, events);
+      };
+      out.on_cancel = [](void *self, const Status &error) noexcept {
+        static_cast<Op *>(self)->cancel(error);
+      };
+      out.on_destroy = [](void *self) noexcept {
+        delete static_cast<Op *>(self);
+      };
+      return out;
+    }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE write_op {
-    virtual ~write_op() = default;
-    virtual bool on_write(const raw_socket_t fd,
-                          const uint32_t events) noexcept = 0;
-    virtual void cancel(const Status &error) noexcept = 0;
+  struct AC_EMPTY_BASES write_op {
+    using on_fn = bool (*)(void *, details::raw_socket_t, uint32_t) noexcept;
+    using cancel_fn = void (*)(void *, const Status &) noexcept;
+    using destroy_fn = void (*)(void *) noexcept;
+
+    void *self = nullptr;
+    on_fn on_write = nullptr;
+    cancel_fn on_cancel = nullptr;
+    destroy_fn on_destroy = nullptr;
+
+    write_op() noexcept = default;
+    write_op(const write_op &) = delete;
+    write_op &operator=(const write_op &) = delete;
+    write_op(write_op &&that) noexcept
+        : self(std::exchange(that.self, nullptr)),
+          on_write(std::exchange(that.on_write, nullptr)),
+          on_cancel(std::exchange(that.on_cancel, nullptr)),
+          on_destroy(std::exchange(that.on_destroy, nullptr)) {}
+    write_op &operator=(write_op &&that) noexcept {
+      if (this != &that) {
+        reset();
+        self = std::exchange(that.self, nullptr);
+        on_write = std::exchange(that.on_write, nullptr);
+        on_cancel = std::exchange(that.on_cancel, nullptr);
+        on_destroy = std::exchange(that.on_destroy, nullptr);
+      }
+      return *this;
+    }
+    ~write_op() { reset(); }
+
+    void reset() noexcept {
+      if (on_destroy && self)
+        on_destroy(self);
+      AC_DEBUG_ONLY([&] {
+        self = nullptr;
+        on_write = nullptr;
+        on_cancel = nullptr;
+        on_destroy = nullptr;
+      }();)
+    }
+    bool call_on_write(const details::raw_socket_t fd,
+                       const uint32_t events) noexcept {
+      return on_write ? on_write(self, fd, events) : true;
+    }
+    void call_cancel(const Status &error) noexcept {
+      if (on_cancel)
+        on_cancel(self, error);
+    }
+
+    template <typename Op, typename... Args>
+    static write_op make(Args &&...args) {
+      auto *op = new Op(std::forward<Args>(args)...);
+      write_op out;
+      out.self = op;
+      out.on_write = [](void *self,
+                        const details::raw_socket_t fd,
+                        const uint32_t events) noexcept {
+        return static_cast<Op *>(self)->on_write(fd, events);
+      };
+      out.on_cancel = [](void *self, const Status &error) noexcept {
+        static_cast<Op *>(self)->cancel(error);
+      };
+      out.on_destroy = [](void *self) noexcept {
+        delete static_cast<Op *>(self);
+      };
+      return out;
+    }
   };
 
-  struct linux_socket_state {
+  struct epoll_socket_state {
     raw_socket_t fd = invalid_socket;
     std::mutex mutex;
-    std::deque<std::unique_ptr<read_op>> read_ops;
-    std::deque<std::unique_ptr<write_op>> write_ops;
+    std::deque<read_op> read_ops;
+    std::deque<write_op> write_ops;
     std::atomic_flag busy = ATOMIC_FLAG_INIT;
     std::atomic<bool> non_blocking{false};
     bool closing = false;
     details::epoll::dispatcher dispatcher{};
 
-    explicit linux_socket_state(const raw_socket_t handle) noexcept
+    explicit epoll_socket_state(const raw_socket_t handle) noexcept
         : fd(handle) {
       dispatcher.self = this;
-      dispatcher.dispatch = &linux_socket_state::dispatch;
+      dispatcher.dispatch = &epoll_socket_state::dispatch;
     }
 
     Status ensure_nonblocking() noexcept {
@@ -330,22 +445,26 @@ protected:
       }
       return {};
     }
-    void enqueue_read(std::unique_ptr<read_op> op) noexcept {
+    template <typename Op, typename... Args>
+    void enqueue_read(Args &&...args) noexcept {
+      read_op op = read_op::template make<Op>(std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op->cancel(UnavailableError("socket closed"));
+          op.call_cancel(UnavailableError("socket closed"));
           return;
         }
         read_ops.emplace_back(std::move(op));
       }
       on_event(EPOLLIN);
     }
-    void enqueue_write(std::unique_ptr<write_op> op) noexcept {
+    template <typename Op, typename... Args>
+    void enqueue_write(Args &&...args) noexcept {
+      write_op op = write_op::template make<Op>(std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op->cancel(UnavailableError("socket closed"));
+          op.call_cancel(UnavailableError("socket closed"));
           return;
         }
         write_ops.emplace_back(std::move(op));
@@ -353,8 +472,8 @@ protected:
       on_event(EPOLLOUT);
     }
     void cancel_all(const Status &error) noexcept {
-      std::deque<std::unique_ptr<read_op>> reads;
-      std::deque<std::unique_ptr<write_op>> writes;
+      std::deque<read_op> reads;
+      std::deque<write_op> writes;
       {
         std::scoped_lock lock(mutex);
         if (closing)
@@ -364,15 +483,15 @@ protected:
         writes.swap(write_ops);
       }
       for (auto &op : reads)
-        op->cancel(error);
+        op.call_cancel(error);
       for (auto &op : writes)
-        op->cancel(error);
+        op.call_cancel(error);
     }
 
     static void dispatch(void *self, const uint32_t events) noexcept {
       if (!self)
         return;
-      static_cast<linux_socket_state *>(self)->on_event(events);
+      static_cast<epoll_socket_state *>(self)->on_event(events);
     }
     void on_event(const uint32_t events) noexcept {
       if (closing)
@@ -392,7 +511,7 @@ protected:
 
     void drain_reads(const uint32_t events) noexcept {
       for (;;) {
-        std::unique_ptr<read_op> op;
+        read_op op;
         {
           std::scoped_lock lock(mutex);
           if (read_ops.empty())
@@ -400,7 +519,7 @@ protected:
           op = std::move(read_ops.front());
           read_ops.pop_front();
         }
-        if (!op->on_read(fd, events)) {
+        if (!op.call_on_read(fd, events)) {
           std::scoped_lock lock(mutex);
           read_ops.emplace_front(std::move(op));
           break;
@@ -409,7 +528,7 @@ protected:
     }
     void drain_writes(const uint32_t events) noexcept {
       for (;;) {
-        std::unique_ptr<write_op> op;
+        write_op op;
         {
           std::scoped_lock lock(mutex);
           if (write_ops.empty())
@@ -417,7 +536,7 @@ protected:
           op = std::move(write_ops.front());
           write_ops.pop_front();
         }
-        if (!op->on_write(fd, events)) {
+        if (!op.call_on_write(fd, events)) {
           std::scoped_lock lock(mutex);
           write_ops.emplace_front(std::move(op));
           break;
@@ -433,7 +552,7 @@ protected:
   /// FIXME: race condition in async operations
   std::optional<endpoint_type> remote_endpoint_;
 #ifdef __linux__
-  mutable std::unique_ptr<linux_socket_state> linux_state_;
+  mutable std::unique_ptr<epoll_socket_state> linux_state_;
 #endif
 };
 } // namespace auxilia::net::details
@@ -549,8 +668,8 @@ public:
       return UnavailableError("io_context is not available.");
     if (auto status = linux_state_->ensure_nonblocking(); !status)
       return status;
-    linux_state_->enqueue_read(
-        std::make_unique<recv_operation>(this, std::move(handler), max_size));
+    linux_state_->template enqueue_read<recv_operation>(
+        this, std::move(handler), max_size);
     return {};
 #else
     (void)max_size;
@@ -587,8 +706,8 @@ public:
     if (auto status = linux_state_->ensure_nonblocking(); !status)
       return status;
 
-    linux_state_->enqueue_write(std::make_unique<send_operation>(
-        this, std::move(handler), std::move(bytes)));
+    linux_state_->template enqueue_write<send_operation>(
+        this, std::move(handler), std::move(bytes));
     return {};
 #else
     (void)bytes;
@@ -630,7 +749,7 @@ private:
     base_type::finish_send(op, bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation : base_type::read_op {
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation {
     socket_type *self = nullptr;
     recv_handler handler;
     bytes_type buffer;
@@ -643,7 +762,7 @@ private:
     }
 
     bool on_read(const details::raw_socket_t fd,
-                 const uint32_t events) noexcept override {
+                 const uint32_t events) noexcept {
       (void)events;
       const auto res = details::recv(fd, buffer.data(), buffer.size(), 0);
       if (res < 0) {
@@ -658,12 +777,12 @@ private:
         handler(std::move(buffer));
       return true;
     }
-    void cancel(const Status &error) noexcept override {
+    void cancel(const Status &error) noexcept {
       if (handler)
         handler(error);
     }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation : base_type::write_op {
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation {
     socket_type *self = nullptr;
     send_handler handler;
     bytes_type buffer;
@@ -675,7 +794,7 @@ private:
         : self(self), handler(std::move(handler)), buffer(std::move(buffer)) {}
 
     bool on_write(const details::raw_socket_t fd,
-                  const uint32_t events) noexcept override {
+                  const uint32_t events) noexcept {
       (void)events;
       if (buffer.empty()) {
         if (handler)
@@ -699,7 +818,7 @@ private:
         handler(static_cast<size_t>(buffer.size()));
       return true;
     }
-    void cancel(const Status &error) noexcept override {
+    void cancel(const Status &error) noexcept {
       if (handler)
         handler(error);
     }
@@ -778,9 +897,8 @@ public:
       return UnavailableError("io_context is not available.");
     if (auto status = linux_state_->ensure_nonblocking(); !status)
       return status;
-    auto op =
-        std::make_unique<recv_operation>(this, std::move(handler), max_size);
-    linux_state_->enqueue_read(std::move(op));
+    linux_state_->template enqueue_read<recv_operation>(
+        this, std::move(handler), max_size);
     return {};
 #else
     (void)max_size;
@@ -824,8 +942,8 @@ public:
     if (auto status = linux_state_->ensure_nonblocking(); !status)
       return status;
 
-    linux_state_->enqueue_write(std::make_unique<send_operation>(
-        this, std::move(handler), std::move(bytes), endpoint));
+    linux_state_->template enqueue_write<send_operation>(
+        this, std::move(handler), std::move(bytes), endpoint);
     return {};
 #else
     (void)bytes;
@@ -896,7 +1014,7 @@ private:
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation : base_type::read_op {
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation {
     socket_type *self = nullptr;
     recv_handler handler;
     bytes_type buffer;
@@ -911,7 +1029,7 @@ private:
     }
 
     bool on_read(const details::raw_socket_t fd,
-                 const uint32_t events) noexcept override {
+                 const uint32_t events) noexcept {
       (void)events;
       storage_len = sizeof(details::socket_storage_type);
       const auto res =
@@ -944,12 +1062,12 @@ private:
         handler(std::move(buffer), std::move(sender));
       return true;
     }
-    void cancel(const Status &error) noexcept override {
+    void cancel(const Status &error) noexcept {
       if (handler)
         handler(error, endpoint_type::unspecified());
     }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation : base_type::write_op {
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation {
     socket_type *self = nullptr;
     send_handler handler;
     bytes_type buffer;
@@ -964,7 +1082,7 @@ private:
           endpoint(endpoint) {}
 
     bool on_write(const details::raw_socket_t fd,
-                  const uint32_t events) noexcept override {
+                  const uint32_t events) noexcept {
       (void)events;
       if (buffer.empty()) {
         if (handler)
@@ -992,7 +1110,7 @@ private:
         handler(static_cast<size_t>(buffer.size()));
       return true;
     }
-    void cancel(const Status &error) noexcept override {
+    void cancel(const Status &error) noexcept {
       if (handler)
         handler(error);
     }
