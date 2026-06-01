@@ -487,14 +487,16 @@ inline socket_base<Protocol>::socket_base(
   if (handle_ == invalid_socket)
     return;
   AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
+#ifdef __linux__
   int opt = 1;
   ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-#ifdef __linux__
   linux_state_ = std::make_unique<epoll_socket_state>(handle_);
   context_
       ->associate(handle_, reinterpret_cast<size_t>(&linux_state_->dispatcher))
       .log();
 #else
+  const char opt = 1;
+  ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
   context_->associate(handle_).log();
 #endif
 }

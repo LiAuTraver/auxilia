@@ -44,13 +44,18 @@ AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
                       std::to_underlying(socket_type),
                       protocol,
                       nullptr, // too complex...
-                      0, // no group
+                      0,       // no group
                       WSA_FLAG_OVERLAPPED);
 }
 
-AC_FORCEINLINE inline auto listen(const raw_socket_t s, const int backlog = 0) {
-  return ::listen(s, backlog);
+AC_FORCEINLINE inline Status listen(const raw_socket_t s,
+                                    const int backlog = 0) {
+  if (::listen(s, backlog) != -1) [[likely]]
+    return {};
+  else
+    return details::make_listen_error();
 }
+
 AC_FORCEINLINE inline auto recv(const raw_socket_t s,
                                 char *const buf,
                                 const size_t len,
@@ -98,8 +103,11 @@ AC_FORCEINLINE inline auto send(const raw_socket_t s,
   else
     return static_cast<int>(bytes_sent);
 }
-AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
-  return ::closesocket(s);
+AC_FORCEINLINE inline Status closesocket(const raw_socket_t s) {
+  if (::closesocket(s) != -1) [[likely]]
+    return {};
+  else
+    return make_close_error();
 }
 
 AC_FORCEINLINE inline auto

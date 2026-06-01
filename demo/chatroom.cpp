@@ -453,7 +453,7 @@ void loginit() {
   spdlog::set_pattern("[%n: %^%l%$] %v");
   spdlog::default_logger()->set_pattern("[%^%l%$] %v");
 }
-int fake_main(int argc, const char **argv) {
+int main(int argc, const char **argv) {
 
   loginit();
 
@@ -478,20 +478,3 @@ int fake_main(int argc, const char **argv) {
                         : run_tcp_client(ctx, *opts);
   }
 }
-// ./chatroom --server --host 127.0.0.1 --port 6543 --protocol tcp --workers 4
-int main(int argc, const char **argv) {
-  // const char *args[] = {
-  //     "./chatroom",
-  //     "--server",
-  //     "--host",
-  //     "127.0.0.1",
-  //     "--port",
-  //     "6543",
-  //     "--protocol",
-  //     "tcp",
-  //     "--workers",
-  //     "4",
-  // };
-  // return fake_main(10, args);
-  return fake_main(argc, argv);
-};
