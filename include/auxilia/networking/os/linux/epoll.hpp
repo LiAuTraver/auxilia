@@ -9,13 +9,13 @@
 #  include <sys/types.h>
 #  include <unistd.h>
 
+#  include "auxilia/status/StatusOr.hpp"
+
 #  ifdef __INTELLISENSE__
 #    include "auxilia/networking/os.hpp"
 #  endif
 
 #  include "error.hpp"
-
-#  include "auxilia/status/StatusOr.hpp"
 
 namespace auxilia::net::details::epoll {
 struct dispatcher {

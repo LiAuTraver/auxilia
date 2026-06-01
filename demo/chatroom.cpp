@@ -36,7 +36,7 @@ struct options {
   std::string name = "client";
 };
 
-static std::optional<options> parse_args(const int argc, char **argv) {
+static std::optional<options> parse_args(const int argc, const char **argv) {
   auto parser = program_options::Global("chatroom", "0.0.1");
   parser->add_option("--protocol", "", "protocol type")
       .nargs(1)
@@ -66,7 +66,7 @@ static std::optional<options> parse_args(const int argc, char **argv) {
           *parser->get_option("--host")->value())) {
     opts.host = *host;
   } else {
-    std::move(host).log_err();
+    std::move(host).log();
   }
 
   auto port = parser->get_option("--port");
@@ -128,7 +128,7 @@ static void start_server_receive(udp_server_state &state) {
           [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
                    net::endpoint<net::udp> sender) {
             if (!result) {
-              result.log_err(state.logger);
+              result.log(state.logger);
               start_server_receive(state);
               return;
             }
@@ -153,14 +153,14 @@ static void start_server_receive(udp_server_state &state) {
                       peer,
                       [logger = state.logger](StatusOr<size_t> send_res) {
                         if (!send_res)
-                          send_res.log_err(logger);
+                          send_res.log(logger);
                       })
-                  .log_err(state.logger);
+                  .log(state.logger);
             }
 
             start_server_receive(state);
           })
-      .log_err(state.logger);
+      .log(state.logger);
 }
 
 struct udp_client_state {
@@ -177,14 +177,14 @@ static void start_client_receive(udp_client_state &state) {
           [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
                    net::endpoint<net::udp> sender) {
             if (!result) {
-              result.log_err(state.logger);
+              result.log(state.logger);
               start_client_receive(state);
               return;
             }
             state.logger->info("{}", *std::move(result));
             start_client_receive(state);
           })
-      .log_err(state.logger);
+      .log(state.logger);
 }
 
 struct tcp_session {
@@ -200,10 +200,9 @@ struct tcp_server_state {
 
 static void remove_tcp_session(tcp_server_state &state,
                                const std::shared_ptr<tcp_session> &session) {
-  session->socket.close().log_err(state.logger);
+  session->socket.close().log(state.logger);
   std::scoped_lock lock(state.mutex);
-  std::erase_if(state.sessions,
-                [&](const auto &entry) { return entry == session; });
+  std::erase(state.sessions, session);
 }
 
 static void start_tcp_receive(tcp_server_state &state,
@@ -214,7 +213,7 @@ static void start_tcp_receive(tcp_server_state &state,
           [&state,
            session](StatusOr<net::socket<net::tcp>::bytes_type> result) {
             if (!result) {
-              result.log_err(state.logger);
+              result.log(state.logger);
               remove_tcp_session(state, session);
               return;
             }
@@ -240,14 +239,14 @@ static void start_tcp_receive(tcp_server_state &state,
                       net::socket<net::tcp>::bytes_type(message),
                       [logger = state.logger](StatusOr<size_t> send_res) {
                         if (!send_res)
-                          send_res.log_err(logger);
+                          send_res.log(logger);
                       })
-                  .log_err(state.logger);
+                  .log(state.logger);
             }
 
             start_tcp_receive(state, session);
           })
-      .log_err(state.logger);
+      .log(state.logger);
 }
 
 struct tcp_client_state {
@@ -261,7 +260,7 @@ static void start_tcp_client_receive(tcp_client_state &state) {
       .async_recv(0x800,
                   [&state](StatusOr<net::socket<net::tcp>::bytes_type> result) {
                     if (!result) {
-                      result.log_err(state.logger);
+                      result.log(state.logger);
                       return;
                     }
 
@@ -273,7 +272,7 @@ static void start_tcp_client_receive(tcp_client_state &state) {
                     state.logger->info("{}", message);
                     start_tcp_client_receive(state);
                   })
-      .log_err(state.logger);
+      .log(state.logger);
 }
 
 static std::vector<std::jthread> start_workers(net::io_context &ctx,
@@ -291,7 +290,7 @@ static int run_udp_server(net::io_context &ctx, const options &opts) {
   auto sock = net::socket<net::udp>(ctx, net::ip::family::v4);
   auto bind_status = sock.bind(net::endpoint<net::udp>(host, opts.port));
   if (!bind_status) {
-    bind_status.log_err(logger);
+    bind_status.log(logger);
     return 1;
   }
 
@@ -315,7 +314,7 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
   const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("udp_client");
   auto sock = net::socket<net::udp>(ctx, net::ip::family::v4);
-  sock.bind(0).log_err(logger);
+  sock.bind(0).log(logger);
 
   udp_client_state state{std::move(sock),
                          net::endpoint<net::udp>(host, opts.port),
@@ -331,9 +330,9 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
                      state.server,
                      [logger](StatusOr<size_t> send_res) {
                        if (!send_res)
-                         send_res.log_err(logger);
+                         send_res.log(logger);
                      })
-      .log_err(logger);
+      .log(logger);
 
   logger->info("client ready; target {}:{}", opts.host, opts.port);
   logger->info("type /quit to exit");
@@ -346,8 +345,8 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
         .async_send_to(
             std::move(payload),
             state.server,
-            [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
-        .log_err(logger);
+            [logger](StatusOr<size_t> send_res) { send_res.log(logger); })
+        .log(logger);
   }
 
   ctx.stop(opts.workers);
@@ -361,11 +360,11 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
 
   if (auto status = listener.bind(net::endpoint<net::tcp>(host, opts.port));
       !status) {
-    status.log_err(logger);
+    status.log(logger);
     return 1;
   }
   if (auto status = listener.listen(); !status) {
-    status.log_err(logger);
+    status.log(logger);
     return 1;
   }
 
@@ -379,7 +378,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
       if (!acc) {
         if (st.stop_requested())
           break;
-        acc.log_err(state.logger);
+        acc.log(state.logger);
         continue;
       }
 
@@ -406,7 +405,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
       break;
   }
 
-  state.listener.close().log_err(state.logger);
+  state.listener.close().log(state.logger);
   accept_thread.request_stop();
   ctx.stop(opts.workers);
   return 0;
@@ -419,7 +418,7 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
 
   if (auto status = sock.connect(net::endpoint<net::tcp>(host, opts.port));
       !status) {
-    status.log_err(logger);
+    status.log(logger);
     return 1;
   }
 
@@ -439,9 +438,9 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
         .async_send(std::move(payload),
                     [logger](StatusOr<size_t> send_res) {
                       if (!send_res)
-                        send_res.log_err(logger);
+                        send_res.log(logger);
                     })
-        .log_err(logger);
+        .log(logger);
   }
 
   ctx.stop(opts.workers);
@@ -454,7 +453,7 @@ void loginit() {
   spdlog::set_pattern("[%n: %^%l%$] %v");
   spdlog::default_logger()->set_pattern("[%^%l%$] %v");
 }
-int main(int argc, char **argv) {
+int fake_main(int argc, const char **argv) {
 
   loginit();
 
@@ -467,7 +466,7 @@ int main(int argc, char **argv) {
   auto base_logger = spdlog::stdout_color_mt("chat");
 
   if (auto status = ctx.initialize(); !status) {
-    status.log_err(base_logger);
+    status.log(base_logger);
     return 1;
   }
 
@@ -479,3 +478,20 @@ int main(int argc, char **argv) {
                         : run_tcp_client(ctx, *opts);
   }
 }
+// ./chatroom --server --host 127.0.0.1 --port 6543 --protocol tcp --workers 4
+int main(int argc, const char **argv) {
+  // const char *args[] = {
+  //     "./chatroom",
+  //     "--server",
+  //     "--host",
+  //     "127.0.0.1",
+  //     "--port",
+  //     "6543",
+  //     "--protocol",
+  //     "tcp",
+  //     "--workers",
+  //     "4",
+  // };
+  // return fake_main(10, args);
+  return fake_main(argc, argv);
+};

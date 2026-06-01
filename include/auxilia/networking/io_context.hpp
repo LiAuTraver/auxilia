@@ -7,8 +7,6 @@
 #include <cerrno>
 #include <cstring>
 
-#include "auxilia/networking/os/linux/epoll.hpp"
-#include "auxilia/networking/os/linux/error.hpp"
 #include "auxilia/status/Status.hpp"
 #include "os.hpp"
 
@@ -157,7 +155,7 @@ public:
     if (auto wake_fd = details::epoll::eventfd_create()) {
       wake_fd_ = *std::move(wake_fd);
     } else {
-      AC_DEFER { ::close(epoll_); };
+      AC_DEFER { details::closesocket(epoll_).log_err(); };
       epoll_ = details::epoll::invalid;
       return std::move(wake_fd).as_status();
     }
@@ -170,8 +168,8 @@ public:
         !status) {
 
       AC_DEFER {
-        ::close(wake_fd_);
-        ::close(epoll_);
+        details::closesocket(wake_fd_).log_err();
+        details::closesocket(epoll_).log_err();
       };
       wake_fd_ = details::epoll::invalid_eventfd;
       epoll_ = details::epoll::invalid;
@@ -188,11 +186,11 @@ public:
           "io_context is not initialized, or failed to initialize.");
     stop();
     if (wake_fd_ != details::epoll::invalid_eventfd) {
-      ::close(wake_fd_);
+      details::closesocket(wake_fd_).log_err();
       wake_fd_ = details::epoll::invalid_eventfd;
     }
     if (epoll_ != details::epoll::invalid) {
-      ::close(epoll_);
+      details::closesocket(epoll_).log_err();
       epoll_ = details::epoll::invalid;
     }
     stopped_.store(true, std::memory_order::release);
@@ -230,7 +228,7 @@ public:
           .events = event.events,
       });
     } else {
-      result.log_err();
+      result.log();
       return std::nullopt;
     }
   }

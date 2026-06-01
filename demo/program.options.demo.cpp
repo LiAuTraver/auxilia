@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
   parser->add_option("--verbose", "", "Enable verbose mode").nargs(0);
   parser->add_option("--output", "-o", "Output file").nargs(1);
 
-  if (auto res = parser->parse(argc, argv); !res) {
+  if (parser->parse(argc, argv)) {
     println("Error parsing command line arguments:\n {}",
             fmt::join(parser->error_messages(), "; "));
     return 1;

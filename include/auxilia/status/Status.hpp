@@ -384,6 +384,33 @@ public:
             warn, "Ignoring a Status which is not ok: {}", my_message);)
     // else do nothing
   }
+  /// @brief Logs the message if it's not empty.
+  inline void log(auto &&logger) const {
+    if constexpr (requires { logger << my_message; })
+      logger << my_message << '\n';
+    else if (ok())
+      if (message().empty())
+        return;
+      else if constexpr (requires { logger.info(my_message); })
+        logger.info(my_message);
+      else if constexpr (requires { logger->info(my_message); })
+        logger->info(my_message);
+      else
+        static_assert(false, "unsupported");
+    else if constexpr (requires { logger.error(my_message); })
+      logger.error(my_message);
+    else if constexpr (requires { logger->error(my_message); })
+      logger->error(my_message);
+    else
+      static_assert(false, "unsupported");
+  }
+  inline void log() const {
+#  if __has_include(<spdlog/spdlog.h>)
+    log(spdlog::default_logger());
+#  else
+    log(ok() ? std::osyncstream(std::cout) : std::osyncstream(std::cerr));
+#  endif
+  }
   /// @brief Logs the error message if the status is not ok.
   inline void log_err(auto &&logger) const {
     if (ok())
@@ -397,6 +424,7 @@ public:
     else
       static_assert(false, "unsupported");
   }
+  /// @brief Logs the error message if the status is not ok.
   inline void log_err() const {
 #  if __has_include(<spdlog/spdlog.h>)
     log_err(spdlog::default_logger());

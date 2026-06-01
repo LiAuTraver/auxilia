@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <cstddef>
@@ -14,7 +15,6 @@
 
 #include "auxilia/base/macros.hpp"
 #include "auxilia/base/format.hpp"
-#include "auxilia/networking/os/linux/epoll.hpp"
 #include "auxilia/status/Status.hpp"
 #include "auxilia/status/StatusOr.hpp"
 #include "auxilia/meta/container_traits.hpp"
@@ -32,11 +32,6 @@ namespace auxilia::net::details {
 
 template <typename Protocol> class socket_base : Printable {
 
-protected:
-#ifdef __linux__
-  struct epoll_socket_state;
-#endif
-
 public:
   using protocol_type = Protocol;
   using native_handle_type = details::raw_socket_t;
@@ -52,23 +47,8 @@ public:
 public:
   inline socket_base(
       io_context *context = nullptr,
-      const native_handle_type handle = invalid_socket,
-      std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept
-      : context_(context), handle_(handle),
-        remote_endpoint_(std::move(remote_endpoint)) {
-    if (handle_ == invalid_socket)
-      return;
-    AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
-#ifdef __linux__
-    linux_state_ = std::make_unique<epoll_socket_state>(handle_);
-    context_
-        ->associate(handle_,
-                    reinterpret_cast<size_t>(&linux_state_->dispatcher))
-        .log_err();
-#else
-    context_->associate(handle_).log_err();
-#endif
-  }
+      native_handle_type handle = invalid_socket,
+      std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept;
   inline socket_base(io_context &context,
                      const native_handle_type handle = invalid_socket) noexcept
       : socket_base(&context, handle) {}
@@ -80,29 +60,8 @@ public:
                     details::socket(family, protocol_type::socket_kind())) {}
   socket_base(const socket_base &) = delete;
   socket_base &operator=(const socket_base &) = delete;
-  socket_base(socket_base &&that) noexcept
-      : context_(std::exchange(that.context_, nullptr)),
-        handle_(std::exchange(that.handle_, invalid_socket)),
-        remote_endpoint_(std::move(that.remote_endpoint_))
-#ifdef __linux__
-        ,
-        linux_state_(std::exchange(that.linux_state_, nullptr))
-#endif
-  {
-  }
-
-  socket_base &operator=(socket_base &&that) noexcept {
-    if (this != &that) {
-      close().log_err();
-      context_ = std::exchange(that.context_, nullptr);
-      handle_ = std::exchange(that.handle_, invalid_socket);
-      remote_endpoint_ = std::move(that.remote_endpoint_);
-#ifdef __linux__
-      linux_state_ = std::exchange(that.linux_state_, nullptr);
-#endif
-    }
-    return *this;
-  }
+  inline socket_base(socket_base &&that) noexcept;
+  socket_base &operator=(socket_base &&that) noexcept;
 
   AC_NODISCARD_REASON("the `recv` method returns the received bytes. ")
   inline decltype(auto) recv(this auto &&self, const size_t max_size = 0x0400) {
@@ -110,69 +69,30 @@ public:
   }
 
 protected:
-  inline ~socket_base() noexcept { close().log_err(); }
+  inline ~socket_base() noexcept { close().log(); }
 
 public:
-  inline static StatusOr<socket_type> v4(io_context *context = nullptr) {
-    if (auto self = socket_type(context, ip::family::v4); self.is_valid())
-        [[likely]]
-      return {std::move(self)};
-    else [[unlikely]]
-      return {details::make_ctor_error()};
-  }
-  inline static StatusOr<socket_type> v6(io_context *context = nullptr) {
-    if (auto self = socket_type(context, ip::family::v6); self.is_valid())
-        [[likely]]
-      return {std::move(self)};
-    else [[unlikely]]
-      return {details::make_ctor_error()};
-  }
+  inline static StatusOr<socket_type> v4(io_context *context = nullptr);
+  inline static StatusOr<socket_type> v6(io_context *context = nullptr);
 
 public:
-  Status close() const {
-    if (is_valid()) [[likely]] {
-#ifdef __linux__
-      if (linux_state_)
-        linux_state_->cancel_all(UnavailableError("socket closed"));
-      if (context_ && context_->native_handle() != details::epoll::invalid)
-        details::epoll::del(context_->native_handle(), handle_);
-#endif
-      if (details::closesocket(handle_) != -1) [[likely]]
-        return {};
-      else [[unlikely]]
-        return details::make_close_error();
-    } else
-      return {};
-  }
+  inline Status close() const;
   constexpr auto native_handle() const noexcept { return handle_; }
   constexpr auto context() const noexcept { return context_; }
   constexpr auto is_valid() const noexcept {
     return handle_ != details::invalid_socket;
   }
   template <ip::family family = ip::family::v4>
-  auto bind(const endpoint_type::port_type port = 0) {
+  inline auto bind(const endpoint_type::port_type port = 0) {
     return bind(endpoint_type::template unspecified<family>(port));
   }
-  Status bind(const endpoint_type &endpoint) {
-    if (details::bind(handle_, endpoint.data(), endpoint.size()) != -1)
-        [[likely]]
-      return {};
-    else [[unlikely]]
-      return details::make_bind_error();
-  }
+  Status bind(const endpoint_type &endpoint);
 
   inline auto remote_endpoint() const noexcept { return remote_endpoint_; }
   auto to_string(const FormatPolicy policy) const { return Format(handle_); }
 
 public:
-  Status connect(const endpoint_type &endpoint) {
-    if (details::connect(handle_, endpoint.data(), endpoint.size()) != -1)
-        [[likely]] {
-      remote_endpoint_.emplace(endpoint);
-      return {};
-    } else [[unlikely]]
-      return details::make_connect_error();
-  }
+  Status connect(const endpoint_type &endpoint);
 
 public:
   struct {
@@ -195,16 +115,7 @@ public:
   static constexpr inline send_bytes_;
 
 protected:
-#ifdef _WIN32
-  template <typename Handler>
-  struct AC_EMPTY_BASES AC_NOVTABLE iocp_base : details::iocp_operation {
-    static_assert(
-        is_specialization_v<Handler, std::move_only_function>,
-        "only support move only function right now, "
-        "since I really dont know how to handle function ref or copyable function.");
-    using handler_type = Handler;
-    using buffer_type = ::WSABUF;
-
+  struct AC_EMPTY_BASES AC_NOVTABLE CallableMixin {
     template <typename... Args>
     inline constexpr decltype(auto)
     operator()(this auto &&self, Args &&...args) noexcept(
@@ -212,6 +123,17 @@ protected:
       if (self.handler)
         self.handler(std::forward<Args>(args)...);
     }
+  };
+#ifdef _WIN32
+  template <typename Handler>
+  struct AC_EMPTY_BASES AC_NOVTABLE iocp_base : CallableMixin,
+                                                details::iocp_operation {
+    static_assert(
+        is_specialization_v<Handler, std::move_only_function>,
+        "only support move only function right now, "
+        "since I really dont know how to handle function ref or copyable function.");
+    using handler_type = Handler;
+    using buffer_type = ::WSABUF;
 
     bytes_type buffer;
     buffer_type wsa_buf;
@@ -281,148 +203,148 @@ protected:
     }
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES read_op {
-    using on_fn = bool (*)(void *, details::raw_socket_t, uint32_t) noexcept;
-    using cancel_fn = void (*)(void *, const Status &) noexcept;
-    using destroy_fn = void (*)(void *) noexcept;
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_socket_state;
 
-    void *self = nullptr;
-    on_fn on_read = nullptr;
-    cancel_fn on_cancel = nullptr;
-    destroy_fn on_destroy = nullptr;
+  template <typename Handler>
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_base : CallableMixin {
+    using handler_type = Handler;
+    bytes_type buffer;
+    handler_type handler;
+    socket_type *self;
 
-    read_op() noexcept = default;
-    read_op(const read_op &) = delete;
-    read_op &operator=(const read_op &) = delete;
-    read_op(read_op &&that) noexcept
-        : self(std::exchange(that.self, nullptr)),
-          on_read(std::exchange(that.on_read, nullptr)),
+  protected:
+    inline ~epoll_base() noexcept = default;
+  };
+  template <typename Handler>
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_send_base : epoll_base<Handler> {
+    using base_type = epoll_base<Handler>;
+    inline epoll_send_base(socket_type *const self,
+                           base_type::handler_type &&handler,
+                           bytes_type &&buffer) noexcept {
+      this->self = self;
+      this->handler = std::move(handler);
+      this->buffer = std::move(buffer);
+      this->offset = 0;
+    }
+    size_t offset;
+  };
+  template <typename Handler>
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_recv_base : epoll_base<Handler> {
+    using base_type = epoll_base<Handler>;
+    inline epoll_recv_base(socket_type *const self,
+                           base_type::handler_type &&handler,
+                           const size_t max_size) noexcept {
+      this->self = self;
+      this->handler = std::move(handler);
+      this->buffer.resize(max_size);
+    }
+  };
+
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_operation {
+    using on_fn =
+        std::move_only_function<bool(void *, details::raw_socket_t, uint32_t)>;
+    using cancel_fn = std::move_only_function<void(void *, const Status &)>;
+    using destroy_fn = std::move_only_function<void(void *)>;
+    inline epoll_operation(void *self = nullptr,
+                           on_fn &&on_op = nullptr,
+                           cancel_fn &&on_cancel = nullptr,
+                           destroy_fn &&on_destroy = nullptr) noexcept
+        : self(self), on_op(std::move(on_op)), on_cancel(std::move(on_cancel)),
+          on_destroy(std::move(on_destroy)) {}
+    inline epoll_operation(const epoll_operation &) = delete;
+    inline epoll_operation &operator=(const epoll_operation &) = delete;
+    inline epoll_operation(epoll_operation &&that) noexcept
+        : self(that.self), on_op(std::exchange(that.on_op, nullptr)),
           on_cancel(std::exchange(that.on_cancel, nullptr)),
           on_destroy(std::exchange(that.on_destroy, nullptr)) {}
-    read_op &operator=(read_op &&that) noexcept {
+    inline epoll_operation &operator=(epoll_operation &&that) noexcept {
       if (this != &that) {
         reset();
         self = std::exchange(that.self, nullptr);
-        on_read = std::exchange(that.on_read, nullptr);
+        on_op = std::exchange(that.on_op, nullptr);
         on_cancel = std::exchange(that.on_cancel, nullptr);
         on_destroy = std::exchange(that.on_destroy, nullptr);
       }
       return *this;
     }
-    ~read_op() { reset(); }
-
     void reset() noexcept {
       if (on_destroy && self)
         on_destroy(self);
       AC_DEBUG_ONLY([&] {
         self = nullptr;
-        on_read = nullptr;
+        on_op = nullptr;
         on_cancel = nullptr;
         on_destroy = nullptr;
       }();)
     }
-    bool call_on_read(const details::raw_socket_t fd,
+    void cancel(const Status &error) noexcept {
+      if (on_cancel && self)
+        on_cancel(self, error);
+    }
+
+    void *self;
+    on_fn on_op;
+    cancel_fn on_cancel;
+    destroy_fn on_destroy;
+
+  protected:
+    inline ~epoll_operation() noexcept { reset(); }
+    bool call_on_op(const details::raw_socket_t fd,
+                    const uint32_t events) noexcept {
+      return on_op ? on_op(self, fd, events) : true;
+    }
+  };
+
+  struct AC_EMPTY_BASES AC_NOVTABLE read_operation : epoll_operation {
+    using base_type = epoll_operation;
+    using base_type::epoll_operation;
+    inline auto read(const details::raw_socket_t fd,
+                     const uint32_t events) noexcept {
+      return this->call_on_op(fd, events);
+    }
+
+    template <typename Op, typename... Args>
+    static read_operation make(Args &&...args) {
+      return {
+          new Op(std::forward<Args>(args)...),
+          [](auto self, auto fd, auto events) noexcept {
+            return static_cast<Op *>(self)->on_read(fd, events);
+          },
+          [](auto self, auto error) noexcept {
+            static_cast<Op *>(self)->cancel(error);
+          },
+          [](auto self) noexcept { delete static_cast<Op *>(self); },
+      };
+    }
+  };
+  struct AC_EMPTY_BASES AC_NOVTABLE write_operation : epoll_operation {
+    using base_type = epoll_operation;
+    using base_type::epoll_operation;
+
+    inline auto write(const details::raw_socket_t fd,
                       const uint32_t events) noexcept {
-      return on_read ? on_read(self, fd, events) : true;
-    }
-    void call_cancel(const Status &error) noexcept {
-      if (on_cancel)
-        on_cancel(self, error);
+      return this->call_on_op(fd, events);
     }
 
     template <typename Op, typename... Args>
-    static read_op make(Args &&...args) {
-      auto *op = new Op(std::forward<Args>(args)...);
-      read_op out;
-      out.self = op;
-      out.on_read = [](void *self,
-                       const details::raw_socket_t fd,
-                       const uint32_t events) noexcept {
-        return static_cast<Op *>(self)->on_read(fd, events);
+    static write_operation make(Args &&...args) {
+      return {
+          new Op(std::forward<Args>(args)...),
+          [](auto self, auto fd, auto events) noexcept {
+            return static_cast<Op *>(self)->on_write(fd, events);
+          },
+          [](auto self, auto error) noexcept {
+            static_cast<Op *>(self)->cancel(error);
+          },
+          [](auto self) noexcept { delete static_cast<Op *>(self); },
       };
-      out.on_cancel = [](void *self, const Status &error) noexcept {
-        static_cast<Op *>(self)->cancel(error);
-      };
-      out.on_destroy = [](void *self) noexcept {
-        delete static_cast<Op *>(self);
-      };
-      return out;
     }
   };
-  struct AC_EMPTY_BASES write_op {
-    using on_fn = bool (*)(void *, details::raw_socket_t, uint32_t) noexcept;
-    using cancel_fn = void (*)(void *, const Status &) noexcept;
-    using destroy_fn = void (*)(void *) noexcept;
-
-    void *self = nullptr;
-    on_fn on_write = nullptr;
-    cancel_fn on_cancel = nullptr;
-    destroy_fn on_destroy = nullptr;
-
-    write_op() noexcept = default;
-    write_op(const write_op &) = delete;
-    write_op &operator=(const write_op &) = delete;
-    write_op(write_op &&that) noexcept
-        : self(std::exchange(that.self, nullptr)),
-          on_write(std::exchange(that.on_write, nullptr)),
-          on_cancel(std::exchange(that.on_cancel, nullptr)),
-          on_destroy(std::exchange(that.on_destroy, nullptr)) {}
-    write_op &operator=(write_op &&that) noexcept {
-      if (this != &that) {
-        reset();
-        self = std::exchange(that.self, nullptr);
-        on_write = std::exchange(that.on_write, nullptr);
-        on_cancel = std::exchange(that.on_cancel, nullptr);
-        on_destroy = std::exchange(that.on_destroy, nullptr);
-      }
-      return *this;
-    }
-    ~write_op() { reset(); }
-
-    void reset() noexcept {
-      if (on_destroy && self)
-        on_destroy(self);
-      AC_DEBUG_ONLY([&] {
-        self = nullptr;
-        on_write = nullptr;
-        on_cancel = nullptr;
-        on_destroy = nullptr;
-      }();)
-    }
-    bool call_on_write(const details::raw_socket_t fd,
-                       const uint32_t events) noexcept {
-      return on_write ? on_write(self, fd, events) : true;
-    }
-    void call_cancel(const Status &error) noexcept {
-      if (on_cancel)
-        on_cancel(self, error);
-    }
-
-    template <typename Op, typename... Args>
-    static write_op make(Args &&...args) {
-      auto *op = new Op(std::forward<Args>(args)...);
-      write_op out;
-      out.self = op;
-      out.on_write = [](void *self,
-                        const details::raw_socket_t fd,
-                        const uint32_t events) noexcept {
-        return static_cast<Op *>(self)->on_write(fd, events);
-      };
-      out.on_cancel = [](void *self, const Status &error) noexcept {
-        static_cast<Op *>(self)->cancel(error);
-      };
-      out.on_destroy = [](void *self) noexcept {
-        delete static_cast<Op *>(self);
-      };
-      return out;
-    }
-  };
-
-  struct epoll_socket_state {
-    raw_socket_t fd = invalid_socket;
+  struct AC_EMPTY_BASES AC_NOVTABLE epoll_socket_state {
+    raw_socket_t fd;
     std::mutex mutex;
-    std::deque<read_op> read_ops;
-    std::deque<write_op> write_ops;
+    std::deque<read_operation> read_ops;
+    std::deque<write_operation> write_ops;
     std::atomic_flag busy = ATOMIC_FLAG_INIT;
     std::atomic<bool> non_blocking{false};
     bool closing = false;
@@ -431,7 +353,7 @@ protected:
     explicit epoll_socket_state(const raw_socket_t handle) noexcept
         : fd(handle) {
       dispatcher.self = this;
-      dispatcher.dispatch = &epoll_socket_state::dispatch;
+      dispatcher.dispatch = epoll_socket_state::dispatch;
     }
 
     Status ensure_nonblocking() noexcept {
@@ -447,11 +369,12 @@ protected:
     }
     template <typename Op, typename... Args>
     void enqueue_read(Args &&...args) noexcept {
-      read_op op = read_op::template make<Op>(std::forward<Args>(args)...);
+      read_operation op =
+          read_operation::template make<Op>(std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op.call_cancel(UnavailableError("socket closed"));
+          op.cancel(OkStatus("socket closed"));
           return;
         }
         read_ops.emplace_back(std::move(op));
@@ -460,11 +383,12 @@ protected:
     }
     template <typename Op, typename... Args>
     void enqueue_write(Args &&...args) noexcept {
-      write_op op = write_op::template make<Op>(std::forward<Args>(args)...);
+      write_operation op =
+          write_operation::template make<Op>(std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op.call_cancel(UnavailableError("socket closed"));
+          op.cancel(OkStatus("socket closed"));
           return;
         }
         write_ops.emplace_back(std::move(op));
@@ -472,8 +396,8 @@ protected:
       on_event(EPOLLOUT);
     }
     void cancel_all(const Status &error) noexcept {
-      std::deque<read_op> reads;
-      std::deque<write_op> writes;
+      std::deque<read_operation> reads;
+      std::deque<write_operation> writes;
       {
         std::scoped_lock lock(mutex);
         if (closing)
@@ -482,10 +406,8 @@ protected:
         reads.swap(read_ops);
         writes.swap(write_ops);
       }
-      for (auto &op : reads)
-        op.call_cancel(error);
-      for (auto &op : writes)
-        op.call_cancel(error);
+      std::ranges::for_each(reads, [&error](auto &&op) { op.cancel(error); });
+      std::ranges::for_each(writes, [&error](auto &&op) { op.cancel(error); });
     }
 
     static void dispatch(void *self, const uint32_t events) noexcept {
@@ -511,7 +433,7 @@ protected:
 
     void drain_reads(const uint32_t events) noexcept {
       for (;;) {
-        read_op op;
+        read_operation op;
         {
           std::scoped_lock lock(mutex);
           if (read_ops.empty())
@@ -519,7 +441,7 @@ protected:
           op = std::move(read_ops.front());
           read_ops.pop_front();
         }
-        if (!op.call_on_read(fd, events)) {
+        if (!op.read(fd, events)) {
           std::scoped_lock lock(mutex);
           read_ops.emplace_front(std::move(op));
           break;
@@ -528,7 +450,7 @@ protected:
     }
     void drain_writes(const uint32_t events) noexcept {
       for (;;) {
-        write_op op;
+        write_operation op;
         {
           std::scoped_lock lock(mutex);
           if (write_ops.empty())
@@ -536,7 +458,7 @@ protected:
           op = std::move(write_ops.front());
           write_ops.pop_front();
         }
-        if (!op.call_on_write(fd, events)) {
+        if (!op.write(fd, events)) {
           std::scoped_lock lock(mutex);
           write_ops.emplace_front(std::move(op));
           break;
@@ -555,6 +477,99 @@ protected:
   mutable std::unique_ptr<epoll_socket_state> linux_state_;
 #endif
 };
+template <typename Protocol>
+inline socket_base<Protocol>::socket_base(
+    io_context *context,
+    const native_handle_type handle,
+    std::optional<endpoint_type> remote_endpoint) noexcept
+    : context_(context), handle_(handle),
+      remote_endpoint_(std::move(remote_endpoint)) {
+  if (handle_ == invalid_socket)
+    return;
+  AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
+  int opt = 1;
+  ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#ifdef __linux__
+  linux_state_ = std::make_unique<epoll_socket_state>(handle_);
+  context_
+      ->associate(handle_, reinterpret_cast<size_t>(&linux_state_->dispatcher))
+      .log();
+#else
+  context_->associate(handle_).log();
+#endif
+}
+template <typename Protocol>
+inline socket_base<Protocol>::socket_base(socket_base &&that) noexcept
+    : context_(std::exchange(that.context_, nullptr)),
+      handle_(std::exchange(that.handle_, invalid_socket)),
+      remote_endpoint_(std::move(that.remote_endpoint_))
+#ifdef __linux__
+      ,
+      linux_state_(std::exchange(that.linux_state_, nullptr))
+#endif
+{
+}
+template <typename Protocol>
+inline socket_base<Protocol> &
+socket_base<Protocol>::operator=(socket_base &&that) noexcept {
+  if (this != &that) {
+    close().log();
+    context_ = std::exchange(that.context_, nullptr);
+    handle_ = std::exchange(that.handle_, invalid_socket);
+    remote_endpoint_ = std::move(that.remote_endpoint_);
+#ifdef __linux__
+    linux_state_ = std::exchange(that.linux_state_, nullptr);
+#endif
+  }
+  return *this;
+}
+template <typename Protocol>
+StatusOr<typename socket_base<Protocol>::socket_type> inline socket_base<
+    Protocol>::v4(io_context *context) {
+  if (auto self = socket_type(context, ip::family::v4); self.is_valid())
+      [[likely]]
+    return {std::move(self)};
+  else [[unlikely]]
+    return {details::make_ctor_error()};
+}
+template <typename Protocol>
+StatusOr<typename socket_base<Protocol>::socket_type> inline socket_base<
+    Protocol>::v6(io_context *context) {
+  if (auto self = socket_type(context, ip::family::v6); self.is_valid())
+      [[likely]]
+    return {std::move(self)};
+  else [[unlikely]]
+    return {details::make_ctor_error()};
+}
+template <typename Protocol>
+inline Status socket_base<Protocol>::close() const {
+  if (is_valid()) [[likely]] {
+#ifdef __linux__
+    if (linux_state_)
+      linux_state_->cancel_all(OkStatus("socket closed"));
+    if (context_ && context_->native_handle() != details::epoll::invalid)
+      details::epoll::del(context_->native_handle(), handle_);
+#endif
+    return details::closesocket(handle_);
+  } else
+    return {};
+}
+template <typename Protocol>
+inline Status socket_base<Protocol>::bind(const endpoint_type &endpoint) {
+  if (details::bind(handle_, endpoint.data(), endpoint.size()) != -1) [[likely]]
+    return {};
+  else [[unlikely]]
+    return details::make_bind_error();
+}
+template <typename Protocol>
+inline Status socket_base<Protocol>::connect(const endpoint_type &endpoint) {
+  if (details::connect(handle_, endpoint.data(), endpoint.size()) != -1)
+      [[likely]] {
+    remote_endpoint_.emplace(endpoint);
+    return {};
+  } else [[unlikely]]
+    return details::make_connect_error();
+}
 } // namespace auxilia::net::details
 namespace auxilia::net {
 template <typename FakeT> class socket {
@@ -576,10 +591,7 @@ public:
 
 public:
   Status listen(const int backlog = 0) {
-    if (details::listen(handle_, backlog) != -1) [[likely]]
-      return {};
-    else [[unlikely]]
-      return details::make_listen_error();
+    return details::listen(handle_, backlog);
   }
 
   struct {
@@ -749,17 +761,9 @@ private:
     base_type::finish_send(op, bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation {
-    socket_type *self = nullptr;
-    recv_handler handler;
-    bytes_type buffer;
-
-    inline recv_operation(socket_type *const self,
-                          recv_handler &&handler,
-                          const size_t max_size) noexcept
-        : self(self), handler(std::move(handler)) {
-      buffer.resize(max_size);
-    }
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
+      : base_type::epoll_recv_base<recv_handler> {
+    using epoll_recv_base::epoll_recv_base;
 
     bool on_read(const details::raw_socket_t fd,
                  const uint32_t events) noexcept {
@@ -768,37 +772,24 @@ private:
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
           return false;
-        if (handler)
-          handler(details::make_recv_error());
+        (*this)(details::make_recv_error());
         return true;
       }
       buffer.resize(static_cast<size_t>(res));
-      if (handler)
-        handler(std::move(buffer));
+      (*this)(std::move(buffer));
       return true;
     }
-    void cancel(const Status &error) noexcept {
-      if (handler)
-        handler(error);
-    }
+    void cancel(const Status &error) noexcept { (*this)(error); }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation {
-    socket_type *self = nullptr;
-    send_handler handler;
-    bytes_type buffer;
-    size_t offset = 0;
-
-    inline send_operation(socket_type *const self,
-                          send_handler &&handler,
-                          bytes_type &&buffer) noexcept
-        : self(self), handler(std::move(handler)), buffer(std::move(buffer)) {}
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation
+      : base_type::epoll_send_base<send_handler> {
+    using epoll_send_base::epoll_send_base;
 
     bool on_write(const details::raw_socket_t fd,
                   const uint32_t events) noexcept {
       (void)events;
       if (buffer.empty()) {
-        if (handler)
-          handler(static_cast<size_t>(0));
+        (*this)(static_cast<size_t>(0));
         return true;
       }
       const auto remaining = buffer.size() - offset;
@@ -807,21 +798,16 @@ private:
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
           return false;
-        if (handler)
-          handler(details::make_send_error());
+        (*this)(details::make_send_error());
         return true;
       }
       offset += static_cast<size_t>(res);
       if (offset < buffer.size())
         return false;
-      if (handler)
-        handler(static_cast<size_t>(buffer.size()));
+      (*this)(static_cast<size_t>(buffer.size()));
       return true;
     }
-    void cancel(const Status &error) noexcept {
-      if (handler)
-        handler(error);
-    }
+    void cancel(const Status &error) noexcept { (*this)(error); }
   };
 #endif
 };
@@ -1014,19 +1000,17 @@ private:
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation {
-    socket_type *self = nullptr;
-    recv_handler handler;
-    bytes_type buffer;
-    details::sockaddr_storage_t storage{};
-    details::socket_len_type storage_len = sizeof(details::socket_storage_type);
-
+  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
+      : base_type::epoll_recv_base<recv_handler> {
+    using epoll_recv_base::epoll_recv_base;
     inline recv_operation(socket_type *const self,
-                          recv_handler &&handler,
+                          base_type::handler_type &&handler,
                           const size_t max_size) noexcept
-        : self(self), handler(std::move(handler)) {
-      buffer.resize(max_size);
-    }
+        : epoll_recv_base(self, std::move(handler), max_size), storage({}),
+          storage_len(sizeof(details::socket_storage_type)) {}
+
+    details::sockaddr_storage_t storage;
+    details::socket_len_type storage_len;
 
     bool on_read(const details::raw_socket_t fd,
                  const uint32_t events) noexcept {
@@ -1042,78 +1026,64 @@ private:
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
           return false;
-        if (handler)
-          handler(details::make_recv_error(), endpoint_type::unspecified());
+        (*this)(details::make_recv_error(), endpoint_type::unspecified());
         return true;
       }
       if (storage_len != sizeof(details::sockaddr_in4_t) &&
           storage_len != sizeof(details::sockaddr_in6_t)) {
-        if (handler)
-          handler(UnavailableError(
-                      "Unknown address family of the accepted socket."),
-                  endpoint_type::unspecified());
+        (*this)(
+            UnavailableError("Unknown address family of the accepted socket."),
+            endpoint_type::unspecified());
         return true;
       }
       buffer.resize(static_cast<size_t>(res));
       endpoint_type sender(std::move(storage), storage_len);
-      if (self)
-        self->remote_endpoint_.emplace(sender);
-      if (handler)
-        handler(std::move(buffer), std::move(sender));
+      AC_RUNTIME_ASSERT(self)
+      self->remote_endpoint_.emplace(sender);
+      (*this)(std::move(buffer), std::move(sender));
       return true;
     }
     void cancel(const Status &error) noexcept {
-      if (handler)
-        handler(error, endpoint_type::unspecified());
+      (*this)(error, endpoint_type::unspecified());
     }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation {
-    socket_type *self = nullptr;
-    send_handler handler;
-    bytes_type buffer;
+  struct AC_EMPTY_BASES AC_NOVTABLE send_operation
+      : base_type::epoll_send_base<send_handler> {
     endpoint_type endpoint;
-    size_t offset = 0;
 
     inline send_operation(socket_type *const self,
                           send_handler &&handler,
                           bytes_type &&buffer,
                           const endpoint_type &endpoint) noexcept
-        : self(self), handler(std::move(handler)), buffer(std::move(buffer)),
+        : epoll_send_base(self, std::move(handler), std::move(buffer)),
           endpoint(endpoint) {}
 
     bool on_write(const details::raw_socket_t fd,
                   const uint32_t events) noexcept {
       (void)events;
       if (buffer.empty()) {
-        if (handler)
-          handler(static_cast<size_t>(0));
+        (*this)(0);
         return true;
       }
-      const auto remaining = buffer.size() - offset;
       const auto res = details::send(fd,
                                      buffer.data() + offset,
-                                     remaining,
+                                     buffer.size() - offset,
                                      0,
                                      endpoint.data(),
                                      endpoint.size());
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
           return false;
-        if (handler)
-          handler(details::make_send_error());
+        (*this)(details::make_send_error());
         return true;
       }
       offset += static_cast<size_t>(res);
       if (offset < buffer.size())
         return false;
-      if (handler)
-        handler(static_cast<size_t>(buffer.size()));
+      (*this)(static_cast<size_t>(buffer.size()));
       return true;
     }
-    void cancel(const Status &error) noexcept {
-      if (handler)
-        handler(error);
-    }
+    void cancel(const Status &error) noexcept { (*this)(error); }
   };
 #endif
 

@@ -260,7 +260,7 @@ private:
   }
 
 public:
-  auto parse(const int argc, char **argv) {
+  auto parse(const int argc, const char **argv) {
     AC_PRECONDITION(argv, "argv is null")
     AC_PRECONDITION(argc > 0, "argc is not positive")
     std::vector<std::string_view> args;
@@ -269,6 +269,9 @@ public:
       args.emplace_back(argv[i]);
     }
     return parse(args);
+  }
+  auto parse(const int argc, char **argv) {
+    return parse(argc, const_cast<const char **>(argv));
   }
   auto parse(const std::span<const std::string_view> args) -> bool {
     if (!error_msgs_.empty()) {

@@ -40,8 +40,12 @@ AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
       std::to_underlying(family), std::to_underlying(socket_kind), protocol);
 }
 
-AC_FORCEINLINE inline auto listen(const raw_socket_t s, const int backlog = 0) {
-  return ::listen(s, backlog);
+AC_FORCEINLINE inline Status listen(const raw_socket_t s,
+                                    const int backlog = 0) {
+  if (::listen(s, backlog) != -1) [[likely]]
+    return {};
+  else
+    return details::make_listen_error();
 }
 AC_FORCEINLINE inline auto recv(const raw_socket_t s,
                                 char *const buf,
@@ -66,8 +70,11 @@ AC_FORCEINLINE inline auto send(const raw_socket_t s,
                                 const socket_len_type tolen = 0) {
   return ::sendto(s, buf, len, flags, to, tolen); // NOLINT
 }
-AC_FORCEINLINE inline auto closesocket(const raw_socket_t s) {
-  return ::close(s);
+AC_FORCEINLINE inline Status closesocket(const raw_socket_t s) {
+  if (::close(s) != -1) [[likely]]
+    return {};
+  else
+    return make_close_error();
 }
 
 using ::accept;
