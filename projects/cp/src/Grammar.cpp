@@ -81,7 +81,7 @@ bool Grammar::Piece::_do_nullable(Grammar *myGrammar) {
   // satisfies the cond
   return nullable_.emplace(sr::any_of(rhs_ | rv::as_const, isRhsElemNullable));
 }
-auto Grammar::Piece::to_string(FormatPolicy policy) const -> string_type {
+auto Grammar::Piece::to_string(FormatPolicy) const -> string_type {
   return (lhs_ + (" -> "))
       .append_range(
           rhs_ //
@@ -270,7 +270,7 @@ auto Grammar::_do_process(std::vector<Token> &&tokens) {
   // Statements are separated by semicolons.
   // Everything before a semicolon is part of the same statement.
   // TODO: legacy, no need to use `chunk_by` now.
-  constexpr auto stmtSep = [](auto &&a, auto &&b) {
+  constexpr auto stmtSep = [](auto &&a, auto &&) {
     return !a.is_type(kSemicolon);
   };
 

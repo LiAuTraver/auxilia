@@ -45,6 +45,7 @@ B -> b;
 [{"$"}, {"b"}, {"$"}]
 )",
     .nullability = R"([false, true, false])",
+    .tests = {},
 };
 constexpr auto trivial = Answer{
     .rules = R"(
@@ -61,6 +62,7 @@ E -> V
 [{"$"}, {"assign"}, {"$"}]
 )",
     .nullability = R"([false, false, false])",
+    .tests = {},
 };
 
 auto getFirstSet(auto &&str) {

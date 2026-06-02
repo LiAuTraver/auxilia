@@ -11,6 +11,10 @@
 #  include <type_traits>
 #  include <utility>
 
+#  if __cpp_lib_expected >= 202211L
+#    include <expected>
+#  endif
+
 #  include "auxilia/base/config.hpp"
 #  include "auxilia/base/format.hpp"
 #  include "auxilia/meta/Monostate.hpp"
@@ -31,7 +35,9 @@ using ::std::in_place_t;
 /// @note `absl::StatusOr` class is very optimized, yet comes with a
 /// not-really-flexible api. It's recommended to use it rather than this
 /// `StatusOr` if performance matters more.
-template <typename Ty> class StatusOr : public Status {
+template <typename Ty>
+class AC_NODISCARD_REASON("returned value with status should not be ignored")
+    StatusOr : public Status {
   static_assert(Storable<Ty>,
                 "StatusOr should not be used with non-storable types.");
   static_assert(!is_specialization_v<Ty, StatusOr>,
@@ -59,8 +65,13 @@ public:
       : base_type(std::move(status)), my_value(std::move(value)) {}
   AC_NODISCARD inline StatusOr(const StatusOr &that)
       : base_type(that), my_value(that.my_value) {}
-  AC_NODISCARD inline StatusOr(StatusOr &&that) noexcept
-      : base_type(std::move(that)), my_value(std::move(that.my_value)) {}
+  AC_NODISCARD inline StatusOr(StatusOr &&that) noexcept {
+    my_value = std::move(that.my_value);
+    my_code = that.my_code;
+    my_message = std::move(that.my_message);
+    that.my_code = kMovedFrom;
+    AC_DEBUG_ONLY(that.my_message = "status accessed after moved from.");
+  }
   inline StatusOr &operator=(const StatusOr &that) {
     base_type::operator=(that);
     my_value = that.my_value;
@@ -221,7 +232,12 @@ public:
         "Method `" #_name_ "` is designed to consume the StatusOr, "           \
         "but it is called on an lvalue. Please call it on an rvalue "          \
         "or use the corresponding method that does not consume the "           \
-        "StatusOr.");
+        "StatusOr.");                                                          \
+    AC_DEFER {                                                                 \
+      self.my_code = kMovedFrom;                                               \
+      AC_DEBUG_ONLY(self.my_message = "status accessed after moved from.");    \
+    };
+
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   /// @brief Calls the function `f` with the value stored in the StatusOr
   /// if it is OK, otherwise do nothing and return the StatusOr itself.
@@ -427,7 +443,6 @@ public:
              std::is_void_v<
                  std::invoke_result_t<decltype(CPO), value_type, Args...>>
   auto transform(this auto &&self, Args &&...args) -> StatusOr<Monostate> {
-    using F = decltype(CPO);
     AC_STATUSOR_CONSUME_METHOD(transform)
     if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
@@ -569,7 +584,6 @@ public:
              (!std::is_void_v<
                  std::invoke_result_t<decltype(CPO), base_type, Args...>>)
   auto transform_error(this auto &&self, Args &&...args) -> StatusOr {
-    using F = decltype(CPO);
     static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
     if (self.ok()) {
       return std::forward<decltype(self)>(self);
@@ -584,7 +598,6 @@ public:
              std::is_void_v<
                  std::invoke_result_t<decltype(CPO), base_type, Args...>>
   auto transform_error(this auto &&self, Args &&...args) -> StatusOr {
-    using F = decltype(CPO);
     AC_STATUSOR_CONSUME_METHOD(transform_error)
     if (!self.ok()) {
       std::invoke(CPO,
@@ -736,6 +749,17 @@ public:
       return std::nullopt;
     }
   }
+#  if __cpp_lib_expected >= 202211L
+  constexpr inline auto to_expected(this auto &&self) AC_NOEXCEPT
+      -> std::expected<value_type, base_type> {
+    AC_STATUSOR_CONSUME_METHOD(to_expected)
+    if (self.ok()) {
+      return std::expected(std::forward<decltype(self)>(self).my_value);
+    } else {
+      return std::unexpected(std::forward<decltype(self)>(self).as_status());
+    }
+  }
+#  endif
 
 #  undef AC_STATUSOR_CONSUME_METHOD
 #  undef AC_STATUSOR_DELETE
@@ -750,7 +774,7 @@ public:
       std::swap(my_value, that.my_value);
       return *this;
     } else {
-      always_false<value_type>("value_type is not swappable");
+      always_false<value_type>("is not swappable");
     }
   }
 

@@ -12,6 +12,8 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <cstring>
+#include <functional>
 
 #include "auxilia/base/macros.hpp"
 #include "auxilia/base/format.hpp"
@@ -21,13 +23,10 @@
 
 #include "os.hpp"
 #include "ip.hpp"
-#include "os/windows/iocp.hpp"
 #include "protocol.hpp"
-#include <cstring>
-#include <functional>
-
 #include "io_context.hpp"
 #include "endpoint.hpp"
+
 namespace auxilia::net::details {
 
 template <typename Protocol> class socket_base : Printable {
@@ -35,22 +34,23 @@ template <typename Protocol> class socket_base : Printable {
 public:
   using protocol_type = Protocol;
   using native_handle_type = details::raw_socket_t;
-  using endpoint_type = protocol_type::endpoint_type;
+  using endpoint_type = protocol_type::endpoint;
   using address_type = ip::address;
   using bytes_view_type = std::string_view;
   using bytes_type = std::string; // a vec of bytes
-  using socket_type = protocol_type::socket_type;
+  using socket_type = protocol_type::socket;
   static_assert(InternetProtocol<protocol_type>);
   static_assert(container_traits<bytes_type>::is_reservable);
   static_assert(container_traits<bytes_type>::is_contiguous);
 
 public:
-  inline socket_base(
+  inline explicit(false) socket_base(
       io_context *context = nullptr,
       native_handle_type handle = invalid_socket,
       std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept;
-  inline socket_base(io_context &context,
-                     const native_handle_type handle = invalid_socket) noexcept
+  inline explicit(false)
+      socket_base(io_context &context,
+                  const native_handle_type handle = invalid_socket) noexcept
       : socket_base(&context, handle) {}
   inline socket_base(io_context *context, const ip::family family) noexcept
       : socket_base(context,
@@ -76,20 +76,24 @@ public:
   inline static StatusOr<socket_type> v6(io_context *context = nullptr);
 
 public:
-  inline Status close() const;
-  constexpr auto native_handle() const noexcept { return handle_; }
-  constexpr auto context() const noexcept { return context_; }
-  constexpr auto is_valid() const noexcept {
+  AC_NODISCARD inline Status close() const;
+  AC_NODISCARD constexpr auto native_handle() const noexcept { return handle_; }
+  AC_NODISCARD constexpr auto context() const noexcept { return context_; }
+  AC_NODISCARD constexpr auto is_valid() const noexcept {
     return handle_ != details::invalid_socket;
   }
   template <ip::family family = ip::family::v4>
-  inline auto bind(const endpoint_type::port_type port = 0) {
+  AC_NODISCARD inline auto bind(const endpoint_type::port_type port = 0) {
     return bind(endpoint_type::template unspecified<family>(port));
   }
-  Status bind(const endpoint_type &endpoint);
+  AC_NODISCARD Status bind(const endpoint_type &endpoint);
 
-  inline auto remote_endpoint() const noexcept { return remote_endpoint_; }
-  auto to_string(const FormatPolicy policy) const { return Format(handle_); }
+  AC_NODISCARD inline auto remote_endpoint() const noexcept {
+    return remote_endpoint_;
+  }
+  AC_NODISCARD auto to_string(const FormatPolicy) const {
+    return Format(handle_);
+  }
 
 public:
   Status connect(const endpoint_type &endpoint);
@@ -127,7 +131,7 @@ protected:
 #ifdef _WIN32
   template <typename Handler>
   struct AC_EMPTY_BASES AC_NOVTABLE iocp_base : CallableMixin,
-                                                details::iocp_operation {
+                                                details::iocp::operation {
     static_assert(
         is_specialization_v<Handler, std::move_only_function>,
         "only support move only function right now, "
@@ -141,7 +145,7 @@ protected:
     socket_type *self;
 
   protected:
-    using iocp_operation::iocp_operation;
+    using iocp::operation::operation;
   };
   template <typename Handler>
   struct AC_EMPTY_BASES AC_NOVTABLE iocp_send_base : iocp_base<Handler> {
@@ -183,7 +187,8 @@ protected:
   template <typename Op, typename StartFn, typename ErrorFn>
   static Status
   start_overlapped(Op *op, StartFn &&start_fn, ErrorFn &&error_fn) {
-    if (start_fn() == SOCKET_ERROR && ::WSAGetLastError() != WSA_IO_PENDING) {
+    if (start_fn() == details::socket_error &&
+        ::WSAGetLastError() != WSA_IO_PENDING) {
       delete op;
       return error_fn();
     }
@@ -466,6 +471,8 @@ protected:
       }
     }
   };
+#else
+#  error unsupported
 #endif
 
 protected:
@@ -474,7 +481,7 @@ protected:
   /// FIXME: race condition in async operations
   std::optional<endpoint_type> remote_endpoint_;
 #ifdef __linux__
-  mutable std::unique_ptr<epoll_socket_state> linux_state_;
+  mutable std::unique_ptr<epoll_socket_state> epoll_state_;
 #endif
 };
 template <typename Protocol>
@@ -488,16 +495,18 @@ inline socket_base<Protocol>::socket_base(
     return;
   AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
 #ifdef __linux__
-  int opt = 1;
+  constexpr int opt = 1;
   ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-  linux_state_ = std::make_unique<epoll_socket_state>(handle_);
+  epoll_state_ = std::make_unique<epoll_socket_state>(handle_);
   context_
-      ->associate(handle_, reinterpret_cast<size_t>(&linux_state_->dispatcher))
+      ->associate(handle_, reinterpret_cast<size_t>(&epoll_state_->dispatcher))
       .log();
-#else
-  const char opt = 1;
+#elif defined(_WIN32)
+  constexpr char opt = 1;
   ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
   context_->associate(handle_).log();
+#else
+#  error unsupported
 #endif
 }
 template <typename Protocol>
@@ -507,7 +516,7 @@ inline socket_base<Protocol>::socket_base(socket_base &&that) noexcept
       remote_endpoint_(std::move(that.remote_endpoint_))
 #ifdef __linux__
       ,
-      linux_state_(std::exchange(that.linux_state_, nullptr))
+      epoll_state_(std::exchange(that.epoll_state_, nullptr))
 #endif
 {
 }
@@ -520,7 +529,7 @@ socket_base<Protocol>::operator=(socket_base &&that) noexcept {
     handle_ = std::exchange(that.handle_, invalid_socket);
     remote_endpoint_ = std::move(that.remote_endpoint_);
 #ifdef __linux__
-    linux_state_ = std::exchange(that.linux_state_, nullptr);
+    epoll_state_ = std::exchange(that.epoll_state_, nullptr);
 #endif
   }
   return *this;
@@ -547,8 +556,8 @@ template <typename Protocol>
 inline Status socket_base<Protocol>::close() const {
   if (is_valid()) [[likely]] {
 #ifdef __linux__
-    if (linux_state_)
-      linux_state_->cancel_all(OkStatus("socket closed"));
+    if (epoll_state_)
+      epoll_state_->cancel_all(OkStatus("socket closed"));
     if (context_ && context_->native_handle() != details::epoll::invalid)
       details::epoll::del(context_->native_handle(), handle_);
 #endif
@@ -616,8 +625,7 @@ protected:
     buffer.resize_and_overwrite(
         max_size,
         [this, &success](char *buf, const size_t buf_size) noexcept -> size_t {
-          auto res = details::recv(handle_, buf, buf_size, 0);
-          if (res < 0) {
+          if (auto res = details::recv(handle_, buf, buf_size); res < 0) {
             success = false;
             return 0;
           } else
@@ -637,7 +645,7 @@ public:
     details::socket_storage_type storage;
     if (auto acc = details::accept(
             handle_, reinterpret_cast<details::sockaddr_t *>(&storage), &len);
-        acc == -1)
+        acc == details::invalid_socket)
       return details::make_accept_error();
     else if (len == sizeof(details::sockaddr_in4_t) ||
              len == sizeof(details::sockaddr_in6_t))
@@ -678,17 +686,15 @@ public:
         },
         details::make_recv_error);
 #elif defined(__linux__)
-    if (!context_ || !linux_state_ || !is_valid())
+    if (!context_ || !epoll_state_ || !is_valid())
       return UnavailableError("io_context is not available.");
-    if (auto status = linux_state_->ensure_nonblocking(); !status)
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
       return status;
-    linux_state_->template enqueue_read<recv_operation>(
+    epoll_state_->template enqueue_read<recv_operation>(
         this, std::move(handler), max_size);
     return {};
 #else
-    (void)max_size;
-    (void)handler;
-    return UnavailableError("async_recv is not supported.");
+#  error unsupported
 #endif
   }
 
@@ -715,18 +721,16 @@ public:
         },
         details::make_recv_error);
 #elif defined(__linux__)
-    if (!context_ || !linux_state_ || !is_valid())
+    if (!context_ || !epoll_state_ || !is_valid())
       return UnavailableError("io_context is not available.");
-    if (auto status = linux_state_->ensure_nonblocking(); !status)
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
       return status;
 
-    linux_state_->template enqueue_write<send_operation>(
+    epoll_state_->template enqueue_write<send_operation>(
         this, std::move(handler), std::move(bytes));
     return {};
 #else
-    (void)bytes;
-    (void)handler;
-    return UnavailableError("async_send is not supported.");
+#  error unsupported
 #endif
   }
 
@@ -741,9 +745,9 @@ private:
     using iocp_send_base::iocp_send_base;
   };
 
-  static void handle_recv(details::iocp_operation *base,
-                          DWORD bytes,
-                          DWORD error) noexcept {
+  static void handle_recv(details::iocp::operation *base,
+                          const DWORD bytes,
+                          const DWORD error) noexcept {
     auto *op = static_cast<recv_operation *>(base);
     AC_DEFER { delete op; };
     if (error != ERROR_SUCCESS) {
@@ -756,9 +760,9 @@ private:
     (*op)(std::move(op->buffer));
   }
 
-  static void handle_send(details::iocp_operation *base,
-                          DWORD bytes,
-                          DWORD error) noexcept {
+  static void handle_send(details::iocp::operation *base,
+                          const DWORD bytes,
+                          const DWORD error) noexcept {
     auto *op = static_cast<send_operation *>(base);
     base_type::finish_send(op, bytes, error);
   }
@@ -811,6 +815,8 @@ private:
     }
     void cancel(const Status &error) noexcept { (*this)(error); }
   };
+#else
+#  error unsupported
 #endif
 };
 template <> class socket<udp> : public details::socket_base<udp> {
@@ -881,17 +887,15 @@ public:
         },
         details::make_recv_error);
 #elif defined(__linux__)
-    if (!context_ || !linux_state_ || !is_valid())
+    if (!context_ || !epoll_state_ || !is_valid())
       return UnavailableError("io_context is not available.");
-    if (auto status = linux_state_->ensure_nonblocking(); !status)
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
       return status;
-    linux_state_->template enqueue_read<recv_operation>(
+    epoll_state_->template enqueue_read<recv_operation>(
         this, std::move(handler), max_size);
     return {};
 #else
-    (void)max_size;
-    (void)handler;
-    return UnavailableError("async_recv_from is not supported.");
+#  error unsupported
 #endif
   }
 
@@ -925,19 +929,16 @@ public:
         },
         details::make_recv_error);
 #elif defined(__linux__)
-    if (!context_ || !linux_state_ || !is_valid())
+    if (!context_ || !epoll_state_ || !is_valid())
       return UnavailableError("io_context is not available.");
-    if (auto status = linux_state_->ensure_nonblocking(); !status)
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
       return status;
 
-    linux_state_->template enqueue_write<send_operation>(
+    epoll_state_->template enqueue_write<send_operation>(
         this, std::move(handler), std::move(bytes), endpoint);
     return {};
 #else
-    (void)bytes;
-    (void)endpoint;
-    (void)handler;
-    return UnavailableError("async_send_to is not supported.");
+#  error unsupported
 #endif
   }
 
@@ -953,7 +954,7 @@ private:
   struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
       : base_type::template iocp_recv_base<recv_handler> {
     inline recv_operation(socket_type *const self,
-                          complete_fn fn,
+                          const complete_fn fn,
                           recv_handler &&handler,
                           const size_t max_size) noexcept
         : iocp_recv_base(self, fn, std::move(handler), max_size), storage({}),
@@ -964,7 +965,7 @@ private:
   struct AC_EMPTY_BASES AC_NOVTABLE send_operation
       : base_type::template iocp_send_base<send_handler> {
     inline send_operation(socket_type *const self,
-                          complete_fn fn,
+                          const complete_fn fn,
                           send_handler &&handler,
                           bytes_type &&buffer,
                           const endpoint_type &endpoint) noexcept
@@ -973,7 +974,7 @@ private:
     endpoint_type endpoint;
   };
 
-  static void handle_recv(details::iocp_operation *base,
+  static void handle_recv(details::iocp::operation *base,
                           const DWORD bytes,
                           const DWORD error) noexcept {
     auto *op = static_cast<recv_operation *>(base);
@@ -996,7 +997,7 @@ private:
     (*op)(std::move(op->buffer), std::move(sender));
   }
 
-  static void handle_send(details::iocp_operation *base,
+  static void handle_send(details::iocp::operation *base,
                           const DWORD bytes,
                           const DWORD error) noexcept {
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);

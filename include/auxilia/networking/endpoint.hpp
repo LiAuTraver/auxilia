@@ -28,7 +28,7 @@ template <typename Protocol> class endpoint : Printable {
   };
 
 public:
-  using port_type = details::port_type;
+  using port_type = port_type;
   using protocol_type = Protocol;
 
 public:
@@ -36,7 +36,7 @@ public:
   constexpr endpoint(const ip::address_v4 &v4, const port_type port) noexcept {
     v4_.sin_family = std::to_underlying(ip::family::v4);
     v4_.sin_port = details::host2net(port);
-    v4_.sin_addr = v4; // endianess handled inside the conversion
+    v4_.sin_addr = v4; // endianness handled inside the conversion
     // should set paddings to zero
     std::ranges::fill(v4_.sin_zero, 0);
   }

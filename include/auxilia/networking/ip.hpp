@@ -92,7 +92,7 @@ public:
     return in4_addr;
   }
   constexpr auto to_bytes() const noexcept { return addr_; }
-  auto to_string(FormatPolicy policy) const -> string_type {
+  auto to_string(const FormatPolicy policy) const -> string_type {
     if (policy == FormatPolicy::kBrief)
       return Format(to_uint());
     else if (policy == FormatPolicy::kDefault) {
@@ -168,7 +168,7 @@ public:
   }
   static consteval auto family() noexcept { return family::v6; }
   constexpr auto scope_id() const noexcept { return scope_id_; }
-  auto to_string(FormatPolicy policy) const -> string_type {
+  auto to_string(const FormatPolicy policy) const -> string_type {
     if (policy == FormatPolicy::kBrief)
       return Format("{}, {}",
                     std::bit_cast<std::array<uint64_t, 2ULL>>(addr_),
@@ -244,7 +244,7 @@ public:
     else
       return v6_.native_handle();
   }
-  auto to_string(FormatPolicy policy) const -> string_type {
+  auto to_string(const FormatPolicy policy) const -> string_type {
     if (is_ipv4())
       return v4_.to_string(policy);
     else

@@ -67,8 +67,8 @@ TEST(Status, MoveAssignment) {
 }
 
 TEST(Status, Streaming) {
-  Status s = FailedPreconditionError("Failed precondition!");
+  Status s = FailedPreconditionError();
   std::stringstream ss;
   ss << s;
-  EXPECT_EQ(ss.str(), "Status 9: Failed precondition!");
+  EXPECT_EQ(ss.str(), "Failed Precondition: ");
 }

@@ -19,13 +19,11 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "auxilia/defines.hpp"
-#include "auxilia/networking/ip.hpp"
 #include "auxilia/networking/net.hpp"
 #include "auxilia/utility/program_options.hpp"
 #include "auxilia/utility/numbers.hpp"
 
 using namespace auxilia;
-namespace net = auxilia::net;
 
 struct options {
   bool server = false;
@@ -37,39 +35,39 @@ struct options {
 };
 
 static std::optional<options> parse_args(const int argc, const char **argv) {
-  auto parser = program_options::Global("chatroom", "0.0.1");
-  parser->add_option("--protocol", "", "protocol type")
+  auto parser = program_options::Local("chatroom", "0.0.1");
+  parser.add_option("--protocol", "", "protocol type")
       .nargs(1)
       .default_value("udp");
-  parser->add_option("--host", "", "server host")
+  parser.add_option("--host", "", "server host")
       .nargs(1)
       .default_value("127.0.0.1");
-  parser->add_option("--port", "", "server port")
+  parser.add_option("--port", "", "server port")
       .nargs(1)
       .default_value("65432");
-  parser->add_option("--workers", "", "number of worker threads")
+  parser.add_option("--workers", "", "number of worker threads")
       .nargs(1)
       .default_value("4");
-  parser->add_option("--name", "", "client name")
+  parser.add_option("--name", "", "client name")
       .nargs(1)
       .default_value("client");
-  parser->add_option("--server", "", "run in server mode").nargs(0);
-  parser->add_option("--client", "", "run in client mode").nargs(0);
+  parser.add_option("--server", "", "run in server mode").nargs(0);
+  parser.add_option("--client", "", "run in client mode").nargs(0);
 
   options opts{};
 
-  if (!parser->parse(argc, argv)) {
-    Println(parser->error_messages());
+  if (!parser.parse(argc, argv)) {
+    Println(parser.error_messages());
     return std::nullopt;
   }
   if (auto host = net::ip::address_v4::from_str(
-          *parser->get_option("--host")->value())) {
+          *parser.get_option("--host")->value())) {
     opts.host = *host;
   } else {
     std::move(host).log();
   }
 
-  auto port = parser->get_option("--port");
+  auto port = parser.get_option("--port");
   if (const auto num = to_integer<unsigned short>(*port->value()))
     opts.port = *num;
   else
@@ -77,7 +75,7 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
             *port->value(),
             std::make_error_code(num.error()).message());
 
-  auto workers = parser->get_option("--workers");
+  auto workers = parser.get_option("--workers");
   if (const auto num = to_integer<size_t>(*workers->value()))
     opts.workers = *num;
   else
@@ -85,22 +83,17 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
             *workers->value(),
             std::make_error_code(num.error()).message());
 
-  auto protocol = *parser->get_option("--protocol")->value();
-  net::protocol pk;
-
-  if (protocol == "tcp")
-    pk = net::protocol::tcp;
-  else if (protocol == "udp")
-    pk = net::protocol::udp;
-  else {
+  auto protocol = *parser.get_option("--protocol")->value();
+  if (auto p = from_string<net::protocol>(protocol)) {
+    opts.protocol = *p;
+  } else {
     Println("Invalid protocol '{0}': must be 'udp' or 'tcp'", protocol);
     return std::nullopt;
   }
-  opts.protocol = pk;
-  opts.name = *parser->get_option("--name")->value();
+  opts.name = *parser.get_option("--name")->value();
 
-  auto is_server = parser->get_option("--server")->value();
-  auto is_client = parser->get_option("--client")->value();
+  auto is_server = parser.get_option("--server")->value();
+  auto is_client = parser.get_option("--client")->value();
   if (is_server && is_client) {
     std::cout << "Cannot specify both --server and --client.\n";
     return std::nullopt;
@@ -114,9 +107,9 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
 }
 
 struct udp_server_state {
-  net::socket<net::udp> socket;
+  net::udp::socket socket;
   std::mutex mutex;
-  std::vector<net::endpoint<net::udp>> clients;
+  std::vector<net::udp::endpoint> clients;
   std::shared_ptr<spdlog::logger> logger;
 };
 
@@ -125,8 +118,8 @@ static void start_server_receive(udp_server_state &state) {
   state.socket
       .async_recv_from(
           kMaxDatagram,
-          [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
-                   net::endpoint<net::udp> sender) {
+          [&state](StatusOr<net::udp::socket::bytes_type> result,
+                   net::udp::endpoint sender) {
             if (!result) {
               result.log(state.logger);
               start_server_receive(state);
@@ -135,27 +128,23 @@ static void start_server_receive(udp_server_state &state) {
             auto message = *std::move(result);
             state.logger->info("recv {} bytes from {}", message.size(), sender);
 
-            std::vector<net::endpoint<net::udp>> peers;
             {
               std::scoped_lock lock(state.mutex);
-              const auto it = std::ranges::find(state.clients, sender);
-              if (it == state.clients.end())
+              if (!std::ranges::contains(state.clients, sender))
                 state.clients.push_back(sender);
-              peers = state.clients;
-            }
 
-            for (const auto &peer : peers) {
-              if (peer == sender)
-                continue;
-              state.socket
-                  .async_send_to(
-                      message,
-                      peer,
-                      [logger = state.logger](StatusOr<size_t> send_res) {
-                        if (!send_res)
-                          send_res.log(logger);
-                      })
-                  .log(state.logger);
+              std::ranges::for_each(state.clients, [&](const auto &peer) {
+                if (peer != sender)
+                  state.socket
+                      .async_send_to(
+                          message,
+                          peer,
+                          [logger = state.logger](StatusOr<size_t> send_res) {
+                            if (!send_res)
+                              send_res.log(logger);
+                          })
+                      .log(state.logger);
+              });
             }
 
             start_server_receive(state);
@@ -164,35 +153,34 @@ static void start_server_receive(udp_server_state &state) {
 }
 
 struct udp_client_state {
-  net::socket<net::udp> socket;
-  net::endpoint<net::udp> server;
+  net::udp::socket socket;
+  net::udp::endpoint server;
   std::string name;
   std::shared_ptr<spdlog::logger> logger;
 };
 
 static void start_client_receive(udp_client_state &state) {
   state.socket
-      .async_recv_from(
-          0x800,
-          [&state](StatusOr<net::socket<net::udp>::bytes_type> result,
-                   net::endpoint<net::udp> sender) {
-            if (!result) {
-              result.log(state.logger);
-              start_client_receive(state);
-              return;
-            }
-            state.logger->info("{}", *std::move(result));
-            start_client_receive(state);
-          })
+      .async_recv_from(0x800,
+                       [&state](StatusOr<net::udp::socket::bytes_type> result,
+                                net::udp::endpoint /* sender */) {
+                         if (!result) {
+                           result.log(state.logger);
+                           start_client_receive(state);
+                           return;
+                         }
+                         state.logger->info("{}", *std::move(result));
+                         start_client_receive(state);
+                       })
       .log(state.logger);
 }
 
 struct tcp_session {
-  net::socket<net::tcp> socket;
+  net::tcp::socket socket;
 };
 
 struct tcp_server_state {
-  net::socket<net::tcp> listener;
+  net::tcp::socket listener;
   std::mutex mutex;
   std::vector<std::shared_ptr<tcp_session>> sessions;
   std::shared_ptr<spdlog::logger> logger;
@@ -210,8 +198,7 @@ static void start_tcp_receive(tcp_server_state &state,
   session->socket
       .async_recv(
           0x800,
-          [&state,
-           session](StatusOr<net::socket<net::tcp>::bytes_type> result) {
+          [&state, session](StatusOr<net::tcp::socket::bytes_type> result) {
             if (!result) {
               result.log(state.logger);
               remove_tcp_session(state, session);
@@ -225,23 +212,20 @@ static void start_tcp_receive(tcp_server_state &state,
               return;
             }
 
-            std::vector<std::shared_ptr<tcp_session>> peers;
             {
               std::scoped_lock lock(state.mutex);
-              peers = state.sessions;
-            }
 
-            for (const auto &peer : peers) {
-              if (peer == session)
-                continue;
-              peer->socket
-                  .async_send(
-                      net::socket<net::tcp>::bytes_type(message),
-                      [logger = state.logger](StatusOr<size_t> send_res) {
-                        if (!send_res)
-                          send_res.log(logger);
-                      })
-                  .log(state.logger);
+              std::ranges::for_each(state.sessions, [&](const auto &peer) {
+                if (peer != session)
+                  peer->socket
+                      .async_send(
+                          net::tcp::socket::bytes_type(message),
+                          [logger = state.logger](StatusOr<size_t> send_res) {
+                            if (!send_res)
+                              send_res.log(logger);
+                          })
+                      .log(state.logger);
+              });
             }
 
             start_tcp_receive(state, session);
@@ -250,7 +234,7 @@ static void start_tcp_receive(tcp_server_state &state,
 }
 
 struct tcp_client_state {
-  net::socket<net::tcp> socket;
+  net::tcp::socket socket;
   std::string name;
   std::shared_ptr<spdlog::logger> logger;
 };
@@ -258,7 +242,7 @@ struct tcp_client_state {
 static void start_tcp_client_receive(tcp_client_state &state) {
   state.socket
       .async_recv(0x800,
-                  [&state](StatusOr<net::socket<net::tcp>::bytes_type> result) {
+                  [&state](StatusOr<net::tcp::socket::bytes_type> result) {
                     if (!result) {
                       result.log(state.logger);
                       return;
@@ -285,10 +269,9 @@ static std::vector<std::jthread> start_workers(net::io_context &ctx,
 }
 
 static int run_udp_server(net::io_context &ctx, const options &opts) {
-  const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("udp_server");
-  auto sock = net::socket<net::udp>(ctx, net::ip::family::v4);
-  auto bind_status = sock.bind(net::endpoint<net::udp>(host, opts.port));
+  auto sock = net::udp::socket(ctx, net::ip::family::v4);
+  auto bind_status = sock.bind(net::udp::endpoint(opts.host, opts.port));
   if (!bind_status) {
     bind_status.log(logger);
     return 1;
@@ -313,13 +296,11 @@ static int run_udp_server(net::io_context &ctx, const options &opts) {
 static int run_udp_client(net::io_context &ctx, const options &opts) {
   const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("udp_client");
-  auto sock = net::socket<net::udp>(ctx, net::ip::family::v4);
+  auto sock = net::udp::socket(ctx, net::ip::family::v4);
   sock.bind(0).log(logger);
 
-  udp_client_state state{std::move(sock),
-                         net::endpoint<net::udp>(host, opts.port),
-                         opts.name,
-                         logger};
+  udp_client_state state{
+      std::move(sock), net::udp::endpoint(host, opts.port), opts.name, logger};
 
   start_client_receive(state);
   [[maybe_unused]] auto workers = start_workers(ctx, opts.workers);
@@ -356,15 +337,15 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
 static int run_tcp_server(net::io_context &ctx, const options &opts) {
   const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("tcp_server");
-  auto listener = net::socket<net::tcp>(ctx, net::ip::family::v4);
+  auto listener = net::tcp::socket(ctx, net::ip::family::v4);
 
   if (auto status = listener.bind(net::endpoint<net::tcp>(host, opts.port));
       !status) {
-    status.log(logger);
+    status.log_err(logger);
     return 1;
   }
   if (auto status = listener.listen(); !status) {
-    status.log(logger);
+    status.log_err(logger);
     return 1;
   }
 
@@ -414,7 +395,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
 static int run_tcp_client(net::io_context &ctx, const options &opts) {
   const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("tcp_client");
-  auto sock = net::socket<net::tcp>(ctx, net::ip::family::v4);
+  auto sock = net::tcp::socket(ctx, net::ip::family::v4);
 
   if (auto status = sock.connect(net::endpoint<net::tcp>(host, opts.port));
       !status) {

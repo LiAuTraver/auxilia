@@ -41,7 +41,7 @@ void tcp_server() {
                 logger->info(
                     "cached remote endpoint: {}",
                     ns.remote_endpoint().transform(Printable::Default));
-                ns.send_bytes("connected. give me your message!");
+                ns.send_bytes("connected. give me your message!").log();
                 return ns;
               })
               .and_then<net::socket<net::tcp>::recv_>()) {

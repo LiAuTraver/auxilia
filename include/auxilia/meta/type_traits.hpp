@@ -45,14 +45,14 @@ template <bool Val> using bool_constant = integral_constant<bool, Val>;
 using true_type = bool_constant<true>;
 using false_type = bool_constant<false>;
 
-template <bool Condition, typename Ty = void> struct enable_if {};
+template <bool, typename  = void> struct enable_if {};
 template <typename Ty> struct enable_if<true, Ty> {
   using type = Ty;
 };
 template <bool Condition, typename Ty = void>
 using enable_if_t = typename enable_if<Condition, Ty>::type;
 
-template <bool Condition, typename Ty1, typename Ty2> struct conditional {
+template <bool , typename Ty1, typename > struct conditional {
   using type = Ty1;
 };
 template <typename Ty1, typename Ty2> struct conditional<false, Ty1, Ty2> {

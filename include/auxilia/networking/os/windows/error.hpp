@@ -18,7 +18,7 @@ namespace auxilia::net::details {
   std::string message;
   constexpr auto max_size = 0x0400ULL;
 
-  message.resize_and_overwrite(max_size, [](char *buf, size_t size) -> size_t {
+  message.resize_and_overwrite(max_size, [](char *buf, const size_t size) -> size_t {
     return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
                                FORMAT_MESSAGE_IGNORE_INSERTS,
                            nullptr,
@@ -44,7 +44,7 @@ namespace auxilia::net::details {
 
   constexpr auto max_size = 0x0200ULL;
 
-  message.resize_and_overwrite(max_size, [](char *buf, size_t size) -> size_t {
+  message.resize_and_overwrite(max_size, [](char *buf, const size_t size) -> size_t {
     return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
                                FORMAT_MESSAGE_IGNORE_INSERTS,
                            nullptr,

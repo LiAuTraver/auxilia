@@ -91,7 +91,7 @@ private:
     for (const CharT &ch : key | std::views::take(key.size() - 1)) {
       current = &current->children_[ch];
     }
-    bool isNew = !current->children_.contains(key.back());
+    [[maybe_unused]] bool isNew = !current->children_.contains(key.back());
     current = &current->children_[key.back()];
 
     bool isValueless = !current->has_value();
@@ -111,17 +111,16 @@ private:
       return current->is_empty();
     }
 
-    auto it = current->children_.find(key[depth]);
-    if (it == current->children_.end()) {
+    if (auto it = current->children_.find(key[depth]);
+        it == current->children_.end())
       return false;
-    }
 
-    if (do_erase(&it->second, key, depth + 1)) {
+    else if (do_erase(&it->second, key, depth + 1))
       // should delete its child
       current->children_.erase(it);
-    }
 
-    return current->is_empty();
+    else
+      return current->is_empty();
   }
 
 public:
@@ -139,11 +138,10 @@ public:
     } else {
       static_assert(sizeof...(value) <= 1,
                     "insert accepts at most one value argument");
-      if constexpr (sizeof...(value) == 1) {
+      if constexpr (sizeof...(value) == 1)
         return do_insert((key), std::forward<decltype(value)>(value)..., false);
-      } else {
+      else
         return do_insert((key), mapped_type{}, false);
-      }
     }
   }
 
@@ -152,9 +150,9 @@ public:
     const auto *current = &root_;
     for (const auto &ch : key) {
       auto it = current->children_.find(ch);
-      if (it == current->children_.end()) {
+      if (it == current->children_.end())
         return nullptr;
-      }
+
       current = &it->second;
     }
     return current->has_value() ? current : nullptr;
@@ -172,9 +170,9 @@ public:
     } else {
       static_assert(sizeof...(value) <= 1,
                     "insert_or_assign accepts at most one value argument");
-      if constexpr (sizeof...(value) == 1) {
+      if constexpr (sizeof...(value) == 1)
         return do_insert((key), std::forward<decltype(value)>(value)..., true);
-      } else
+      else
         return do_insert((key), mapped_type{}, true);
     }
   }
@@ -243,11 +241,10 @@ public:
         // A -> app | apple
         // => A -> app A'
         // with A' -> epsilon | le
-        if (path.size() > 0) {
+        if (path.size() > 0)
           newPath.assign_range(path);
-        } else if (defaultKey.has_value()) {
+        else if (defaultKey.has_value())
           newPath.emplace_back(*defaultKey);
-        }
       }
       for (const auto &[elemKey, child] : node->children()) {
         path.push_back(elemKey);

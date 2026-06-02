@@ -266,7 +266,7 @@ public:
 
   public:
     constexpr iterator() noexcept : container(nullptr), index(0) {}
-    constexpr iterator(const basic_chars *cont, size_type idx) noexcept
+    constexpr iterator(const basic_chars *cont, const size_type idx) noexcept
         : container(const_cast<basic_chars *>(cont)), index(idx) {}
 
     constexpr reference operator*() const noexcept {
@@ -275,7 +275,7 @@ public:
     constexpr pointer operator->() const noexcept {
       return &(*container)[index];
     }
-    constexpr reference operator[](difference_type n) const noexcept {
+    constexpr reference operator[](const difference_type n) const noexcept {
       return (*container)[index + n];
     }
 
@@ -298,19 +298,19 @@ public:
       return tmp;
     }
 
-    constexpr iterator &operator+=(difference_type n) noexcept {
+    constexpr iterator &operator+=(const difference_type n) noexcept {
       index += n;
       return *this;
     }
-    constexpr iterator &operator-=(difference_type n) noexcept {
+    constexpr iterator &operator-=(const difference_type n) noexcept {
       index -= n;
       return *this;
     }
 
-    constexpr iterator operator+(difference_type n) const noexcept {
+    constexpr iterator operator+(const difference_type n) const noexcept {
       return iterator(container, index + n);
     }
-    constexpr iterator operator-(difference_type n) const noexcept {
+    constexpr iterator operator-(const difference_type n) const noexcept {
       return iterator(container, index - n);
     }
 
@@ -346,7 +346,8 @@ public:
 
   public:
     constexpr const_iterator() noexcept : container(nullptr), index(0) {}
-    constexpr const_iterator(const basic_chars *cont, size_type idx) noexcept
+    constexpr const_iterator(const basic_chars *cont,
+                             const size_type idx) noexcept
         : container(cont), index(idx) {}
     constexpr const_iterator(const iterator &it) noexcept
         : container(it.container), index(it.index) {}
@@ -357,7 +358,7 @@ public:
     constexpr pointer operator->() const noexcept {
       return &(*container)[index];
     }
-    constexpr reference operator[](difference_type n) const noexcept {
+    constexpr reference operator[](const difference_type n) const noexcept {
       return (*container)[index + n];
     }
 
@@ -380,19 +381,19 @@ public:
       return tmp;
     }
 
-    constexpr const_iterator &operator+=(difference_type n) noexcept {
+    constexpr const_iterator &operator+=(const difference_type n) noexcept {
       index += n;
       return *this;
     }
-    constexpr const_iterator &operator-=(difference_type n) noexcept {
+    constexpr const_iterator &operator-=(const difference_type n) noexcept {
       index -= n;
       return *this;
     }
 
-    constexpr const_iterator operator+(difference_type n) const noexcept {
+    constexpr const_iterator operator+(const difference_type n) const noexcept {
       return const_iterator(container, index + n);
     }
-    constexpr const_iterator operator-(difference_type n) const noexcept {
+    constexpr const_iterator operator-(const difference_type n) const noexcept {
       return const_iterator(container, index - n);
     }
 

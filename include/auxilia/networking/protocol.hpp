@@ -10,6 +10,30 @@ enum class protocol : std::underlying_type_t<socket_kind> {
   tcp = std::to_underlying(socket_kind::stream),
   udp = std::to_underlying(socket_kind::datagram)
 };
+inline const char *to_string(const protocol protocol) {
+  switch (protocol) {
+  case protocol::tcp:
+    return "tcp";
+  case protocol::udp:
+    return "udp";
+  default:
+    return "unknown";
+  }
+};
+} // namespace auxilia::net
+namespace auxilia {
+template <>
+inline std::optional<net::protocol>
+from_string(const std::string_view str) noexcept {
+  if (str == "tcp")
+    return net::protocol::tcp;
+  if (str == "udp")
+    return net::protocol::udp;
+  return std::nullopt;
+}
+} // namespace auxilia
+namespace auxilia::net {
+
 template <typename Protocol>
 concept InternetProtocol = requires {
   { Protocol::v4() } -> std::same_as<Protocol>;
@@ -19,10 +43,10 @@ concept InternetProtocol = requires {
 struct tcp {
   static consteval auto v4() { return tcp(ip::family::v4); }
   static consteval auto v6() { return tcp(ip::family::v6); }
-  static consteval auto socket_kind() { return socket_kind::stream; };
+  static consteval auto socket_kind() { return socket_kind::stream; }
 
-  using endpoint_type = endpoint<tcp>;
-  using socket_type = socket<tcp>;
+  using endpoint = endpoint<tcp>;
+  using socket = socket<tcp>;
 
 private:
   consteval tcp(const ip::family family) : family_(family) {}
@@ -32,10 +56,10 @@ private:
 struct udp {
   static consteval auto v4() { return udp(ip::family::v4); }
   static consteval auto v6() { return udp(ip::family::v6); }
-  static consteval auto socket_kind() { return socket_kind::datagram; };
+  static consteval auto socket_kind() { return socket_kind::datagram; }
 
-  using endpoint_type = endpoint<udp>;
-  using socket_type = socket<udp>;
+  using endpoint = endpoint<udp>;
+  using socket = socket<udp>;
 
 private:
   consteval udp(const ip::family family) : family_(family) {}

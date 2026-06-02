@@ -243,11 +243,11 @@ auto NFA::construxt_from_regex(const std::string_view sv) {
   const auto preprocessed = preprocess_regex(sv);
   auto maybe_postfix = to_postfix(preprocessed);
   if (!maybe_postfix)
-    return maybe_postfix.rvalue().as_status();
+    return std::move(maybe_postfix).as_status();
 
   auto maybe_frag = build_graph(*maybe_postfix);
   if (!maybe_frag)
-    return maybe_frag.rvalue().as_status();
+    return std::move(maybe_frag).as_status();
   finalize(*std::move(maybe_frag));
 
   return OkStatus();

@@ -117,7 +117,7 @@ std::println("{}", v.to_string()); // prints "Monostate" or "1" or "Hello world!
 
 - `Trie`: I used it in [cp](./projects/cp) as a part of left factoring implementation.
 
-- `Noise`: A utility class to track object lifetimes and copy/move operations for debugging purposes. For example, we got best performance of monadic function of `StatusOr` only follows:
+- `Noise`: A utility class to track object lifetimes and copy/move operations for debugging purposes. For example, we got the best performance of monadic function of `StatusOr` only follows:
 
 ```cpp
   StatusOr<Noise<>>() // rvalue, otherwise copy ctor will be called

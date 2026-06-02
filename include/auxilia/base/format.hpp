@@ -305,6 +305,10 @@ public:
     return v.to_string_view(FormatPolicy::kDefault);
   };
 };
+template <typename T>
+std::optional<T> from_string(const std::string_view) noexcept {
+  static_assert(false, "no implementation");
+}
 } // namespace auxilia
 namespace std {
 template <typename Derived>

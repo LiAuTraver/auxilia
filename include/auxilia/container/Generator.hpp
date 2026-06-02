@@ -46,14 +46,19 @@ namespace auxilia {
 ///   co_yield std::ranges::elements_of(pre_order(root->right));
 /// }
 /// @endcode
-/// They are too complicated and far beyond my skills to implement.
-/// In such case, just use `std::generator` or other library instead.
+/// They are too complicated and beyond my skills to implement.
 template <typename YieldType,
           typename ReturnType = void,
           typename AllocatorType = std::allocator<char>>
-class [[using clang: coro_lifetimebound]] [[nodiscard]] Generator
-    : public std::ranges::view_interface<
-          Generator<YieldType, ReturnType, AllocatorType>> {
+class
+    [[using clang: coro_lifetimebound,
+      no_specializations(
+          "specializations of std::generator is forbidden via [coro.generator.class]/4, N5008. Hence I followed suit.")]]
+    [[nodiscard("Usually the Generator object is returned by a function. "
+                "The generator will not be executed and "
+                "the caller will not get the generated values otherwise.")]]
+    Generator : public std::ranges::view_interface<
+                    Generator<YieldType, ReturnType, AllocatorType>> {
   static_assert(
       std::conjunction_v<
           std::is_same<std::remove_reference_t<YieldType>, YieldType>,
@@ -90,8 +95,8 @@ private:
           *static_cast<Derived *>(this))};
     }
 
-    std::suspend_always initial_suspend() noexcept { return {}; }
-    std::suspend_always final_suspend() noexcept { return {}; }
+    consteval std::suspend_always initial_suspend() noexcept { return {}; }
+    consteval std::suspend_always final_suspend() noexcept { return {}; }
 
     std::suspend_always yield_value(const YieldType &value) noexcept {
       static_cast<Derived *>(this)->current_value = std::addressof(value);
@@ -111,17 +116,17 @@ private:
 
   public:
 #else
-    void unhandled_exception() /* const, but we don't add it to align with above^^^ */ noexcept {}
+    consteval void unhandled_exception() /* const, but we don't add it to align with above^^^ */ noexcept {}
 #endif
 
     using CharAlloc = typename std::allocator_traits<
         AllocatorType>::template rebind_alloc<char>;
-    static void *operator new(size_t size) {
+    void *operator new(size_t size) {
       CharAlloc my_alloc{};
       return std::allocator_traits<CharAlloc>::allocate(my_alloc, size);
     }
 
-    static void operator delete(void *ptr, size_t size) noexcept {
+    void operator delete(void *ptr, size_t size) noexcept {
       CharAlloc my_alloc{};
       std::allocator_traits<CharAlloc>::deallocate(
           my_alloc, static_cast<char *>(ptr), size);
@@ -146,7 +151,7 @@ private:
       promise_type_impl<R, true> : promise_type_base<promise_type> {
     friend struct iterator;
     const YieldType *current_value = nullptr;
-    void return_void() noexcept {}
+    consteval void return_void() noexcept {}
   };
 
 public:
@@ -226,9 +231,13 @@ public:
       handle_.destroy();
   }
 
-  iterator begin() { return {handle_}; }
-  iterator begin() const { return {handle_}; }
-  std::default_sentinel_t end() const noexcept { return std::default_sentinel; }
+#if AC_HAS_EXPLICIT_THIS_PARAMETER
+  auto begin(this auto &&self) noexcept { return iterator(self.handle_); }
+#else
+  iterator begin() noexcept { return {handle_}; }
+  iterator begin() const noexcept { return {handle_}; }
+#endif
+  consteval auto end() const noexcept { return std::default_sentinel; }
   /// @note not a shared resource, like a plain `future::get()`,
   /// which cannot be called multiple times
   auto get() {

@@ -34,7 +34,29 @@ enum class family : std::conditional_t<
   v4 = AF_INET,
   v6 = AF_INET6
 };
+inline constexpr const char *to_string(const family family) noexcept {
+  switch (family) {
+  case family::v4:
+    return "v4";
+  case family::v6:
+    return "v6";
+  default:
+    return "unknown";
+  }
 }
+} // namespace auxilia::net::ip
+namespace auxilia {
+template <>
+inline constexpr std::optional<net::ip::family>
+from_string(const std::string_view str) noexcept {
+  if (str == "v4")
+    return net::ip::family::v4;
+  else if (str == "v6")
+    return net::ip::family::v6;
+  else
+    return std::nullopt;
+}
+} // namespace auxilia
 namespace auxilia::net {
 enum class socket_kind : std::conditional_t<
     std::is_enum_v<decltype(SOCK_STREAM)>,
@@ -44,11 +66,35 @@ enum class socket_kind : std::conditional_t<
   datagram = SOCK_DGRAM,
   raw = SOCK_RAW
 };
-namespace details {
-using port_type = unsigned short;
+inline constexpr const char *to_string(const socket_kind kind) noexcept {
+  switch (kind) {
+  case socket_kind::stream:
+    return "stream";
+  case socket_kind::datagram:
+    return "datagram";
+  case socket_kind::raw:
+    return "raw";
+  default:
+    return "unknown";
+  }
 }
-} // namespace auxilia::net
+using port_type = unsigned short;
 
+} // namespace auxilia::net
+namespace auxilia {
+template <>
+inline constexpr std::optional<net::socket_kind>
+from_string(const std::string_view str) noexcept {
+  if (str == "stream")
+    return net::socket_kind::stream;
+  else if (str == "datagram")
+    return net::socket_kind::datagram;
+  else if (str == "raw")
+    return net::socket_kind::raw;
+  else
+    return std::nullopt;
+}
+} // namespace auxilia
 namespace auxilia::net::details {
 /// `htons` and `htonl`, but in a *constexpr* way.
 template <typename Unsigned>

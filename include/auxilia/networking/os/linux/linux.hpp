@@ -12,7 +12,7 @@
 #  ifdef __INTELLISENSE__
 #    include "auxilia/networking/os.hpp"
 #  endif
-namespace auxilia::net::details::inline os {
+namespace auxilia::net::details::inline linux {
 using raw_socket_t = int;
 using socket_len_type = socklen_t;
 using socket_storage_type = sockaddr_storage;
@@ -27,12 +27,12 @@ using in4_mreq_type = ::ip_mreq;
 using in6_addr_t = ::in6_addr;
 using in6_mreq_type = ::ipv6_mreq;
 // using addrinfo_t = ::addrinfo;
-} // namespace auxilia::net::details::inline os
+} // namespace auxilia::net::details::inline linux
 
 #  include "error.hpp" // IWYU pragma: export
 #  include "epoll.hpp" // IWYU pragma: export
 
-namespace auxilia::net::details::inline os {
+namespace auxilia::net::details::inline linux {
 AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
                                           const socket_kind socket_kind,
                                           const int protocol = 0) {
@@ -87,5 +87,5 @@ using ::sendto;
 using ::getsockopt;
 using ::setsockopt;
 
-} // namespace auxilia::net::details::inline os
+} // namespace auxilia::net::details::inline linux
 #endif

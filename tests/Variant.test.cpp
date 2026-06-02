@@ -32,7 +32,7 @@ struct Moveable {
   Moveable &operator=(const Moveable &) = delete;
   Moveable &operator=(Moveable &&) = default;
 };
-auto operator==(const Moveable &lhs, const Moveable &rhs) { return true; }
+auto operator==(const Moveable &, const Moveable &) { return true; }
 TEST(Variant, MoveConstruction) {
   Variant<Monostate, int, double, Moveable> v1 = 42;
   auto v2 = std::move(v1);
@@ -41,6 +41,7 @@ TEST(Variant, MoveConstruction) {
   EXPECT_EQ(v2.index(), 1);
   auto &y = v2.emplace(Moveable{});
   EXPECT_EQ(v2.get<Moveable>(), Moveable{});
+  EXPECT_EQ(y, Moveable{});
 
   EXPECT_TRUE(v1.empty());
   EXPECT_EQ(v1.index(), 0);

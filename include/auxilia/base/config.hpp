@@ -40,11 +40,10 @@ concept Variantable = requires {
 template <typename Ty>
 concept Storable =
 #if _WIN32
-    std::conjunction_v<
-        // std::is_default_constructible<Ty>,
-        std::is_nothrow_destructible<Ty>,
-        std::is_nothrow_constructible<Ty>,
-        std::is_same<std::remove_reference_t<Ty>, Ty>>
+    std::conjunction_v<std::is_default_constructible<Ty>,
+                       std::is_nothrow_destructible<Ty>,
+                       std::is_nothrow_constructible<Ty>,
+                       std::is_same<std::remove_reference_t<Ty>, Ty>>
 #else // workaround for linux
     true
 #endif

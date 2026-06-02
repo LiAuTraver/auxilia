@@ -26,7 +26,7 @@ public:
   constexpr io_context() noexcept
       : wsa_data_(), iocp_(INVALID_HANDLE_VALUE), stopped_(true),
         initialized_(false) {}
-  ~io_context() noexcept { shutdown(); }
+  ~io_context() noexcept { shutdown().log(); }
 
 public:
   Status initialize() noexcept {
@@ -75,24 +75,27 @@ public:
       return details::win_error();
     return {};
   }
-  std::optional<details::iocp_completion>
+  std::optional<details::iocp::completion>
   wait(const DWORD timeout_ms = INFINITE) noexcept {
     if (!initialized_ || iocp_ == INVALID_HANDLE_VALUE)
       return std::nullopt;
 
-    DWORD bytes = 0;
     ULONG_PTR key = 0;
-    OVERLAPPED *overlapped = nullptr;
-    const auto ok = ::GetQueuedCompletionStatus(
-        iocp_, &bytes, &key, &overlapped, timeout_ms);
-    if (!overlapped)
+    details::iocp::completion out;
+
+    out.error =
+        ::GetQueuedCompletionStatus(iocp_,
+                                    &out.bytes,
+                                    &key,
+                                    reinterpret_cast<OVERLAPPED **>(&out.op),
+                                    timeout_ms)
+            ? ERROR_SUCCESS
+            : ::GetLastError();
+
+    // FIXME: shall we check whether op is nullptr or leave it to caller?
+    if (!out.op)
       return std::nullopt;
 
-    details::iocp_completion out = {
-        .op = reinterpret_cast<details::iocp_operation *>(overlapped),
-        .bytes = bytes,
-        .error = ok ? ERROR_SUCCESS : ::GetLastError(),
-    };
     return std::make_optional(std::move(out));
   }
   void run() noexcept {
@@ -197,6 +200,9 @@ public:
     initialized_ = false;
     return {};
   }
+  [[deprecated(
+      "NOTE: the linux part of I/O Epoll-related async is assisted by AI and I'm still learning and trying to grasp."
+      "And it has seems deadlock bug!")]]
   Status associate(const details::raw_socket_t socket,
                    const size_t key = 0) noexcept {
     if (!initialized_ || epoll_ == details::epoll::invalid)

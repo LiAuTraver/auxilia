@@ -31,7 +31,7 @@ TEST(StatusOr, StatusConstruction) {
   EXPECT_EQ(so.message(), "Invalid argument");
 }
 
-StatusOr<int> getValue(bool shouldSucceed) {
+StatusOr<int> getValue(const bool shouldSucceed) {
   if (shouldSucceed)
     return {42};
   else
@@ -65,7 +65,7 @@ TEST(StatusOr, ExplicitBool) {
 
 TEST(StatusOr, Monadic) {
   auto an_int = getValue(true)
-                    .and_then([](int value) {
+                    .and_then([](const int value) {
                       EXPECT_EQ(value, 42);
                       return UnknownError("An error occurred");
                     })
@@ -76,13 +76,15 @@ TEST(StatusOr, Monadic) {
                     });
   EXPECT_TRUE(an_int.ok());
   EXPECT_EQ(an_int.value(), 43);
-  auto a_str = an_int.rvalue().and_then(
-      [](int value) -> StatusOr<std::string> { return std::to_string(value); });
+  auto a_str =
+      std::move(an_int).and_then([](const int value) -> StatusOr<std::string> {
+        return std::to_string(value);
+      });
   EXPECT_EQ(a_str.value(), "43");
 }
 
 TEST(StatusOr, MonadicTransform) {
-  auto an_int = getValue(true).transform([](int value) {
+  auto an_int = getValue(true).transform([](const int value) {
     EXPECT_EQ(value, 42);
     return 43;
   });
@@ -90,7 +92,7 @@ TEST(StatusOr, MonadicTransform) {
   EXPECT_EQ(*an_int, 43);
 
   auto another_int = getValue(false)
-                         .transform([](int value) {
+                         .transform([](auto) {
                            EXPECT_FALSE("Should not reach here");
                            return 43;
                          })
@@ -105,17 +107,17 @@ TEST(StatusOr, MonadicTransform) {
 TEST(StatusOr, ToOptional) {
   auto s1 = getValue(true);
   EXPECT_TRUE(s1.ok());
-  auto opt1 = s1.rvalue().to_optional();
+  auto opt1 = std::move(s1).to_optional();
   EXPECT_EQ(*opt1, 42);
   // s1 stores an int which is trivially copyable; hence we need a different way
   // to test
 
   auto s2 = StatusOr(std::string("hello"));
   EXPECT_TRUE(s2.ok());
-  auto opt_str = s2.rvalue().to_optional();
+  auto opt_str = std::move(s2).to_optional();
   EXPECT_EQ(*opt_str, "hello");
 
-  EXPECT_TRUE(s2.code() == Status::Code::kMovedFrom); // moved from
+  EXPECT_EQ(s2.code(), Status::Code::kMovedFrom); // moved from
 
   auto opt2 = getValue(false).to_optional();
   EXPECT_FALSE(opt2.has_value());

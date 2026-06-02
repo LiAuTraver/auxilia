@@ -90,7 +90,8 @@ namespace auxilia {
 /// designed to be as similiar as possible to the `absl::Status` class, for
 /// `absl::Status` shipped in my vcpkg seems to mysteriously fail to compile
 /// with clang++ on Windows.
-class Status : public Printable {
+class AC_NODISCARD_REASON("Discarding Status is strongly discouraged.") Status
+    : public Printable {
 public:
   /// @enum Code
   // clang-format off
@@ -255,7 +256,7 @@ public:
   kMovedFrom = (std::numeric_limits<uint8_t>::max)()
   };
   // clang-format on
-  static constexpr const char *to_string(const Code code) noexcept {
+  static constexpr const char *to_string(const Code code) AC_NOEXCEPT {
     switch (code) {
     case kOk:
       return "OK";
@@ -309,7 +310,7 @@ public:
   AC_NODISCARD
   constexpr Status() = default;
   AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::nullptr_t = nullptr)
-      : my_code(code), my_message() {}
+      : my_message(), my_code(code) {}
   AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::string &&message)
       : my_message(message), my_code(code) {}
   AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, const char *const message)
@@ -467,206 +468,107 @@ protected:
   string_type my_message{};
   Code my_code{};
 };
+} // namespace auxilia
+namespace auxilia {
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OkStatus(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kOk, message};
-}
-
-// New overloads for other status codes using std::string_view messages:
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-Cancelled(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kCancelled, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnknownError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kUnknown, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InvalidArgumentError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kInvalidArgument, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DeadlineExceededError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kDeadlineExceeded, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-NotFoundError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kNotFound, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AlreadyExistsError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kAlreadyExists, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-PermissionDeniedError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kPermissionDenied, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ResourceExhaustedError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kResourceExhausted, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-FailedPreconditionError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kFailedPrecondition, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AbortedError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kAborted, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OutOfRangeError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kOutOfRange, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnimplementedError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kUnimplemented, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InternalError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kInternal, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnavailableError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kUnavailable, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DataLossError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kDataLoss, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnauthenticatedError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kUnauthenticated, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kReturning, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kParseError, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(const char *const message = "") AC_NOEXCEPT {
-  return {Status::kLexError, message};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OkStatus(std::string &&message) AC_NOEXCEPT {
+OkStatus(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kOk, std::forward<std::string>(message)};
 }
 
 // New overloads for other status codes using std::string_view messages:
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-Cancelled(std::string &&message) AC_NOEXCEPT {
+Cancelled(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kCancelled, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnknownError(std::string &&message) AC_NOEXCEPT {
+UnknownError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kUnknown, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InvalidArgumentError(std::string &&message) AC_NOEXCEPT {
+InvalidArgumentError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kInvalidArgument, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DeadlineExceededError(std::string &&message) AC_NOEXCEPT {
+DeadlineExceededError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kDeadlineExceeded, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-NotFoundError(std::string &&message) AC_NOEXCEPT {
+NotFoundError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kNotFound, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AlreadyExistsError(std::string &&message) AC_NOEXCEPT {
+AlreadyExistsError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kAlreadyExists, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-PermissionDeniedError(std::string &&message) AC_NOEXCEPT {
+PermissionDeniedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kPermissionDenied, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ResourceExhaustedError(std::string &&message) AC_NOEXCEPT {
+ResourceExhaustedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kResourceExhausted, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-FailedPreconditionError(std::string &&message) AC_NOEXCEPT {
+FailedPreconditionError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kFailedPrecondition, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-AbortedError(std::string &&message) AC_NOEXCEPT {
+AbortedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kAborted, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OutOfRangeError(std::string &&message) AC_NOEXCEPT {
+OutOfRangeError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kOutOfRange, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnimplementedError(std::string &&message) AC_NOEXCEPT {
+UnimplementedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kUnimplemented, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-InternalError(std::string &&message) AC_NOEXCEPT {
+InternalError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kInternal, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnavailableError(std::string &&message) AC_NOEXCEPT {
+UnavailableError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kUnavailable, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-DataLossError(std::string &&message) AC_NOEXCEPT {
+DataLossError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kDataLoss, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-UnauthenticatedError(std::string &&message) AC_NOEXCEPT {
+UnauthenticatedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(std::string &&message) AC_NOEXCEPT {
+ReturnMe(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kReturning, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(std::string &&message) AC_NOEXCEPT {
+ParseError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kParseError, std::forward<std::string>(message)};
 }
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(std::string &&message) AC_NOEXCEPT {
+LexError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kLexError, std::forward<std::string>(message)};
 }
 

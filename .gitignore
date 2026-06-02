@@ -531,3 +531,4 @@ CMakePresets.json
 clangd.bat
 
 .github
+.idea
