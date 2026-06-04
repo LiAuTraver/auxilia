@@ -4,6 +4,7 @@
 #include <array>
 #include <bit>
 #include <cstddef>
+#include <optional>
 #include <ranges>
 #include <type_traits>
 #include <utility>
@@ -65,14 +66,14 @@ public:
       AC_DEBUG_BREAK
     }
   }
-  constexpr StatusOr<endpoint>
+  constexpr static std::optional<endpoint>
   from_native(details::sockaddr_storage_t &&storage,
               const details::socket_len_type len) noexcept {
     if (len != sizeof(details::sockaddr_in4_t) &&
         len != sizeof(details::sockaddr_in6_t))
-      return UnavailableError("Unknown address family of the accepted socket.");
+      return std::nullopt;
     else
-      return endpoint(std::move(storage), len);
+      return std::make_optional(endpoint(std::move(storage), len));
   }
   template <ip::family family = ip::family::v4>
   static constexpr auto unspecified(const port_type port = 0) noexcept {

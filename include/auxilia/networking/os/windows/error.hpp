@@ -18,16 +18,17 @@ namespace auxilia::net::details {
   std::string message;
   constexpr auto max_size = 0x0400ULL;
 
-  message.resize_and_overwrite(max_size, [](char *buf, const size_t size) -> size_t {
-    return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
-                               FORMAT_MESSAGE_IGNORE_INSERTS,
-                           nullptr,
-                           ::GetLastError(),
-                           MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                           buf,
-                           static_cast<DWORD>(size),
-                           nullptr);
-  });
+  message.resize_and_overwrite(
+      max_size, [](char *buf, const size_t size) -> size_t {
+        return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
+                                   FORMAT_MESSAGE_IGNORE_INSERTS,
+                               nullptr,
+                               ::GetLastError(),
+                               MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                               buf,
+                               static_cast<DWORD>(size),
+                               nullptr);
+      });
   if (message.empty()) {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
       ::SetLastError(ERROR_SUCCESS);
@@ -44,16 +45,17 @@ namespace auxilia::net::details {
 
   constexpr auto max_size = 0x0200ULL;
 
-  message.resize_and_overwrite(max_size, [](char *buf, const size_t size) -> size_t {
-    return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
-                               FORMAT_MESSAGE_IGNORE_INSERTS,
-                           nullptr,
-                           ::WSAGetLastError(),
-                           MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                           buf,
-                           static_cast<DWORD>(size),
-                           nullptr);
-  });
+  message.resize_and_overwrite(
+      max_size, [](char *buf, const size_t size) -> size_t {
+        return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
+                                   FORMAT_MESSAGE_IGNORE_INSERTS,
+                               nullptr,
+                               ::WSAGetLastError(),
+                               MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                               buf,
+                               static_cast<DWORD>(size),
+                               nullptr);
+      });
 
   if (message.empty()) {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {

@@ -150,4 +150,10 @@ template <class PtrTy> AC_NODISCARD void *voidify_unfancy(PtrTy Ptr) noexcept {
     return std::addressof(*Ptr);
   }
 }
+
+struct voidify {
+  template <class T> constexpr void operator()(T &&) const noexcept {}
+
+  using is_transparent = int;
+};
 } // namespace auxilia

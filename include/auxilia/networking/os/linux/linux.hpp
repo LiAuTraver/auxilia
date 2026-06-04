@@ -76,9 +76,15 @@ AC_FORCEINLINE inline Status closesocket(const raw_socket_t s) {
   else
     return make_close_error();
 }
-
+AC_FORCEINLINE inline Status bind(const raw_socket_t s,
+                                  const sockaddr_t *addr,
+                                  const socket_len_type addrlen) {
+  if (::bind(s, addr, addrlen) != -1) [[likely]]
+    return {};
+  else
+    return details::make_bind_error();
+}
 using ::accept;
-using ::bind;
 using ::connect;
 
 using ::recvfrom;

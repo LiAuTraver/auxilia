@@ -56,12 +56,15 @@ AC_FORCEINLINE inline Status listen(const raw_socket_t s,
     return details::make_listen_error();
 }
 
-AC_FORCEINLINE inline auto recv(const raw_socket_t s,
-                                char *const buf,
-                                const size_t len,
-                                [[maybe_unused]] const int = 0,
-                                sockaddr_t *from = nullptr,
-                                socket_len_type *fromlen = nullptr) {
+inline auto
+recv(const raw_socket_t s,
+     char *const buf,
+     const size_t len,
+     [[maybe_unused]] const int = 0,
+     sockaddr_t *from = nullptr,
+     socket_len_type *fromlen = nullptr,
+     const LPWSAOVERLAPPED overlapped = nullptr,
+     const LPWSAOVERLAPPED_COMPLETION_ROUTINE completion_routine = nullptr) {
   auto wsabuf = WSABUF{.len = static_cast<ULONG>(len), .buf = buf};
   DWORD bytes_received = 0;
   DWORD flags_out = 0;
@@ -72,9 +75,8 @@ AC_FORCEINLINE inline auto recv(const raw_socket_t s,
                               &flags_out,
                               from,
                               fromlen,
-                              nullptr, // no overlapped structure
-                              nullptr  // no completion routine
-  );
+                              overlapped,
+                              completion_routine);
   if (result == socket_error)
     if (::WSAGetLastError() == WSAEWOULDBLOCK)
       // For non-blocking sockets, WSARecvFrom returns WSAEWOULDBLOCK if no data
@@ -120,10 +122,13 @@ AC_FORCEINLINE inline auto connect(const raw_socket_t s,
                                    const socket_len_type addrlen) {
   return ::WSAConnect(s, addr, addrlen, nullptr, nullptr, nullptr, nullptr);
 }
-AC_FORCEINLINE inline auto bind(const raw_socket_t s,
-                                const sockaddr_t *addr,
-                                const socket_len_type addrlen) {
-  return ::bind(s, addr, addrlen);
+AC_FORCEINLINE inline Status bind(const raw_socket_t s,
+                                  const sockaddr_t *addr,
+                                  const socket_len_type addrlen) {
+  if (::bind(s, addr, addrlen) != -1) [[likely]]
+    return {};
+  else
+    return details::make_bind_error();
 }
 } // namespace auxilia::net::details::inline windows
 
