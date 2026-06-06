@@ -68,8 +68,8 @@ AC_FORCEINLINE inline StatusOr<int> del(const handle_t ep,
     return result;
 }
 AC_FORCEINLINE inline StatusOr<int>
-wait_one(const handle_t ep, ::epoll_event *const event, const int timeout_ms) {
-  if (auto result = ::epoll_wait(ep, event, 1, timeout_ms); result < 0)
+wait_one(const handle_t ep, ::epoll_event *const events, const int timeout_ms) {
+  if (auto result = ::epoll_wait(ep, events, 1, timeout_ms); result < 0)
     return {make_wait_error()};
   else
     return result;

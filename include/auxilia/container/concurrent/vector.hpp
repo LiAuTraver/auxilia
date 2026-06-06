@@ -79,6 +79,23 @@ public:
     return std::erase_if(myVec, std::forward<Func>(f));
   }
 
+  /// @copydoc read
+  inline decltype(auto) push_back(const Ty &value) {
+    std::unique_lock lock(myMutex);
+    return myVec.push_back(value);
+  }
+  /// @copydoc read
+  inline decltype(auto) push_back(Ty &&value) {
+    std::unique_lock lock(myMutex);
+    return myVec.push_back(std::move(value));
+  }
+  /// @copydoc read
+  template <typename... Args>
+  inline decltype(auto) emplace_back(Args &&...args) {
+    std::unique_lock lock(myMutex);
+    return myVec.emplace_back(std::forward<Args>(args)...);
+  }
+
 public:
   auto to_string(const FormatPolicy) const {
     std::shared_lock lock(myMutex);

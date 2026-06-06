@@ -105,8 +105,8 @@ public:
 
 public:
   struct {
-    static auto operator()(auto &&self) { return self.recv(); }
-    static auto operator()(auto &&self, const size_t max_size) {
+    static decltype(auto) operator()(auto &&self) { return self.recv(); }
+    static decltype(auto) operator()(auto &&self, const size_t max_size) {
       return self.recv(max_size);
     }
   }
@@ -115,7 +115,7 @@ public:
   static constexpr inline recv_;
 
   struct {
-    static auto operator()(auto &&self, bytes_type &&bytes) {
+    static decltype(auto) operator()(auto &&self, bytes_type &&bytes) {
       return self.send_bytes(std::move(bytes));
     }
   }
@@ -218,10 +218,7 @@ protected:
     }
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_socket_state;
-
-  template <typename Handler>
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_base : CallableMixin {
+  template <typename Handler> struct epoll_base : CallableMixin {
     using handler_type = Handler;
     bytes_type buffer;
     handler_type handler;
@@ -230,8 +227,7 @@ protected:
   protected:
     inline ~epoll_base() noexcept = default;
   };
-  template <typename Handler>
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_send_base : epoll_base<Handler> {
+  template <typename Handler> struct epoll_send_base : epoll_base<Handler> {
     using base_type = epoll_base<Handler>;
     inline epoll_send_base(socket_type *const self,
                            base_type::handler_type &&handler,
@@ -243,8 +239,7 @@ protected:
     }
     size_t offset;
   };
-  template <typename Handler>
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_recv_base : epoll_base<Handler> {
+  template <typename Handler> struct epoll_recv_base : epoll_base<Handler> {
     using base_type = epoll_base<Handler>;
     inline epoll_recv_base(socket_type *const self,
                            base_type::handler_type &&handler,
@@ -255,7 +250,7 @@ protected:
     }
   };
 
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_operation {
+  struct epoll_operation {
     using on_fn =
         std::move_only_function<bool(void *, details::raw_socket_t, uint32_t)>;
     using cancel_fn = std::move_only_function<void(void *, const Status &)>;
@@ -285,18 +280,19 @@ protected:
     void reset() noexcept {
       if (on_destroy && self)
         on_destroy(self);
-      AC_DEBUG_ONLY([&] {
+      AC_DEBUG_BLOCK {
         self = nullptr;
         on_op = nullptr;
         on_cancel = nullptr;
         on_destroy = nullptr;
-      }();)
+      };
     }
     void cancel(const Status &error) noexcept {
       if (on_cancel && self)
         on_cancel(self, error);
     }
 
+  protected:
     void *self;
     on_fn on_op;
     cancel_fn on_cancel;
@@ -306,56 +302,54 @@ protected:
     inline ~epoll_operation() noexcept { reset(); }
     bool call_on_op(const details::raw_socket_t fd,
                     const uint32_t events) noexcept {
-      return on_op ? on_op(self, fd, events) : true;
+      return on_op && self ? on_op(self, fd, events) : true;
     }
   };
 
-  struct AC_EMPTY_BASES AC_NOVTABLE read_operation : epoll_operation {
+  struct read_operation : epoll_operation {
     using base_type = epoll_operation;
-    using base_type::epoll_operation;
+    inline read_operation() noexcept : base_type() {}
+    template <typename Op, typename... Args>
+    inline read_operation(std::in_place_type_t<Op>, Args &&...args) noexcept {
+      this->self = new (std::nothrow) Op(std::forward<Args>(args)...);
+      this->on_op = [](auto self, auto fd, auto events) noexcept {
+        return static_cast<Op *>(self)->on_read(fd, events);
+      };
+      this->on_cancel = [](auto self, auto error) noexcept {
+        static_cast<Op *>(self)->cancel(error);
+      };
+      this->on_destroy = [](auto self) noexcept {
+        delete static_cast<Op *>(self);
+      };
+    }
     inline auto read(const details::raw_socket_t fd,
                      const uint32_t events) noexcept {
       return this->call_on_op(fd, events);
     }
-
+  };
+  struct write_operation : epoll_operation {
+    using base_type = epoll_operation;
+    inline write_operation() noexcept : base_type() {}
     template <typename Op, typename... Args>
-    static read_operation make(Args &&...args) {
-      return {
-          new (std::nothrow) Op(std::forward<Args>(args)...),
-          [](auto self, auto fd, auto events) noexcept {
-            return static_cast<Op *>(self)->on_read(fd, events);
-          },
-          [](auto self, auto error) noexcept {
-            static_cast<Op *>(self)->cancel(error);
-          },
-          [](auto self) noexcept { delete static_cast<Op *>(self); },
+    inline write_operation(std::in_place_type_t<Op>, Args &&...args) noexcept {
+      this->self = new (std::nothrow) Op(std::forward<Args>(args)...);
+      this->on_op = [](auto self, auto fd, auto events) noexcept {
+        return static_cast<Op *>(self)->on_write(fd, events);
+      };
+      this->on_cancel = [](auto self, auto error) noexcept {
+        static_cast<Op *>(self)->cancel(error);
+      };
+      this->on_destroy = [](auto self) noexcept {
+        delete static_cast<Op *>(self);
       };
     }
-  };
-  struct AC_EMPTY_BASES AC_NOVTABLE write_operation : epoll_operation {
-    using base_type = epoll_operation;
-    using base_type::epoll_operation;
 
     inline auto write(const details::raw_socket_t fd,
                       const uint32_t events) noexcept {
       return this->call_on_op(fd, events);
     }
-
-    template <typename Op, typename... Args>
-    static write_operation make(Args &&...args) {
-      return {
-          new (std::nothrow) Op(std::forward<Args>(args)...),
-          [](auto self, auto fd, auto events) noexcept {
-            return static_cast<Op *>(self)->on_write(fd, events);
-          },
-          [](auto self, auto error) noexcept {
-            static_cast<Op *>(self)->cancel(error);
-          },
-          [](auto self) noexcept { delete static_cast<Op *>(self); },
-      };
-    }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE epoll_socket_state {
+  struct epoll_socket_state {
     raw_socket_t fd;
     std::mutex mutex;
     std::deque<read_operation> read_ops;
@@ -384,8 +378,8 @@ protected:
     }
     template <typename Op, typename... Args>
     void enqueue_read(Args &&...args) noexcept {
-      read_operation op =
-          read_operation::template make<Op>(std::forward<Args>(args)...);
+      auto op =
+          read_operation(std::in_place_type<Op>, std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
@@ -398,8 +392,8 @@ protected:
     }
     template <typename Op, typename... Args>
     void enqueue_write(Args &&...args) noexcept {
-      write_operation op =
-          write_operation::template make<Op>(std::forward<Args>(args)...);
+      auto op =
+          write_operation(std::in_place_type<Op>, std::forward<Args>(args)...);
       {
         std::scoped_lock lock(mutex);
         if (closing) {
@@ -426,15 +420,13 @@ protected:
     }
 
     static void dispatch(void *self, const uint32_t events) noexcept {
-      if (!self)
-        return;
-      static_cast<epoll_socket_state *>(self)->on_event(events);
+      if (self)
+        static_cast<epoll_socket_state *>(self)->on_event(events);
     }
     void on_event(const uint32_t events) noexcept {
-      if (closing)
+      if (closing || busy.test_and_set(std::memory_order::acquire))
         return;
-      if (busy.test_and_set(std::memory_order::acquire))
-        return;
+
       AC_DEFER { busy.clear(std::memory_order::release); };
 
       constexpr uint32_t read_mask = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
@@ -569,7 +561,7 @@ inline Status socket_base<Protocol>::close() const {
     if (epoll_state_)
       epoll_state_->cancel_all(OkStatus("socket closed"));
     if (context_ && context_->native_handle() != details::epoll::invalid)
-      details::epoll::del(context_->native_handle(), handle_);
+      details::epoll::del(context_->native_handle(), handle_).log_err();
 #endif
     return details::closesocket(handle_);
   } else
@@ -773,13 +765,11 @@ private:
     base_type::finish_send(op, bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
-      : base_type::epoll_recv_base<recv_handler> {
+  struct recv_operation : base_type::epoll_recv_base<recv_handler> {
     using epoll_recv_base::epoll_recv_base;
 
     bool on_read(const details::raw_socket_t fd,
-                 const uint32_t events) noexcept {
-      (void)events;
+                 [[maybe_unused]] const uint32_t events) noexcept {
       const auto res = details::recv(fd, buffer.data(), buffer.size(), 0);
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -793,20 +783,17 @@ private:
     }
     void cancel(const Status &error) noexcept { (*this)(error); }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation
-      : base_type::epoll_send_base<send_handler> {
+  struct send_operation : base_type::epoll_send_base<send_handler> {
     using epoll_send_base::epoll_send_base;
 
     bool on_write(const details::raw_socket_t fd,
-                  const uint32_t events) noexcept {
-      (void)events;
+                  [[maybe_unused]] const uint32_t events) noexcept {
       if (buffer.empty()) {
         (*this)(static_cast<size_t>(0));
         return true;
       }
-      const auto remaining = buffer.size() - offset;
-      const auto res =
-          details::send(fd, buffer.data() + offset, remaining, 0, nullptr, 0);
+      const auto res = details::send(
+          fd, buffer.data() + offset, buffer.size() - offset, 0, nullptr, 0);
       if (res < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
           return false;
@@ -1021,8 +1008,7 @@ private:
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
 #elif defined(__linux__)
-  struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
-      : base_type::epoll_recv_base<recv_handler> {
+  struct recv_operation : base_type::epoll_recv_base<recv_handler> {
     using epoll_recv_base::epoll_recv_base;
     inline recv_operation(socket_type *const self,
                           base_type::handler_type &&handler,
@@ -1034,8 +1020,7 @@ private:
     details::socket_len_type storage_len;
 
     bool on_read(const details::raw_socket_t fd,
-                 const uint32_t events) noexcept {
-      (void)events;
+                 [[maybe_unused]] const uint32_t events) noexcept {
       storage_len = sizeof(details::socket_storage_type);
       const auto res =
           details::recv(fd,
@@ -1068,8 +1053,7 @@ private:
       (*this)(error, endpoint_type::unspecified());
     }
   };
-  struct AC_EMPTY_BASES AC_NOVTABLE send_operation
-      : base_type::epoll_send_base<send_handler> {
+  struct send_operation : base_type::epoll_send_base<send_handler> {
     endpoint_type endpoint;
 
     inline send_operation(socket_type *const self,
@@ -1080,8 +1064,7 @@ private:
           endpoint(endpoint) {}
 
     bool on_write(const details::raw_socket_t fd,
-                  const uint32_t events) noexcept {
-      (void)events;
+                  [[maybe_unused]] const uint32_t events) noexcept {
       if (buffer.empty()) {
         (*this)(0);
         return true;

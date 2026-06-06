@@ -207,57 +207,9 @@ struct tcp_session {
 
 struct tcp_server_state {
   net::tcp::socket listener;
-  std::mutex mutex;
-  std::vector<std::shared_ptr<tcp_session>> sessions;
+  auxilia::concurrency::vector<std::shared_ptr<tcp_session>> sessions;
   std::shared_ptr<spdlog::logger> logger;
 };
-
-static void remove_tcp_session(tcp_server_state &state,
-                               const std::shared_ptr<tcp_session> &session) {
-  session->socket.close().log(state.logger);
-  std::scoped_lock lock(state.mutex);
-  std::erase(state.sessions, session);
-}
-
-static void start_tcp_receive(tcp_server_state &state,
-                              std::shared_ptr<tcp_session> session) {
-  session->socket
-      .async_recv(
-          0x800,
-          [&state, session](StatusOr<net::tcp::socket::bytes_type> result) {
-            if (!result) {
-              result.log(state.logger);
-              remove_tcp_session(state, session);
-              return;
-            }
-
-            auto message = *std::move(result);
-            if (message.empty()) {
-              state.logger->info("tcp client disconnected");
-              remove_tcp_session(state, session);
-              return;
-            }
-
-            {
-              std::scoped_lock lock(state.mutex);
-
-              std::ranges::for_each(state.sessions, [&](const auto &peer) {
-                if (peer != session)
-                  peer->socket
-                      .async_send(
-                          net::tcp::socket::bytes_type(message),
-                          [logger = state.logger](StatusOr<size_t> send_res) {
-                            if (!send_res)
-                              send_res.log(logger);
-                          })
-                      .log(state.logger);
-              });
-            }
-
-            start_tcp_receive(state, session);
-          })
-      .log(state.logger);
-}
 
 struct tcp_client_state {
   net::tcp::socket socket;
@@ -265,32 +217,62 @@ struct tcp_client_state {
   std::shared_ptr<spdlog::logger> logger;
 };
 
+static void start_tcp_receive(tcp_server_state &state,
+                              std::shared_ptr<tcp_session> session) {
+  session->socket
+      .async_recv(
+          0x800,
+          [&state, session](StatusOr<net::tcp::socket::bytes_type> result) {
+            if (!result || result->empty()) {
+              if (result->empty())
+                state.logger->info("tcp client disconnected");
+              else
+                result.log_err(state.logger);
+
+              session->socket.close().log_err(state.logger);
+              state.sessions.remove(session);
+            } else {
+              state.sessions.for_each([&](const auto &peer) {
+                if (peer != session)
+                  peer->socket
+                      .async_send(
+                          net::tcp::socket::bytes_type(*result),
+                          [logger = state.logger](StatusOr<size_t> send_res) {
+                            send_res.log_err(logger);
+                          })
+                      .log(state.logger);
+              });
+
+              start_tcp_receive(state, session);
+            }
+          })
+      .log(state.logger);
+}
+
 static void start_tcp_client_receive(tcp_client_state &state) {
   state.socket
       .async_recv(0x800,
                   [&state](StatusOr<net::tcp::socket::bytes_type> result) {
-                    if (!result) {
-                      result.log_err(state.logger);
-                      return;
+                    if (!result || result->empty()) {
+                      if (result->empty())
+                        state.logger->info("server closed the connection");
+                      else
+                        result.log_err(state.logger);
+                    } else {
+                      state.logger->info("{}", result);
+                      start_tcp_client_receive(state);
                     }
-
-                    auto message = *std::move(result);
-                    if (message.empty()) {
-                      state.logger->info("server closed the connection");
-                      return;
-                    }
-                    state.logger->info("{}", message);
-                    start_tcp_client_receive(state);
                   })
       .log(state.logger);
 }
 
 static int run_tcp_server(net::io_context &ctx, const options &opts) {
-  const auto host = opts.host;
+
   auto logger = spdlog::stdout_color_mt("tcp_server");
   auto listener = net::tcp::socket(ctx, net::ip::family::v4);
 
-  if (auto status = listener.bind(net::endpoint<net::tcp>(host, opts.port));
+  if (auto status =
+          listener.bind(net::endpoint<net::tcp>(opts.host, opts.port));
       !status) {
     status.log_err(logger);
     return 1;
@@ -300,7 +282,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
     return 1;
   }
 
-  tcp_server_state state{std::move(listener), {}, {}, logger};
+  tcp_server_state state{std::move(listener), {}, logger};
   logger->info("tcp server listening on {}:{}", opts.host, opts.port);
   [[maybe_unused]] auto workers = start_workers(ctx, opts.workers);
 
@@ -314,12 +296,8 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
         continue;
       }
 
-      auto session =
-          std::make_shared<tcp_session>(tcp_session{*std::move(acc)});
-      {
-        std::scoped_lock lock(state.mutex);
-        state.sessions.emplace_back(session);
-      }
+      auto session = state.sessions.emplace_back(
+          std::make_shared<tcp_session>(*std::move(acc)));
 
       if (auto remote = session->socket.remote_endpoint())
         state.logger->info("tcp client connected {}", *remote);
@@ -344,11 +322,10 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
 }
 
 static int run_tcp_client(net::io_context &ctx, const options &opts) {
-  const auto host = opts.host;
   auto logger = spdlog::stdout_color_mt("tcp_client");
   auto sock = net::tcp::socket(ctx, net::ip::family::v4);
 
-  if (auto status = sock.connect(net::endpoint<net::tcp>(host, opts.port));
+  if (auto status = sock.connect(net::endpoint<net::tcp>(opts.host, opts.port));
       !status) {
     status.log(logger);
     return 1;
@@ -365,13 +342,10 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
   while (std::getline(std::cin, line)) {
     if (line == "/quit")
       break;
-    auto payload = state.name.empty() ? line : ("[" + state.name + "] " + line);
     state.socket
-        .async_send(std::move(payload),
-                    [logger](StatusOr<size_t> send_res) {
-                      if (!send_res)
-                        send_res.log(logger);
-                    })
+        .async_send(
+            state.name.empty() ? line : ("[" + state.name + "] " + line),
+            [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
         .log(logger);
   }
 
@@ -415,7 +389,7 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
           *parser.get_option("--host")->value())) {
     opts.host = *host;
   } else {
-    std::move(host).log();
+    host.log();
   }
 
   auto port = parser.get_option("--port");

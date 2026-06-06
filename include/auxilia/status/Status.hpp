@@ -434,6 +434,31 @@ public:
 #  endif
   }
 
+  struct AC_EMPTY_BASES AC_NOVTABLE {
+    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self)
+        AC_CONST_CALL_OPERATOR {
+      return self.log_err();
+    }
+    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self, auto &&logger)
+        AC_CONST_CALL_OPERATOR {
+      return self.log_err(std::forward<decltype(logger)>(logger));
+    }
+  }
+
+  static inline constexpr log_err_;
+  struct AC_EMPTY_BASES AC_NOVTABLE {
+    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self)
+        AC_CONST_CALL_OPERATOR {
+      return self.log();
+    }
+    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self, auto &&logger)
+        AC_CONST_CALL_OPERATOR {
+      return self.log(std::forward<decltype(logger)>(logger));
+    }
+  }
+
+  static inline constexpr log_;
+
   AC_CONSTEXPR20 inline auto
   swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::Code> &&
                               std::is_nothrow_swappable_v<Status::string_type>)

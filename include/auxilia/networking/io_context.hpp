@@ -133,17 +133,15 @@ private:
   details::epoll::dispatcher wake_dispatcher_{};
 
   static void wake_dispatch(void *self, uint32_t) noexcept {
-    if (!self)
+    if (!self || static_cast<io_context *>(self)->wake_fd_ ==
+                     details::epoll::invalid_eventfd)
       return;
-    const auto *ctx = static_cast<io_context *>(self);
-    if (ctx->wake_fd_ == details::epoll::invalid_eventfd)
-      return;
-    details::epoll::eventfd_drain(ctx->wake_fd_);
+    details::epoll::eventfd_drain(static_cast<io_context *>(self)->wake_fd_);
   }
 
 public:
   constexpr io_context() noexcept = default;
-  ~io_context() noexcept { shutdown(); }
+  ~io_context() noexcept { shutdown().log_err(); }
 
 public:
   Status initialize() noexcept {
@@ -158,22 +156,21 @@ public:
     if (auto wake_fd = details::epoll::eventfd_create()) {
       wake_fd_ = *std::move(wake_fd);
     } else {
-      AC_DEFER { details::closesocket(epoll_).log_err(); };
+      details::closesocket(epoll_).log_err();
       epoll_ = details::epoll::invalid;
       return std::move(wake_fd).as_status();
     }
 
     wake_dispatcher_.self = this;
-    wake_dispatcher_.dispatch = &io_context::wake_dispatch;
+    wake_dispatcher_.dispatch = io_context::wake_dispatch;
     const auto wake_events = static_cast<uint32_t>(EPOLLIN);
     if (auto status = details::epoll::add(
             epoll_, wake_fd_, wake_events, &wake_dispatcher_);
         !status) {
 
-      AC_DEFER {
-        details::closesocket(wake_fd_).log_err();
-        details::closesocket(epoll_).log_err();
-      };
+      details::closesocket(wake_fd_).log_err();
+      details::closesocket(epoll_).log_err();
+
       wake_fd_ = details::epoll::invalid_eventfd;
       epoll_ = details::epoll::invalid;
       return std::move(status).as_status();
@@ -214,12 +211,9 @@ public:
     const uint32_t events =
         EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP | EPOLLET;
 
-    if (auto status = details::epoll::add(
-            epoll_, socket, events, reinterpret_cast<void *>(key));
-        !status)
-      return std::move(status).as_status();
-
-    return {};
+    return details::epoll::add(
+               epoll_, socket, events, reinterpret_cast<void *>(key))
+        .as_status();
   }
   std::optional<details::epoll::completion>
   wait(const int timeout_ms = -1) noexcept {
@@ -227,16 +221,17 @@ public:
       return std::nullopt;
 
     ::epoll_event event{};
-    if (auto result = details::epoll::wait_one(epoll_, &event, timeout_ms)) {
-      return std::make_optional<details::epoll::completion>({
-          .dispatcher =
-              static_cast<details::epoll::dispatcher *>(event.data.ptr),
-          .events = event.events,
-      });
-    } else {
-      result.log();
-      return std::nullopt;
-    }
+
+    return details::epoll::wait_one(epoll_, &event, timeout_ms)
+        .transform_error<Status::log_err_>()
+        .to_optional()
+        .transform([event = std::move(event)](auto &&) {
+          return details::epoll::completion{
+              .dispatcher =
+                  static_cast<details::epoll::dispatcher *>(event.data.ptr),
+              .events = event.events,
+          };
+        });
   }
   void run() noexcept {
     while (!stopped_.load(std::memory_order::acquire)) {
