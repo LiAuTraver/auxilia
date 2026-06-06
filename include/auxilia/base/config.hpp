@@ -40,8 +40,7 @@ concept Variantable = requires {
 template <typename Ty>
 concept Storable =
 #if _WIN32
-    std::conjunction_v<std::is_default_constructible<Ty>,
-                       std::is_nothrow_destructible<Ty>,
+    std::conjunction_v<std::is_nothrow_destructible<Ty>,
                        std::is_nothrow_constructible<Ty>,
                        std::is_same<std::remove_reference_t<Ty>, Ty>>
 #else // workaround for linux
@@ -116,6 +115,8 @@ AC_FLATTEN AC_FORCEINLINE inline void break_if_debugging() noexcept {
   if (details::_is_debugger_present())
     details::_debugbreak();
 }
+
+/// Functional helpers; we can't pass `static_cast<To>(from)` as a functor.
 template <typename To>
 inline constexpr auto as = [](auto &&from) static constexpr noexcept -> To {
   return static_cast<To>(from);

@@ -16,8 +16,6 @@ namespace auxilia::net::details::inline linus {
 using raw_socket_t = int;
 using socket_len_type = socklen_t;
 using socket_storage_type = sockaddr_storage;
-static constexpr auto invalid_socket = -1;
-static constexpr auto socket_error = -1;
 using sockaddr_t = ::sockaddr;
 using sockaddr_in4_t = ::sockaddr_in;
 using sockaddr_in6_t = ::sockaddr_in6;

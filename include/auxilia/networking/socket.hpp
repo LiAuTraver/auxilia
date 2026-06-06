@@ -73,7 +73,7 @@ public:
   }
 
 protected:
-  inline ~socket_base() noexcept { close().log(); }
+  inline ~socket_base() noexcept { close().log_err(); }
 
 public:
   inline static StatusOr<socket_type> v4(io_context *context = nullptr);
@@ -502,11 +502,11 @@ inline socket_base<Protocol>::socket_base(
   epoll_state_ = std::make_unique<epoll_socket_state>(handle_);
   context_
       ->associate(handle_, reinterpret_cast<size_t>(&epoll_state_->dispatcher))
-      .log();
+      .log_err();
 #elif defined(_WIN32)
   constexpr char opt = 1;
   ::setsockopt(handle_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-  context_->associate(handle_).log();
+  context_->associate(handle_).log_err();
 #else
 #  error unsupported
 #endif
@@ -526,7 +526,7 @@ template <typename Protocol>
 inline socket_base<Protocol> &
 socket_base<Protocol>::operator=(socket_base &&that) noexcept {
   if (this != &that) {
-    close().log();
+    close().log_err();
     context_ = std::exchange(that.context_, nullptr);
     handle_ = std::exchange(that.handle_, invalid_socket);
     remote_endpoint_ = std::move(that.remote_endpoint_);

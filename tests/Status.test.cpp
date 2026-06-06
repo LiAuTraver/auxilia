@@ -33,7 +33,7 @@ TEST(Status, FactoryErrorFunction) {
 
 TEST(Status, CopyConstruction) {
   Status original = NotFoundError("Not Found!");
-  Status copy = original;
+  Status copy = original.clone();
   EXPECT_EQ(copy.code(), Status::kNotFound);
   EXPECT_EQ(copy.message(), "Not Found!");
   EXPECT_FALSE(copy.ok());
@@ -51,7 +51,7 @@ TEST(Status, MoveConstruction) {
 TEST(Status, CopyAssignment) {
   Status original = PermissionDeniedError("Permission Denied!");
   Status copy;
-  copy = original;
+  copy = original.clone();
   EXPECT_EQ(copy.code(), Status::kPermissionDenied);
   EXPECT_EQ(copy.message(), "Permission Denied!");
   EXPECT_FALSE(copy.ok());

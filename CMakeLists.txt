@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
 
 project(auxilia
-  VERSION 2.0.0
+  VERSION 3.0.0
   DESCRIPTION "A collection of utilities for C++"
   HOMEPAGE_URL "https://github.com/liautraver/auxilia"
   LANGUAGES C CXX

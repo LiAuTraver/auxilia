@@ -127,7 +127,7 @@ static int run_udp_server(net::io_context &ctx, const options &opts) {
   auto sock = net::udp::socket(ctx, net::ip::family::v4);
   auto bind_status = sock.bind(net::udp::endpoint(opts.host, opts.port));
   if (!bind_status) {
-    bind_status.log(logger);
+    bind_status.log_err(logger);
     return 1;
   }
 
@@ -152,7 +152,7 @@ static int run_udp_server(net::io_context &ctx, const options &opts) {
                        [logger = state.logger](StatusOr<size_t> send_res) {
                          send_res.log_err(logger);
                        })
-        .log(state.logger);
+        .log_err(state.logger);
   });
 
   ctx.stop(opts.workers);
@@ -167,7 +167,7 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
                          std::move(opts.name),
                          logger};
 
-  state.socket.bind(0).log(logger);
+  state.socket.bind(0).log_err(logger);
 
   start_client_receive(state);
   [[maybe_unused]] auto workers = start_workers(ctx, opts.workers);
@@ -178,7 +178,7 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
           "",
           state.server,
           [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
-      .log(logger);
+      .log_err(logger);
 
   logger->info("client ready; target {}:{}", opts.host, opts.port);
   logger->info("type /quit to exit");
@@ -191,8 +191,8 @@ static int run_udp_client(net::io_context &ctx, const options &opts) {
         .async_send_to(
             state.name.empty() ? line : ("[" + state.name + "] " + line),
             state.server,
-            [logger](StatusOr<size_t> send_res) { send_res.log(logger); })
-        .log(logger);
+            [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
+        .log_err(logger);
   }
 
   ctx.stop(opts.workers);
@@ -240,13 +240,13 @@ static void start_tcp_receive(tcp_server_state &state,
                           [logger = state.logger](StatusOr<size_t> send_res) {
                             send_res.log_err(logger);
                           })
-                      .log(state.logger);
+                      .log_err(state.logger);
               });
 
               start_tcp_receive(state, session);
             }
           })
-      .log(state.logger);
+      .log_err(state.logger);
 }
 
 static void start_tcp_client_receive(tcp_client_state &state) {
@@ -263,7 +263,7 @@ static void start_tcp_client_receive(tcp_client_state &state) {
                       start_tcp_client_receive(state);
                     }
                   })
-      .log(state.logger);
+      .log_err(state.logger);
 }
 
 static int run_tcp_server(net::io_context &ctx, const options &opts) {
@@ -292,7 +292,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
       if (!acc) {
         if (st.stop_requested())
           break;
-        acc.log(state.logger);
+        acc.log_err(state.logger);
         continue;
       }
 
@@ -315,7 +315,7 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
       break;
   }
 
-  state.listener.close().log(state.logger);
+  state.listener.close().log_err(state.logger);
   accept_thread.request_stop();
   ctx.stop(opts.workers);
   return 0;
@@ -327,7 +327,7 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
 
   if (auto status = sock.connect(net::endpoint<net::tcp>(opts.host, opts.port));
       !status) {
-    status.log(logger);
+    status.log_err(logger);
     return 1;
   }
 
@@ -346,7 +346,7 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
         .async_send(
             state.name.empty() ? line : ("[" + state.name + "] " + line),
             [logger](StatusOr<size_t> send_res) { send_res.log_err(logger); })
-        .log(logger);
+        .log_err(logger);
   }
 
   ctx.stop(opts.workers);
@@ -389,7 +389,7 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
           *parser.get_option("--host")->value())) {
     opts.host = *host;
   } else {
-    host.log();
+    host.log_err();
   }
 
   auto port = parser.get_option("--port");
@@ -446,7 +446,7 @@ int main(int argc, const char **argv) {
   auto base_logger = spdlog::stdout_color_mt("chat");
 
   if (auto status = ctx.initialize(); !status) {
-    status.log(base_logger);
+    status.log_err(base_logger);
     return 1;
   }
 

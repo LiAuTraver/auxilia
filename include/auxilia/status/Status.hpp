@@ -5,6 +5,7 @@
 //! @copyright Ancillarycat & The Abseil Authors
 //! @note Part of the contents of this header are derived in part from Google's Abseil Common Libraries.
 
+#include <algorithm>
 #ifndef AUXILIA_STATUS_HPP
 #define AUXILIA_STATUS_HPP
 
@@ -84,19 +85,12 @@
 #  include "auxilia/base/config.hpp"
 #  include "auxilia/base/format.hpp"
 
-EXPORT_AUXILIA
-namespace auxilia {
-/// @brief A class that represents the status of a function call. it's
-/// designed to be as similiar as possible to the `absl::Status` class, for
-/// `absl::Status` shipped in my vcpkg seems to mysteriously fail to compile
-/// with clang++ on Windows.
-class AC_NODISCARD_REASON("Discarding Status is strongly discouraged.") Status
-    : public Printable {
-public:
-  /// @enum Code
-  // clang-format off
+namespace auxilia::details {
+/// @enum Code
+// clang-format off
+  EXPORT_AUXILIA 
   enum class AC_NODISCARD_REASON(
-      "Discarding Status Code is strongly discouraged.") Code : uint8_t {
+    "Discarding Status Code is strongly discouraged.") Code : uint8_t {
 
   /// kOK (gRPC code `OK`) does not indicate an error; this value is returned on
   /// success. It is typical to check for this value before proceeding on any
@@ -247,7 +241,7 @@ public:
   /// its value, which may change.
   kDoNotUseReservedForFutureExpansionUseDefaultInSwitchInstead_ = 20,
 
-
+  /// TODO: remove this cryptic status code and remove the confusing and buggy `is_active` function
   kReturning  /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 21,
   kParseError /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 22,
   kLexError   /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 23,
@@ -255,173 +249,100 @@ public:
   /// kMovedFrom indicates that the status has been moved from.
   kMovedFrom = (std::numeric_limits<uint8_t>::max)()
   };
-  // clang-format on
-  static constexpr const char *to_string(const Code code) AC_NOEXCEPT {
-    switch (code) {
-    case kOk:
-      return "OK";
-    case kCancelled:
-      return "Cancelled";
-    case kUnknown:
-      return "Unknown";
-    case kInvalidArgument:
-      return "Invalid Argument";
-    case kDeadlineExceeded:
-      return "Deadline Exceeded";
-    case kNotFound:
-      return "Not Found";
-    case kAlreadyExists:
-      return "Already Exists";
-    case kPermissionDenied:
-      return "Permission Denied";
-    case kResourceExhausted:
-      return "Resource Exhausted";
-    case kFailedPrecondition:
-      return "Failed Precondition";
-    case kAborted:
-      return "Aborted";
-    case kOutOfRange:
-      return "Out of Range";
-    case kUnimplemented:
-      return "Unimplemented";
-    case kInternal:
-      return "Internal";
-    case kUnavailable:
-      return "Unavailable";
-    case kDataLoss:
-      return "Data Loss";
-    case kUnauthenticated:
-      return "Unauthenticated";
-    case kReturning:
-      return "Returning";
-    case kParseError:
-      return "Parse Error";
-    case kLexError:
-      return "Lex Error";
-    default:
-      AC_UNREACHABLE("unknown status code");
-    }
+// clang-format on
+static constexpr const char *to_string(const Code code) AC_NOEXCEPT {
+  using enum Code;
+  switch (code) {
+  case kOk:
+    return "OK";
+  case kCancelled:
+    return "Cancelled";
+  case kUnknown:
+    return "Unknown";
+  case kInvalidArgument:
+    return "Invalid Argument";
+  case kDeadlineExceeded:
+    return "Deadline Exceeded";
+  case kNotFound:
+    return "Not Found";
+  case kAlreadyExists:
+    return "Already Exists";
+  case kPermissionDenied:
+    return "Permission Denied";
+  case kResourceExhausted:
+    return "Resource Exhausted";
+  case kFailedPrecondition:
+    return "Failed Precondition";
+  case kAborted:
+    return "Aborted";
+  case kOutOfRange:
+    return "Out of Range";
+  case kUnimplemented:
+    return "Unimplemented";
+  case kInternal:
+    return "Internal";
+  case kUnavailable:
+    return "Unavailable";
+  case kDataLoss:
+    return "Data Loss";
+  case kUnauthenticated:
+    return "Unauthenticated";
+  case kReturning:
+    return "Returning";
+  case kParseError:
+    return "Parse Error";
+  case kLexError:
+    return "Lex Error";
+  case kMovedFrom:
+    return "Moved From";
+  default:
+    AC_UNREACHABLE("unknown status code");
   }
-
-public:
+}
+template <typename Derived> struct AC_EMPTY_BASES AC_NOVTABLE StatusBase {
+private:
+  using Code = Code;
   using enum Code;
 
-public:
+protected:
   AC_NODISCARD
-  constexpr Status() = default;
-  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::nullptr_t = nullptr)
-      : my_message(), my_code(code) {}
-  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::string &&message)
-      : my_message(message), my_code(code) {}
-  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, const char *const message)
-      : my_message(message), my_code(code) {}
-  AC_NODISCARD
-  Status(Status &&that) noexcept
-      : my_message(std::move(that.my_message)), my_code(that.my_code) {
-    that.my_code = kMovedFrom;
-    AC_DEBUG_ONLY(that.my_message = "This status has been moved from.");
-  }
-  // AC_NODISCARD
-  Status(const Status &that) = default;
-  auto operator=(const Status &that) -> Status & = default;
-  // AC_NODISCARD
-  Status &operator=(Status &&that) noexcept {
-    my_code = that.my_code;
-    my_message = std::move(that.my_message);
-    that.my_code = kMovedFrom;
-    AC_DEBUG_ONLY(that.my_message = "status accessed after moved from.");
-    return *this;
-  }
-  /// @brief Logical OR operator.
-  /// @note Useful for chaining status checks rather than
-  /// a bunch of `if` statements.
-  AC_NODISCARD
-  inline constexpr auto operator||(const Status &that) -> Status {
-    if (this->ok())
-      return *this;
-    return that;
-  }
-  /// @brief Logical AND operator.
-  AC_NODISCARD
-  inline constexpr auto operator&&(const Status &that) -> Status {
-    if (!this->ok())
-      return *this;
-    return that;
-  }
-  inline constexpr auto operator&=(const Status &that) -> Status {
-    if (!this->ok())
-      return *this;
-    *this = that;
-    return *this;
-  }
-  inline constexpr auto operator&=(Status &&that) -> Status {
-    if (!this->ok())
-      return *this;
-    *this = std::move(that);
-    return *this;
-  }
-  inline constexpr ~Status() = default;
-
-public:
-  AC_NODISCARD
-  inline AC_CONSTEXPR20 explicit operator bool() const AC_NOEXCEPT {
-    return this->ok();
-  }
+  constexpr explicit operator bool() const noexcept { return ok(); }
   AC_NODISCARD constexpr bool ok() const noexcept { return my_code == kOk; }
-  AC_NODISCARD AC_CONSTEXPR20 bool is_return() const noexcept {
+  AC_NODISCARD constexpr bool is_return() const noexcept {
     return my_code == kReturning;
   }
-  AC_NODISCARD
-  auto code() const noexcept { return my_code; }
-  AC_NODISCARD
-  auto raw_code() const noexcept { return std::to_underlying(my_code); }
-  AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {
-    return my_message;
+  constexpr auto is_active() const noexcept { return ok() || is_return(); }
+  AC_NODISCARD constexpr auto code() const noexcept { return my_code; }
+  AC_NODISCARD constexpr auto raw_code() const noexcept {
+    return std::to_underlying(my_code);
   }
-  AC_NODISCARD auto &raw_message() const noexcept { return my_message; }
-  inline void ignore_error() const AC_NOEXCEPT {
-    AC_DEBUG_ONLY(
-        if (!this->ok()) AC_DEBUG_LOGGING(
-            warn, "Ignoring a Status which is not ok: {}", my_message);)
+
+  inline void ignore() const AC_NOEXCEPT {
+    if (!this->is_active())
+      AC_DEBUG_LOGGING(warn,
+                       "Ignoring a Status which is not ok: {}",
+                       static_cast<const Derived *>(this)->my_message);
+
     // else do nothing
-  }
-  /// @brief Logs the message if it's not empty.
-  inline void log(auto &&logger) const {
-    if constexpr (requires { logger << my_message; })
-      logger << my_message << '\n';
-    else if (ok())
-      if (message().empty())
-        return;
-      else if constexpr (requires { logger.info(my_message); })
-        logger.info(my_message);
-      else if constexpr (requires { logger->info(my_message); })
-        logger->info(my_message);
-      else
-        static_assert(false, "unsupported");
-    else if constexpr (requires { logger.error(my_message); })
-      logger.error(my_message);
-    else if constexpr (requires { logger->error(my_message); })
-      logger->error(my_message);
-    else
-      static_assert(false, "unsupported");
-  }
-  inline void log() const {
-#  if __has_include(<spdlog/spdlog.h>)
-    log(spdlog::default_logger());
-#  else
-    log(ok() ? std::osyncstream(std::cout) : std::osyncstream(std::cerr));
-#  endif
   }
   /// @brief Logs the error message if the status is not ok.
   inline void log_err(auto &&logger) const {
-    if (ok())
+    if (is_active())
       return;
-    if constexpr (requires { logger << my_message; })
-      logger << my_message << '\n';
-    else if constexpr (requires { logger.error(my_message); })
-      logger.error(my_message);
-    else if constexpr (requires { logger->error(my_message); })
-      logger->error(my_message);
+    if constexpr (requires {
+                    logger << static_cast<const Derived *>(this)->my_message;
+                  })
+      logger << static_cast<const Derived *>(this)->my_message << '\n';
+    else if constexpr (requires {
+                         logger.error(
+                             static_cast<const Derived *>(this)->my_message);
+                       })
+      logger.error(static_cast<const Derived *>(this)->my_message);
+    else if constexpr (requires {
+                         logger->error(
+                             static_cast<const Derived *>(this)->my_message);
+                       })
+      logger->error(static_cast<const Derived *>(this)->my_message);
     else
       static_assert(false, "unsupported");
   }
@@ -444,56 +365,122 @@ public:
       return self.log_err(std::forward<decltype(logger)>(logger));
     }
   }
-
+  /// monadic helper so that we can write `inspect_error<log_err_>` instead of
+  /// `inspect_error([](auto&& s){s.log_err()})`. (member function must have
+  /// leading `&` since they do not automatically decay and overloaded function
+  /// cannot be addressed)
   static inline constexpr log_err_;
-  struct AC_EMPTY_BASES AC_NOVTABLE {
-    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self)
-        AC_CONST_CALL_OPERATOR {
-      return self.log();
-    }
-    AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self, auto &&logger)
-        AC_CONST_CALL_OPERATOR {
-      return self.log(std::forward<decltype(logger)>(logger));
-    }
+
+  AC_CONSTEXPR20 inline void swap(StatusBase &that) noexcept {
+    ::std::swap(my_code, that.my_code);
   }
 
-  static inline constexpr log_;
+protected:
+  [[nodiscard]] constexpr explicit StatusBase(const Code code) noexcept
+      : my_code(code) {}
+  constexpr StatusBase(const StatusBase &other) noexcept = default;
+  constexpr StatusBase(StatusBase &&other) noexcept = default;
+  constexpr StatusBase &operator=(const StatusBase &other) noexcept = default;
+  constexpr StatusBase &operator=(StatusBase &&other) noexcept = default;
+  constexpr ~StatusBase() noexcept = default;
+
+protected:
+  Code my_code;
+};
+} // namespace auxilia::details
+EXPORT_AUXILIA
+namespace auxilia {
+using details::to_string;
+/// @brief A class that represents the status of a function call. it's
+/// designed to be as similiar as possible to the `absl::Status` class, for
+/// `absl::Status` shipped in my vcpkg seems to mysteriously fail to compile
+/// with clang++ on Windows.
+class AC_NODISCARD_REASON("Discarding Status is strongly discouraged.") Status
+    : public Printable,
+      public details::StatusBase<Status> {
+  friend struct details::StatusBase<Status>;
+  template <typename> friend class StatusOr;
+
+public:
+  using base_type = StatusBase<Status>;
+  using Code = details::Code;
+  using enum Code;
+  using base_type::code;
+  using base_type::is_return;
+  using base_type::log_err;
+  using base_type::log_err_;
+  using base_type::ok;
+  using base_type::raw_code;
+  using base_type::operator bool;
+  using base_type::ignore;
+
+public:
+  AC_NODISCARD
+  constexpr Status() : base_type(kOk) {};
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::nullptr_t = nullptr)
+      : base_type(code) {}
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, std::string &&message)
+      : base_type(code), my_message(std::move(message)) {}
+  AC_NODISCARD AC_CONSTEXPR20 Status(const Code code, const char *const message)
+      : base_type(code), my_message(message) {}
+  AC_NODISCARD
+  AC_CONSTEXPR20 Status(Status &&that) noexcept
+      : base_type(that.my_code), my_message(std::move(that.my_message)) {
+    that.my_code = kMovedFrom;
+    AC_DEBUG_ONLY(that.my_message = "moved from");
+  }
+  AC_CONSTEXPR20 Status &operator=(Status &&that) noexcept {
+    base_type::operator=(that);
+    my_message = std::move(that.my_message);
+    that.my_code = kMovedFrom;
+    AC_DEBUG_ONLY(that.my_message = "moved from");
+    return *this;
+  }
+  Status(const Status &that) =
+      AC_DELETE_WITH_MESSAGE("please use explicit clone()");
+  Status &operator=(const Status &that) =
+      AC_DELETE_WITH_MESSAGE("please use explicit clone()");
+  Status clone() const { return {my_code, my_message.data()}; }
+  AC_CONSTEXPR20 ~Status() noexcept = default;
 
   AC_CONSTEXPR20 inline auto
-  swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::Code> &&
-                              std::is_nothrow_swappable_v<Status::string_type>)
+  swap(Status &that) noexcept(std::is_nothrow_swappable_v<Status::string_type>)
       -> void {
-    std::swap(my_code, that.my_code);
-    std::swap(my_message, that.my_message);
+    base_type::swap(that);
+
+    ::std::swap(my_message, that.my_message);
   }
 
 public:
-  inline auto to_string(const FormatPolicy = FormatPolicy::kDefault) const
-      -> string_type {
-    return Format("{}: {}", to_string(code()), my_message);
+  [[nodiscard]] AC_CONSTEXPR20 inline auto
+  to_string(const FormatPolicy = FormatPolicy::kDefault) const -> string_type {
+    if (!ok())
+      return Format("{}: {}", details::to_string(code()), my_message);
+    else
+      return Format("OkStatus");
   }
+  AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {
+    return my_message;
+  }
+  AC_NODISCARD auto &raw_message() const noexcept { return my_message; }
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   [[deprecated("use std::move instead")]]
   /// @brief just a shorthand to move the StatusOr object.
-  inline decltype(auto) rvalue(this auto &&self) noexcept {
-    return std::move(self);
+  AC_CONSTEXPR20 decltype(auto) rvalue(this auto &&self) noexcept {
+    return std::move(self); // NOLINT
   }
 #  else
   [[deprecated("use std::move instead")]]
-  inline decltype(auto) rvalue() & noexcept {
-    return std::move(*this);
-  }
-  [[deprecated("use std::move instead")]]
-  inline decltype(auto) rvalue() && noexcept {
-    return std::move(*this);
+  AC_CONSTEXPR20 decltype(auto) rvalue() noexcept {
+    return std::move(*this); // NOLINT
   }
 #  endif
 
-protected:
-  string_type my_message{};
-  Code my_code{};
+private:
+  string_type my_message;
 };
 } // namespace auxilia
+EXPORT_AUXILIA
 namespace auxilia {
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
@@ -723,17 +710,9 @@ LexError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
 #  if !AC_USE_STD_FMT
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20
-    Status OkStatus(const fmt::text_style &ts,
-                    fmt::format_string<Args...> fmt,
-                    Args &&...args) {
-  return {Status::kOk, fmt::format(ts, fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-Cancelled(const fmt::text_style &ts,
-          fmt::format_string<Args...> fmt,
-          Args &&...args) {
+    Status Cancelled(const fmt::text_style &ts,
+                     fmt::format_string<Args...> fmt,
+                     Args &&...args) {
   return {Status::kCancelled,
           fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }

@@ -2,8 +2,10 @@
 
 #ifdef _WIN32
 
+#  include <WinSock2.h>
+
 #  if __INTELLISENSE__
-#    include "auxilia/networking/os.hpp"
+#    include "auxilia/base/config.hpp"
 #  endif
 
 namespace auxilia::net::details::iocp {

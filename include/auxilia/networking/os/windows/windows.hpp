@@ -17,13 +17,11 @@
 #  ifdef __INTELLISENSE__
 #    include "auxilia/networking/os.hpp"
 #  endif
-namespace auxilia::net::details::inline windows {
+namespace auxilia::net::details::inline win {
 
 using raw_socket_t = ::SOCKET;
 using socket_len_type = ::socklen_t;
 using socket_storage_type = ::sockaddr_storage;
-static constexpr auto invalid_socket = INVALID_SOCKET;
-static constexpr auto socket_error = SOCKET_ERROR;
 
 using sockaddr_t = ::sockaddr;
 using in4_addr_t = ::in_addr;
@@ -35,8 +33,8 @@ using in6_mreq_type = ::ipv6_mreq;
 using sockaddr_in6_t = ::sockaddr_in6;
 using sockaddr_storage_t = ::sockaddr_storage;
 using addrinfo_t = ::addrinfo;
-} // namespace auxilia::net::details::inline windows
-namespace auxilia::net::details::inline windows {
+} // namespace auxilia::net::details::inline win
+namespace auxilia::net::details::inline win {
 AC_FORCEINLINE inline raw_socket_t socket(const ip::family family,
                                           const socket_kind socket_type,
                                           const int protocol = 0) {
@@ -77,14 +75,14 @@ recv(const raw_socket_t s,
                               fromlen,
                               overlapped,
                               completion_routine);
-  if (result == socket_error)
+  if (result == SOCKET_ERROR)
     if (::WSAGetLastError() == WSAEWOULDBLOCK)
       // For non-blocking sockets, WSARecvFrom returns WSAEWOULDBLOCK if no data
       // is available.
       // treat this as a special case and return 0 bytes received.
       return (::WSASetLastError(ERROR_SUCCESS), 0);
     else
-      return socket_error;
+      return SOCKET_ERROR;
   else
     return static_cast<int>(bytes_received);
 }
@@ -98,10 +96,10 @@ AC_FORCEINLINE inline auto send(const raw_socket_t s,
   DWORD bytes_sent = 0;
   auto result = ::WSASendTo(
       s, &wsabuf, 1, &bytes_sent, flags, to, tolen, nullptr, nullptr);
-  if (result == socket_error)
+  if (result == SOCKET_ERROR)
     return ::WSAGetLastError() == WSAEWOULDBLOCK
                ? (::WSASetLastError(ERROR_SUCCESS), 0)
-               : socket_error;
+               : SOCKET_ERROR;
   else
     return static_cast<int>(bytes_sent);
 }
@@ -130,8 +128,9 @@ AC_FORCEINLINE inline Status bind(const raw_socket_t s,
   else
     return details::make_bind_error();
 }
-} // namespace auxilia::net::details::inline windows
+} // namespace auxilia::net::details::inline win
 
-#  include "error.hpp" // IWYU pragma: export
-#  include "iocp.hpp"  // IWYU pragma: export
+#  include "error.hpp"      // IWYU pragma: export
+#  include "iocp.hpp"       // IWYU pragma: export
+#  include "io_context.hpp" // IWYU pragma: export
 #endif
