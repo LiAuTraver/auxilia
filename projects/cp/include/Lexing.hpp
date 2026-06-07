@@ -99,12 +99,16 @@ public:
                     "error_message() called on a non-error token")
     return lexeme_;
   }
-  decltype(auto) error_message_str() const AC_NOEXCEPT
-      [[clang::lifetimebound]] {
-    AC_PRECONDITION(type_ == Type::kLexError,
+  decltype(auto) error_message_str(this auto &&self) AC_NOEXCEPT {
+    AC_PRECONDITION(self.type_ == Type::kLexError,
                     "error_message() called on a non-error token")
-    return (lexeme_);
+    return self.lexeme_;
   }
+  struct {
+    static auto operator()(auto &&self) AC_NOEXCEPT {
+      return std::forward<decltype(self)>(self).error_message_str();
+    }
+  } static inline constexpr error_message_str_;
   constexpr auto type() const noexcept { return type_; }
   constexpr auto type_str() const noexcept { return token_type_str(type_); }
 
@@ -242,9 +246,7 @@ public:
   using token_t = Token;
   using token_type_t = Token::Type;
   using char_t = string_type::value_type;
-  using generator_t = auxilia::Generator<token_t, uint_least32_t>
-      // std::generator<token_t>
-      ;
+  using generator_t = auxilia::Generator<token_t, uint_least32_t>;
   using number_value_t = std::variant<long long, long double>;
   using enum token_type_t;
   static constexpr auto tolerable_chars = auxilia::as_chars("_`$@");
@@ -263,7 +265,7 @@ public:
 public:
   /// @note when use this function, you need to ensure the lifetime of `this`
   /// covers the coroutine, otherwise unexpected situation would happen. In my
-  /// own case, the coroutine finished and only produces a kEOF.
+  /// own case, the coroutine finished and only produces a `kEOF`.
   [[deprecated("use the static version to avoid the lifetime issue.")]]
   auto lexAsync() [[clang::lifetimebound]] -> generator_t {
     while (not is_at_end()) {

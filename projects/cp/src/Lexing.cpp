@@ -106,7 +106,7 @@ auto Lexer::lexAll_or_error()
       std::move(result)                                          //
       | std::ranges::views::as_rvalue                            //
       | std::ranges::views::filter(&Token::is_error)             //
-      | std::ranges::views::transform(&Token::error_message_str) //
+      | std::ranges::views::transform(Token::error_message_str_) //
       | std::ranges::views::join_with('\n')                      //
       | std::ranges::to<string_type>()                           //
   );

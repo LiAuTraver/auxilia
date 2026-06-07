@@ -23,18 +23,18 @@
 using namespace auxilia;
 using namespace accat::cp;
 
-constexpr auto flight = R"(
+[[maybe_unused]] constexpr auto flight = R"(
 E -> E+T | T;
 T -> T*F | F;
 F -> (E) | id;
 )";
 
-constexpr auto factors = R"(
+[[maybe_unused]] constexpr auto factors = R"(
 A -> A B C | A C B | a;
 B -> B A C | B C A | b;
 C -> C A B | C B A | c;
 )";
-constexpr auto flight2 = R"(
+[[maybe_unused]] constexpr auto flight2 = R"(
 E -> E+T | T;
 T -> T*F | F;
 F -> E+F | id;

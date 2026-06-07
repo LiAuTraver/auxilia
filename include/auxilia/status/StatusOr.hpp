@@ -645,7 +645,7 @@ template <typename Ty> StatusOr(Ty &&value) -> StatusOr<std::decay_t<Ty>>;
 template <typename Ty>
 inline constexpr auto OkStatus(Ty &&value) noexcept(
     noexcept(StatusOr<std::decay_t<Ty>>{std::forward<Ty>(value)})) {
-  return StatusOr<std::decay_t<Ty>>{std::forward<Ty>(value)};
+  return StatusOr<std::decay_t<Ty>>{in_place, std::forward<Ty>(value)};
 }
 
 /// emplace-like `OkStatus` function

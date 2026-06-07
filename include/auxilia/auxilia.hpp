@@ -6,7 +6,9 @@
 // auxilia - from Latin word, meaning "help, aid, or assistance".
 // A C++23 library for general-purpose utilities.
 //
-// This header file includes all the components of the auxilia library.
+// This header file includes all the components of the auxilia library, except
+// the networking library.
+// To use the networking library, please include auxilia/net.hpp instead.
 //
 //
 //   Copyright 2025 LiAuTraver
@@ -47,4 +49,3 @@
 #include "container/chars.hpp"             // IWYU pragma: export
 #include "container/Trie.hpp"              // IWYU pragma: export
 #include "utility/Noise.hpp"               // IWYU pragma: export
-#include "networking/net.hpp"              // IWYU pragma: export

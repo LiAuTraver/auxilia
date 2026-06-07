@@ -1,5 +1,3 @@
-#include <gtest/gtest.h>
-
 #include "./test.env.inl.hpp"
 
 #include <algorithm>

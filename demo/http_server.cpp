@@ -19,7 +19,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "auxilia/defines.hpp"
-#include "auxilia/networking/net.hpp"
+#include "auxilia/net.hpp"
 #include "auxilia/utility/numbers.hpp"
 #include "auxilia/utility/program_options.hpp"
 

@@ -1,11 +1,10 @@
 #include <auxilia/auxilia.hpp>
 #include <auxilia/defines.hpp>
-#include "auxilia/utility/program_options.hpp"
 
 using namespace auxilia;
-using auxilia::program_options::Option;
+
 int main(int argc, char **argv) {
-  auto argParser = auxilia::program_options::Local("cp", "0.1");
+  auto argParser = program_options::Local("cp", "0.1");
 
   argParser.add_option("nfa", " -n", "Convert input regex into a NFA").nargs(1);
   argParser.add_option("dfa", " -d", "Convert input regex into a DFA").nargs(1);

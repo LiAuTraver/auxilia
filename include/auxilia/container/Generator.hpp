@@ -19,12 +19,12 @@ namespace auxilia {
 /// its 'void' for no return value(infinite sequence generator)
 /// @tparam AllocatorType the allocator type to be used for the generator
 /// @note Code should use `std::generator` when it's widely provided; as said
-/// below, this class does not compilant with standard and lacks `Ref`/`RRef`
+/// below, this class does not compliant with standard and lacks `Ref`/`RRef`
 /// yield type member types and more.
 ///
-/// I used this in some cases where `std::geneartor` isn't available
-/// yet. Currently there's no plan for me to implement standard-complient
-/// features, like: polymorphic resources(`std::pmr::meow`), or resursive
+/// I used this in some cases where `std::generator` isn't available
+/// yet. Currently there's no plan for me to implement standard-compliant
+/// features, like: polymorphic resources(`std::pmr::meow`), or recursive
 /// generator, like:
 /// @code
 /// template <typename Ty>
@@ -63,7 +63,7 @@ class
       std::conjunction_v<
           std::is_same<std::remove_reference_t<YieldType>, YieldType>,
           std::is_same<std::remove_reference_t<ReturnType>, ReturnType>>,
-      "This custom generator cannot gurantee if the coro returned is a "
+      "This custom generator cannot guarantee if the coro returned is a "
       "reference type; use std::generator instead if possible.");
   static_assert(std::is_default_constructible_v<YieldType>,
                 "YieldType must be default constructible");
@@ -95,8 +95,8 @@ private:
           *static_cast<Derived *>(this))};
     }
 
-    consteval std::suspend_always initial_suspend() noexcept { return {}; }
-    consteval std::suspend_always final_suspend() noexcept { return {}; }
+    static constexpr std::suspend_always initial_suspend() noexcept { return {}; }
+    static constexpr std::suspend_always final_suspend() noexcept { return {}; }
 
     std::suspend_always yield_value(const YieldType &value) noexcept {
       static_cast<Derived *>(this)->current_value = std::addressof(value);
@@ -109,7 +109,7 @@ private:
     }
 
   private:
-    void _rethrow_if_exception() {
+    void _rethrow_if_exception() const {
       if (exception)
         std::rethrow_exception(exception);
     }
@@ -151,7 +151,7 @@ private:
       promise_type_impl<R, true> : promise_type_base<promise_type> {
     friend struct iterator;
     const YieldType *current_value = nullptr;
-    consteval void return_void() noexcept {}
+    static constexpr void return_void() noexcept {}
   };
 
 public:

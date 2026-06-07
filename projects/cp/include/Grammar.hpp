@@ -103,6 +103,9 @@ private:
   std::vector<Piece> pieces_;
   std::unordered_set<string_type> terminals_;
   std::optional<bool> is_ll1_;
+  std::unordered_map<string_type,
+                     std::unordered_map<string_type, Piece::rhs_elem_t>>
+      table_;
 
 private:
   /// ensure uniqueness of the name.
@@ -140,7 +143,8 @@ private:
   _follow_set_from_rhs_elem(const Piece &A,
                             std::ranges::common_range auto &&rhsElem);
 
-  auto _do_parse(std::ranges::common_range auto &&elems) const;
+  auto _initialize_table();
+  auto _do_parse(std::ranges::common_range auto &&elems);
   bool _do_isLL1();
 
 public:

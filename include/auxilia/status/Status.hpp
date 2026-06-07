@@ -468,8 +468,8 @@ EXPORT_AUXILIA
 namespace auxilia {
 
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-OkStatus(std::string &&message = "") AC_NOEXCEPT {
-  return {Status::kOk, std::forward<std::string>(message)};
+OkStatus() AC_NOEXCEPT {
+  return {Status::kOk};
 }
 
 // New overloads for other status codes using std::string_view messages:

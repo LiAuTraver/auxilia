@@ -3,7 +3,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "auxilia/networking/net.hpp"
+#include "auxilia/net.hpp"
 
 using namespace auxilia;
 

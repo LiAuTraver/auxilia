@@ -25,7 +25,6 @@ using auxilia::Format;
 using auxilia::FormatPolicy;
 using auxilia::InvalidArgumentError;
 using auxilia::is_epsilon;
-using auxilia::LexError;
 using auxilia::OkStatus;
 using auxilia::Printable;
 using auxilia::Println;
@@ -35,6 +34,7 @@ using auxilia::StatusOr;
 using auxilia::Trie;
 using auxilia::UnavailableError;
 using auxilia::UnimplementedError;
+using auxilia::UnknownError;
 } // namespace accat::cp
 namespace accat::cp {
 static constexpr auto isNil(const std::string &ptr) noexcept {
@@ -230,8 +230,8 @@ Status Grammar::_preprocess(const std::vector<Token> &tokens) {
                             token.to_string(FormatPolicy::kBrief)));
         return invalid;
       })) {
-    return UnimplementedError(std::move(str).append(
-        "Grammar contains non-allowed token types; Validation failure."));
+    return UnimplementedError(std::move(str.append(
+        "Grammar contains non-allowed token types; Validation failure.")));
   }
   return {};
 }
@@ -793,36 +793,37 @@ bool Grammar::_do_isLL1() {
 }
 #pragma endregion Interface
 #pragma region Parse
-auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
+auto Grammar::_initialize_table() {
+  precondition(table_.empty())
+
+  std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
+    std::ranges::for_each(
+        std::views::zip(piece.cache_selectSet_, piece.rhs_), [&](auto &&pair) {
+          auto &&[selectSet, rhs] = pair;
+          std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
+            table_[piece.lhs_].emplace(terminalSymbol, rhs);
+          });
+        });
+  });
+}
+auto Grammar::_do_parse(std::ranges::common_range auto &&elems) {
+  // only `table_` shall be edited
+  precondition(pieces_.front().follow_set_.contains(EndMarker))
+
   std::stack<string_type> myStack;
   myStack.push(pieces_.front().lhs_);
 
-  contract_assert(pieces_.front().follow_set_.contains(EndMarker))
+  if (table_.empty())
+    _initialize_table();
 
-  // construct a table for LL1 parsing
-  static std::unordered_map<string_type,
-                            std::unordered_map<string_type, Piece::rhs_elem_t>>
-      table;
-  if (table.empty())
-    std::ranges::for_each(pieces_ | rv::as_const, [&](auto &&piece) {
-      std::ranges::for_each(
-          std::views::zip(piece.cache_selectSet_, piece.rhs_),
-          [&](auto &&pair) {
-            auto &&[selectSet, rhs] = pair;
-            std::ranges::for_each(selectSet, [&](auto &&terminalSymbol) {
-              table[piece.lhs_].emplace(terminalSymbol, rhs);
-            });
-          });
-    });
-
-  for (const auto &token : elems) {
+  for (auto &&token : elems) {
     using enum Token::Type;
     const string_type *identPtr;
     if constexpr (std::is_same_v<std::decay_t<decltype(token)>, elem_t>) {
       identPtr = &token;
     } else {
       if (token.is_type(kLexError))
-        return LexError(token.error_message());
+        return UnknownError(std::move(token).error_message_str());
 
       if (token.is_type(kNumber))
         return UnavailableError(
@@ -871,8 +872,8 @@ auto Grammar::_do_parse(std::ranges::common_range auto &&elems) const {
       }
 
       // non-terminal
-      const auto rowIt = table.find(top);
-      if (rowIt == table.end())
+      const auto rowIt = table_.find(top);
+      if (rowIt == table_.end())
         return InvalidArgumentError(
             "No production found for non-terminal symbol '{}'", top);
 
