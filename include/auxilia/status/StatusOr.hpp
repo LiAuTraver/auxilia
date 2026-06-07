@@ -59,8 +59,6 @@ public:
   using base_type = details::StatusBase<StatusOr<Ty>>;
   using value_type = Ty;
   using base_type::code;
-  using base_type::is_active;
-  using base_type::is_return;
   using base_type::log_err;
   using base_type::log_err_;
   using base_type::ok;
@@ -82,11 +80,11 @@ public:
   }
   AC_NODISCARD inline StatusOr(const Status &status) noexcept
       : base_type(status.my_code) {
-    if (!is_active())
+    if (!ok())
       std::ranges::construct_at(std::addressof(my_message), status.my_message);
   }
   AC_NODISCARD inline StatusOr(Status &&status) : base_type(status.my_code) {
-    if (!is_active()) {
+    if (!ok()) {
       std::ranges::construct_at(std::addressof(my_message),
                                 std::move(status.my_message));
       AC_DEBUG_ONLY(status.my_message = "moved from");
@@ -103,7 +101,7 @@ public:
   }
   AC_NODISCARD inline StatusOr(StatusOr &&that) noexcept
       : base_type(that.my_code) {
-    if (that.is_active()) {
+    if (that.ok()) {
       std::ranges::construct_at(std::addressof(my_value),
                                 std::move(that.my_value));
       std::ranges::destroy_at(std::addressof(that.my_value));
@@ -120,13 +118,13 @@ public:
     if (this == &that)
       return *this;
 
-    if (is_active() && that.is_active()) {
+    if (ok() && that.ok()) {
       my_value = std::move(that.my_value);
       std::ranges::destroy_at(std::addressof(that.my_value));
       std::ranges::construct_at(std::addressof(that.my_message));
-    } else if (!is_active() && !that.is_active()) {
+    } else if (!ok() && !that.ok()) {
       my_message = std::move(that.my_message);
-    } else if (is_active() && !that.is_active()) {
+    } else if (ok() && !that.ok()) {
       std::ranges::destroy_at(std::addressof(my_value));
       std::ranges::construct_at(std::addressof(my_message),
                                 std::move(that.my_message));
@@ -144,7 +142,7 @@ public:
     return *this;
   }
   ~StatusOr() noexcept {
-    if (is_active())
+    if (ok())
       std::ranges::destroy_at(std::addressof(my_value));
     else
       std::ranges::destroy_at(std::addressof(my_message));
@@ -159,13 +157,13 @@ public:
                               std::forward<Args>(args)...);
   }
   AC_NODISCARD std::string_view message() const [[clang::lifetimebound]] {
-    if (!is_active())
+    if (!ok())
       return my_message;
     else
       return "";
   }
   AC_NODISCARD auto &raw_message() const AC_NOEXCEPT {
-    AC_RUNTIME_ASSERT(!is_active())
+    AC_RUNTIME_ASSERT(!ok())
     return my_message;
   }
 #  define AC_STATUSOR_DELETE                                                   \
@@ -187,45 +185,41 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
   inline decltype(auto) value(this auto &&self) {
-    AC_RUNTIME_ASSERT(self.is_active(),
-                      "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(self.ok(), "Cannot dereference a status that is not OK.");
     return std::forward_like<decltype(self)>(self.my_value);
   }
 #  else
   AC_NODISCARD
   inline value_type value() & {
-    AC_RUNTIME_ASSERT(is_active(),
-                      "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok(), "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
   inline const value_type value() const & {
-    AC_RUNTIME_ASSERT(is_active(),
-                      "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok(), "Cannot dereference a status that is not OK.");
     return my_value;
   }
   AC_NODISCARD
   inline value_type value() && {
-    AC_RUNTIME_ASSERT(is_active(),
-                      "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok(), "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
   AC_NODISCARD
   inline const value_type &&value() const && {
-    AC_RUNTIME_ASSERT(is_active(),
-                      "Cannot dereference a status that is not OK.");
+    AC_RUNTIME_ASSERT(ok(), "Cannot dereference a status that is not OK.");
     return std::move(my_value);
   }
 #  endif
 
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
-  /// this function returns a copy, which may not you want; call `std::move`
-  /// first to get the rvalue reference and to avoid unnecessary copy.
+  /// this function returns a copy, which may not what you want; call
+  /// `std::move` first to get the rvalue reference and to avoid unnecessary
+  /// copy.
   AC_NODISCARD AC_CONSTEXPR20 inline value_type
   value_or(this auto &&self, value_type &&default_value) {
-    return self.is_active() ? std::forward_like<decltype(self)>(self.my_value)
-                            : static_cast<value_type>(
-                                  std::forward<value_type>(default_value));
+    return self.ok() ? std::forward_like<decltype(self)>(self.my_value)
+                     : static_cast<value_type>(
+                           std::forward<value_type>(default_value));
   }
 #  else
 
@@ -234,8 +228,7 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD
   inline constexpr decltype(auto) operator*(this auto &&self) AC_NOEXCEPT {
-    AC_PRECONDITION(self.is_active(),
-                    "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(self.ok(), "Cannot dereference a status that is not OK.");
     return std::forward_like<decltype(self)>(self.my_value);
   }
 #  else
@@ -244,12 +237,12 @@ public:
 
   AC_NODISCARD
   inline constexpr auto operator->() AC_NOEXCEPT->value_type * {
-    AC_PRECONDITION(is_active(), "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(ok(), "Cannot dereference a status that is not OK.");
     return std::addressof(my_value);
   }
   AC_NODISCARD
   inline constexpr auto operator->() const AC_NOEXCEPT->const value_type * {
-    AC_PRECONDITION(is_active(), "Cannot dereference a status that is not OK.");
+    AC_PRECONDITION(ok(), "Cannot dereference a status that is not OK.");
     return std::addressof(my_value);
   }
 
@@ -261,11 +254,11 @@ public:
     if constexpr (!std::is_swappable_v<value_type>)
       always_false<value_type>("is not swappable");
 
-    if (is_active() && that.is_active()) {
+    if (ok() && that.ok()) {
       ::std::swap(my_value, that.my_value);
-    } else if (!is_active() && !that.is_active()) {
+    } else if (!ok() && !that.ok()) {
       ::std::swap(my_message, that.my_message);
-    } else if (is_active() && !that.is_active()) {
+    } else if (ok() && !that.ok()) {
       auto temp_value = std::move(my_value);
       std::ranges::destroy_at(std::addressof(my_value));
       std::ranges::construct_at(std::addressof(my_message),
@@ -289,7 +282,7 @@ public:
 
   [[nodiscard]] auto
   to_string(FormatPolicy policy = FormatPolicy::kDefault) const -> string_type {
-    if (!this->is_active()) {
+    if (!this->ok()) {
       if (policy == FormatPolicy::kBrief)
         return my_message;
       else
@@ -312,7 +305,7 @@ public:
   }
   [[clang::reinitializes]] constexpr inline auto reset(value_type &&value)
       AC_NOEXCEPT {
-    if (!is_active()) {
+    if (!ok()) {
       std::ranges::destroy_at(std::addressof(my_message));
       std::ranges::construct_at(std::addressof(my_value), std::move(value));
     } else {
@@ -326,7 +319,7 @@ public:
 #  if AC_HAS_EXPLICIT_THIS_PARAMETER
   AC_NODISCARD AC_FLATTEN inline constexpr auto as_status(this auto &&self)
       AC_NOEXCEPT -> Status {
-    if (self.is_active())
+    if (self.ok())
       return {self.my_code};
     else
       return {self.my_code, std::forward_like<decltype(self)>(self.my_message)};
@@ -349,10 +342,10 @@ public:
         "StatusOr.");                                                          \
     AC_DEFER {                                                                 \
       /* we only do this for checking, usually the monadic operations just     \
-       * consume itself so the leftover statusor should be an unnnamed obj, so \
-       * this wont be called*/                                                 \
+       * consume itself so the leftover statusor should be an unnamed obj, so  \
+       * this won't be called*/                                                \
       AC_DEBUG_BLOCK {                                                         \
-        if (self.is_active()) {                                                \
+        if (self.ok()) {                                                       \
           std::ranges::destroy_at(std::addressof(self.my_value));              \
           std::ranges::construct_at(std::addressof(self.my_message),           \
                                     "status accessed after moved from.");      \
@@ -373,7 +366,7 @@ public:
   auto and_then(this auto &&self, F &&f, Args &&...args) -> std::
       conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<value_type>> {
     AC_STATUSOR_CONSUME_METHOD(and_then)
-    if (!self.is_active())
+    if (!self.ok())
       // `forward` is sufficient since `as_status` is a perfect function itself.
       return {std::forward<decltype(self)>(self).as_status()};
     else
@@ -393,7 +386,7 @@ public:
       conditional_t<is_specialization_v<R, StatusOr>, R, StatusOr<value_type>> {
     AC_STATUSOR_CONSUME_METHOD(and_then)
 
-    if (!self.is_active())
+    if (!self.ok())
       return {std::forward<decltype(self)>(self).as_status()};
     else
       return std::invoke(CPO,
@@ -413,7 +406,7 @@ public:
     requires std::is_invocable_r_v<StatusOr<value_type>, F, Status, Args...>
   auto or_else(this auto &&self, F &&f, Args &&...args) -> StatusOr {
     AC_STATUSOR_CONSUME_METHOD(or_else)
-    if (self.is_active())
+    if (self.ok())
       return std::forward<decltype(self)>(self);
 
     return std::invoke(std::forward<F>(f),
@@ -426,7 +419,7 @@ public:
         is_invocable_r_v<StatusOr<value_type>, decltype(CPO), Status, Args...>
       auto or_else(this auto &&self, Args &&...args) -> StatusOr {
     AC_STATUSOR_CONSUME_METHOD(or_else)
-    if (self.is_active())
+    if (self.ok())
       return std::forward<decltype(self)>(self);
 
     return std::invoke(CPO,
@@ -449,7 +442,7 @@ public:
       -> StatusOr<std::invoke_result_t<F, value_type, Args...>> {
     AC_DOLL_ASSERT(transform)
     AC_STATUSOR_CONSUME_METHOD(transform)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     return {std::invoke(std::forward<F>(f),
@@ -465,7 +458,7 @@ public:
   auto transform(this auto &&self, F &&f, Args &&...args)
       -> StatusOr<Monostate> {
     AC_STATUSOR_CONSUME_METHOD(transform)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     std::invoke(std::forward<F>(f),
@@ -483,7 +476,7 @@ public:
     using F = decltype(CPO);
     AC_DOLL_ASSERT(transform)
     AC_STATUSOR_CONSUME_METHOD(transform)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     return {std::invoke(CPO,
@@ -497,7 +490,7 @@ public:
                  std::invoke_result_t<decltype(CPO), value_type, Args...>>
   auto transform(this auto &&self, Args &&...args) -> StatusOr<Monostate> {
     AC_STATUSOR_CONSUME_METHOD(transform)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       return {std::forward<decltype(self)>(self).as_status()};
     }
     std::invoke(CPO,
@@ -519,7 +512,7 @@ public:
              (!std::is_void_v<std::invoke_result_t<F, Status, Args...>>)
   auto transform_error(this auto &&self, F &&f, Args &&...args) -> StatusOr {
     static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
-    if (self.is_active()) {
+    if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
     return std::invoke(std::forward<F>(f),
@@ -534,7 +527,7 @@ public:
              std::is_void_v<std::invoke_result_t<F, Status, Args...>>
   auto transform_error(this auto &&self, F &&f, Args &&...args) -> StatusOr {
     AC_STATUSOR_CONSUME_METHOD(transform_error)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       std::invoke(std::forward<F>(f),
                   std::forward<decltype(self)>(self).as_status(),
                   std::forward<Args>(args)...);
@@ -548,7 +541,7 @@ public:
                  std::invoke_result_t<decltype(CPO), Status, Args...>>)
   auto transform_error(this auto &&self, Args &&...args) -> StatusOr {
     static_assert(std::is_rvalue_reference_v<decltype(self)>, "bad call.");
-    if (self.is_active()) {
+    if (self.ok()) {
       return std::forward<decltype(self)>(self);
     }
     return std::invoke(CPO,
@@ -562,7 +555,7 @@ public:
                  std::invoke_result_t<decltype(CPO), Status, Args...>>
   auto transform_error(this auto &&self, Args &&...args) -> StatusOr {
     AC_STATUSOR_CONSUME_METHOD(transform_error)
-    if (!self.is_active()) {
+    if (!self.ok()) {
       std::invoke(CPO,
                   std::forward<decltype(self)>(self).as_status(),
                   std::forward<Args>(args)...);
@@ -575,7 +568,7 @@ public:
 
   template <typename F>
   auto inspect(this auto &&self, F &&f) -> decltype(auto) {
-    if (self.is_active()) {
+    if (self.ok()) {
       static_assert(
           std::is_invocable_v<F, const value_type &>,
           "Inspect function must be invocable with const value_type&");
@@ -585,7 +578,7 @@ public:
   }
   template <auto CPO> auto inspect(this auto &&self) -> decltype(auto) {
     using F = decltype(CPO);
-    if (self.is_active()) {
+    if (self.ok()) {
       static_assert(
           std::is_invocable_v<F, const value_type &>,
           "Inspect function must be invocable with const value_type&");
@@ -595,7 +588,7 @@ public:
   }
   template <typename F>
   auto inspect_error(this auto &&self, F &&f) -> decltype(auto) {
-    if (!self.is_active()) {
+    if (!self.ok()) {
       static_assert(std::is_invocable_v<F, const Status &>,
                     "Inspect function must be invocable with const Status&");
       std::invoke(std::forward<F>(f), self.as_status());
@@ -604,7 +597,7 @@ public:
   }
   template <auto CPO> auto inspect_error(this auto &&self) -> decltype(auto) {
     using F = decltype(CPO);
-    if (!self.is_active()) {
+    if (!self.ok()) {
       static_assert(std::is_invocable_v<F, const Status &>,
                     "Inspect function must be invocable with const Status&");
       std::invoke(CPO, self.as_status());
@@ -619,7 +612,7 @@ public:
   constexpr inline auto to_optional(this auto &&self) AC_NOEXCEPT
       -> std::optional<value_type> {
     AC_STATUSOR_CONSUME_METHOD(to_optional)
-    if (self.is_active()) {
+    if (self.ok()) {
       return std::make_optional(
           std::forward_like<decltype(self)>(self.my_value));
     } else {
@@ -630,7 +623,7 @@ public:
   constexpr inline auto to_expected(this auto &&self) AC_NOEXCEPT
       -> std::expected<value_type, Status> {
     AC_STATUSOR_CONSUME_METHOD(to_expected)
-    if (self.is_active()) {
+    if (self.ok()) {
       return std::expected(std::forward_like<decltype(self)>(self.my_value));
     } else {
       return std::unexpected(std::forward<decltype(self)>(self).as_status());

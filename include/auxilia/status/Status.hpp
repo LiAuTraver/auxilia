@@ -48,7 +48,7 @@
 // This header file defines the Abseil `status` library, consisting of:
 //
 //   * An `absl::Status` class for holding error handling information
-//   * A set of canonical `absdes, and associated
+//   * A set of canonical `absl::StatusCode` error codes, and associated
 //     utilities for generating and propagating status codes.
 //   * A set of helper functions for creating status codes and checking their
 //     values
@@ -74,7 +74,7 @@
 // An `absl::Status` is designed to either return "OK" or one of a number of
 // different error codes, corresponding to typical error conditions.
 // In almost all cases, when using `absl::Status` you should use the canonical
-// error codes (of type `absed in this header file.
+// error codes (of type `absl::StatusCode` in this header file.
 // These canonical codes are understood across the codebase and will be
 // accepted across all API and RPC boundaries.
 
@@ -241,11 +241,6 @@ namespace auxilia::details {
   /// its value, which may change.
   kDoNotUseReservedForFutureExpansionUseDefaultInSwitchInstead_ = 20,
 
-  /// TODO: remove this cryptic status code and remove the confusing and buggy `is_active` function
-  kReturning  /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 21,
-  kParseError /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 22,
-  kLexError   /* [[deprecated("just a workaround for the sake of some of my project")]] */ = 23,
-
   /// kMovedFrom indicates that the status has been moved from.
   kMovedFrom = (std::numeric_limits<uint8_t>::max)()
   };
@@ -287,12 +282,6 @@ static constexpr const char *to_string(const Code code) AC_NOEXCEPT {
     return "Data Loss";
   case kUnauthenticated:
     return "Unauthenticated";
-  case kReturning:
-    return "Returning";
-  case kParseError:
-    return "Parse Error";
-  case kLexError:
-    return "Lex Error";
   case kMovedFrom:
     return "Moved From";
   default:
@@ -308,17 +297,13 @@ protected:
   AC_NODISCARD
   constexpr explicit operator bool() const noexcept { return ok(); }
   AC_NODISCARD constexpr bool ok() const noexcept { return my_code == kOk; }
-  AC_NODISCARD constexpr bool is_return() const noexcept {
-    return my_code == kReturning;
-  }
-  constexpr auto is_active() const noexcept { return ok() || is_return(); }
   AC_NODISCARD constexpr auto code() const noexcept { return my_code; }
   AC_NODISCARD constexpr auto raw_code() const noexcept {
     return std::to_underlying(my_code);
   }
 
   inline void ignore() const AC_NOEXCEPT {
-    if (!this->is_active())
+    if (!this->ok())
       AC_DEBUG_LOGGING(warn,
                        "Ignoring a Status which is not ok: {}",
                        static_cast<const Derived *>(this)->my_message);
@@ -327,7 +312,7 @@ protected:
   }
   /// @brief Logs the error message if the status is not ok.
   inline void log_err(auto &&logger) const {
-    if (is_active())
+    if (ok())
       return;
     if constexpr (requires {
                     logger << static_cast<const Derived *>(this)->my_message;
@@ -392,7 +377,7 @@ EXPORT_AUXILIA
 namespace auxilia {
 using details::to_string;
 /// @brief A class that represents the status of a function call. it's
-/// designed to be as similiar as possible to the `absl::Status` class, for
+/// designed to be as similar as possible to the `absl::Status` class, for
 /// `absl::Status` shipped in my vcpkg seems to mysteriously fail to compile
 /// with clang++ on Windows.
 class AC_NODISCARD_REASON("Discarding Status is strongly discouraged.") Status
@@ -406,7 +391,6 @@ public:
   using Code = details::Code;
   using enum Code;
   using base_type::code;
-  using base_type::is_return;
   using base_type::log_err;
   using base_type::log_err_;
   using base_type::ok;
@@ -569,21 +553,6 @@ UnauthenticatedError(std::string &&message = "") AC_NOEXCEPT {
   return {Status::kUnauthenticated, std::forward<std::string>(message)};
 }
 
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(std::string &&message = "") AC_NOEXCEPT {
-  return {Status::kReturning, std::forward<std::string>(message)};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(std::string &&message = "") AC_NOEXCEPT {
-  return {Status::kParseError, std::forward<std::string>(message)};
-}
-
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(std::string &&message = "") AC_NOEXCEPT {
-  return {Status::kLexError, std::forward<std::string>(message)};
-}
-
 template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 OkStatus(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
@@ -688,24 +657,6 @@ template <typename... Args>
 AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
 UnauthenticatedError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
   return {Status::kUnauthenticated, Format(fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kReturning, Format(fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kParseError, Format(fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(AC_STD_OR_FMT format_string<Args...> fmt, Args &&...args) {
-  return {Status::kLexError, Format(fmt, std::forward<Args>(args)...)};
 }
 #  if !AC_USE_STD_FMT
 template <typename... Args>
@@ -845,32 +796,6 @@ UnauthenticatedError(const fmt::text_style &ts,
                      Args &&...args) {
   return {Status::kUnauthenticated,
           fmt::format(ts, fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ReturnMe(const fmt::text_style &ts,
-         fmt::format_string<Args...> fmt,
-         Args &&...args) {
-  return {Status::kReturning,
-          fmt::format(ts, fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-ParseError(const fmt::text_style &ts,
-           fmt::format_string<Args...> fmt,
-           Args &&...args) {
-  return {Status::kParseError,
-          fmt::format(ts, fmt, std::forward<Args>(args)...)};
-}
-
-template <typename... Args>
-AC_NODISCARD AC_FORCEINLINE AC_FLATTEN static inline AC_CONSTEXPR20 Status
-LexError(const fmt::text_style &ts,
-         fmt::format_string<Args...> fmt,
-         Args &&...args) {
-  return {Status::kLexError, fmt::format(ts, fmt, std::forward<Args>(args)...)};
 }
 #  endif
 

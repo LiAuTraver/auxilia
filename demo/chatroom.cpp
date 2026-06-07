@@ -65,7 +65,8 @@ static void start_server_receive(udp_server_state &state) {
         } else {
           if (state.clients.write([&sender](auto &&vec) {
                 return std::ranges::contains(vec, sender)
-                           ?: (vec.emplace_back(sender), false);
+                           ? true
+                           : (vec.emplace_back(sender), false);
               }))
             state.logger->info("recv {} bytes from {}", result->size(), sender);
           else
