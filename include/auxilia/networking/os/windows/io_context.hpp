@@ -93,12 +93,12 @@ public:
     return std::make_optional(std::move(out));
   }
   void run() noexcept {
-    while (!stopped_.load(std::memory_order::acquire)) {
+    while (!stopped_.load(std::memory_order::acquire))
       if (auto completion = wait();
           completion && completion->op && completion->op->complete)
-        completion->op->complete(
-            completion->op, completion->bytes, completion->error);
-    }
+        completion->op->complete(std::move(completion->op),
+                                 std::move(completion->bytes),
+                                 std::move(completion->error));
   }
   void stop(const size_t wake_count = 1) noexcept {
     if (!initialized_ || iocp_ == INVALID_HANDLE_VALUE)

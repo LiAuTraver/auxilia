@@ -17,7 +17,7 @@ namespace auxilia::net {
 class detached_task {
 public:
   struct promise_type {
-    detached_task get_return_object() noexcept { return {}; }
+    static constexpr detached_task get_return_object() noexcept { return {}; }
     static constexpr std::suspend_never initial_suspend() noexcept {
       return {};
     }
@@ -44,8 +44,8 @@ public:
 /// smth bad may happen.
 ///
 /// @todo:
-/// 1. Cancellation support.
-/// 2. It enforces eager initiation. May add a lazy version.
+/// - Cancellation support.
+/// - It enforces eager initiation. May add a lazy version.
 template <typename Ty> class awaitable {
 public:
   using value_type = Ty;
@@ -56,7 +56,7 @@ public:
 
 private:
   /// @remarks The state machine:
-  /// ```txt
+  /// @code
   ///             idle ----
   ///              |       \ (error path)
   ///           pending -----------------------
@@ -64,7 +64,7 @@ private:
   ///       suspended   |                     |
   ///          \        /                     |
   ///          completed  <--------------------
-  /// ```
+  /// @endcode 
   enum state : uint8_t {
     /// Awaiter has not started yet.
     idle = 0,

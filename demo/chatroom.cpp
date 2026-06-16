@@ -336,7 +336,9 @@ static int run_tcp_client(net::io_context &ctx, const options &opts) {
 void loginit() {
   auxilia::set_console_output_cp_utf8();
   spdlog::set_level(spdlog::level::debug);
-  spdlog::info("\033[33mspdlog framework initialized.\033[0m");
+  spdlog::info("\033[33m"
+               "spdlog framework initialized."
+               "\033[0m");
   spdlog::set_pattern("[%n: %^%l%$] %v");
   spdlog::default_logger()->set_pattern("[%^%l%$] %v");
 }
