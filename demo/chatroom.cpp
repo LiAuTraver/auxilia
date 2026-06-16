@@ -55,72 +55,58 @@ struct udp_client_state {
   std::shared_ptr<spdlog::logger> logger;
 };
 
-static void start_server_receive(udp_server_state &state) {
-  auto status = state.socket.async_recv_from(
-      0x0400,
-      [&state](StatusOr<net::udp::socket::bytes_type> result,
-               net::udp::endpoint sender) {
-        if (!result) {
-          result.log_err(state.logger);
-        } else {
-          if (state.clients.write([&sender](auto &&vec) {
-                return std::ranges::contains(vec, sender)
-                           ? true
-                           : (vec.emplace_back(sender), false);
-              }))
-            state.logger->info("recv {} bytes from {}", result->size(), sender);
-          else
-            state.logger->info("new client {} connected", sender);
+static net::detached_task start_server_receive(udp_server_state &state) {
+  for (;;) {
+    auto result = co_await state.socket.async_recv_from(0x0400, [&state](auto op) {
+      /// IMPORTANT: this is a windows-specific feature:
+      /// when UDP socket closes, it sends an ICMP "port unreachable" message to
+      /// the peer, which will trigger a callback with `WSAECONNRESET` error
+      /// code. so it may not work on linux.
+      if (auto endpoint = net::udp::endpoint::from_native(
+              std::move(op->storage), op->storage_len)) {
+        [[maybe_unused]] auto _cnt = state.clients.remove(*endpoint);
+        contract_assert(
+            _cnt == 1,
+            "unless there's attackers, the sender shall be a previous client...")
+        state.logger->info("client {} disconnected.", *endpoint);
+      }
+      return net::details::make_recv_error();
+    });
+    if (!result) {
+      result.log_err(state.logger);
+      continue;
+    }
 
-          state.clients.for_each([&](const auto &peer) {
-            if (peer != sender)
-              state.socket
-                  .async_send_to(
-                      *result,
-                      peer,
-                      [logger = state.logger](StatusOr<size_t> send_res) {
-                        send_res.log_err(logger);
-                      })
-                  .log_err(state.logger);
-          });
-        }
+    auto sender = result->sender;
+    auto message = std::move(result->bytes);
+    if (state.clients.write([&sender](auto &&vec) {
+          return std::ranges::contains(vec, sender)
+                     ? true
+                     : (vec.emplace_back(sender), false);
+        }))
+      state.logger->info("recv {} bytes from {}", message.size(), sender);
+    else
+      state.logger->info("new client {} connected", sender);
 
-        start_server_receive(state);
-      },
-      [&state](auto op) {
-        if (auto endpoint = net::udp::endpoint::from_native(
-                std::move(op->storage), op->storage_len)) {
-          auto _cnt = state.clients.remove(*endpoint);
-          contract_assert(
-              _cnt == 1,
-              "unless there's attackers, the sender shall be a previous client...")
-          state.logger->info("client {} disconnected.", *endpoint);
-        }
-      });
-  if (!status) {
-    status.log_err(state.logger);
-    /// IMPORTANT: otherwise the server would be idle and has nothing to do.
-    /// restart the loop after an immediate local WSARecvFrom failure.
-    /// idk on linux?.
-    start_server_receive(state);
+    for (const auto &peer : state.clients.lock_shared()) {
+      if (peer == sender)
+        continue;
+
+      auto send_res = co_await state.socket.async_send_to(message, peer);
+      send_res.log_err(state.logger);
+    }
   }
 }
 
-static void start_client_receive(udp_client_state &state) {
-  auto status = state.socket.async_recv_from(
-      0x800,
-      [&state](StatusOr<net::udp::socket::bytes_type> result,
-               net::udp::endpoint /* sender */) {
-        if (!result)
-          result.log_err(state.logger);
-        else
-          state.logger->info("{}", *std::move(result));
+static net::detached_task start_client_receive(udp_client_state &state) {
+  for (;;) {
+    auto result = co_await state.socket.async_recv_from(0x800);
+    if (!result) {
+      result.log_err(state.logger);
+      co_return;
+    }
 
-        start_client_receive(state);
-      });
-  if (!status) {
-    status.log_err(state.logger);
-    start_client_receive(state);
+    state.logger->info("{}", result->bytes);
   }
 }
 static int run_udp_server(net::io_context &ctx, const options &opts) {
@@ -218,53 +204,45 @@ struct tcp_client_state {
   std::shared_ptr<spdlog::logger> logger;
 };
 
-static void start_tcp_receive(tcp_server_state &state,
-                              std::shared_ptr<tcp_session> session) {
-  session->socket
-      .async_recv(
-          0x800,
-          [&state, session](StatusOr<net::tcp::socket::bytes_type> result) {
-            if (!result || result->empty()) {
-              if (result->empty())
-                state.logger->info("tcp client disconnected");
-              else
-                result.log_err(state.logger);
+static net::detached_task
+start_tcp_receive(tcp_server_state &state,
+                  std::shared_ptr<tcp_session> session) {
+  for (;;) {
+    auto result = co_await session->socket.async_recv(0x800);
+    if (!result || result->empty()) {
+      if (result && result->empty())
+        state.logger->info("tcp client disconnected");
+      else
+        result.log_err(state.logger);
 
-              session->socket.close().log_err(state.logger);
-              state.sessions.remove(session);
-            } else {
-              state.sessions.for_each([&](const auto &peer) {
-                if (peer != session)
-                  peer->socket
-                      .async_send(
-                          net::tcp::socket::bytes_type(*result),
-                          [logger = state.logger](StatusOr<size_t> send_res) {
-                            send_res.log_err(logger);
-                          })
-                      .log_err(state.logger);
-              });
+      session->socket.close().log_err(state.logger);
+      state.sessions.remove(session);
+      co_return;
+    }
 
-              start_tcp_receive(state, session);
-            }
-          })
-      .log_err(state.logger);
+    for (const auto &peer : state.sessions.lock_shared()) {
+      if (peer == session)
+        continue;
+
+      auto send_res = co_await peer->socket.async_send(*std::move(result));
+      send_res.log_err(state.logger);
+    }
+  }
 }
 
-static void start_tcp_client_receive(tcp_client_state &state) {
-  state.socket
-      .async_recv(0x800,
-                  [&state](StatusOr<net::tcp::socket::bytes_type> result) {
-                    if (!result || result->empty()) {
-                      if (result->empty())
-                        state.logger->info("server closed the connection");
-                      else
-                        result.log_err(state.logger);
-                    } else {
-                      state.logger->info("{}", result);
-                      start_tcp_client_receive(state);
-                    }
-                  })
-      .log_err(state.logger);
+static net::detached_task start_tcp_client_receive(tcp_client_state &state) {
+  for (;;) {
+    auto result = co_await state.socket.async_recv(0x800);
+    if (!result || result->empty()) {
+      if (result && result->empty())
+        state.logger->info("server closed the connection");
+      else
+        result.log_err(state.logger);
+      co_return;
+    }
+
+    state.logger->info("{}", *result);
+  }
 }
 
 static int run_tcp_server(net::io_context &ctx, const options &opts) {

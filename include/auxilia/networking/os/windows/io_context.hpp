@@ -43,7 +43,7 @@ public:
   }
   Status shutdown() noexcept {
     if (!initialized_)
-      return UnavailableError(
+      return FailedPreconditionError(
           "io_context is not initialized, or failed to initialize.");
     stop();
     if (iocp_ && iocp_ != INVALID_HANDLE_VALUE) {
@@ -58,7 +58,7 @@ public:
   }
   Status associate(const SOCKET socket, const ULONG_PTR key = 0) noexcept {
     if (!initialized_ || !iocp_ || iocp_ == INVALID_HANDLE_VALUE)
-      return UnavailableError(
+      return FailedPreconditionError(
           "io_context is not initialized or IOCP is not available.");
     if (socket == INVALID_SOCKET)
       return InvalidArgumentError("socket is in a invalid state.");

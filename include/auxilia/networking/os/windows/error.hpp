@@ -31,7 +31,7 @@ namespace auxilia::net::details {
       });
   if (message.empty()) {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-      ::SetLastError(ERROR_SUCCESS);
+      // ::SetLastError(ERROR_SUCCESS);
       message = "insufficient memory for error message";
     } else
       message = "Error code unrecognized";
@@ -59,7 +59,7 @@ namespace auxilia::net::details {
 
   if (message.empty()) {
     if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-      ::SetLastError(ERROR_SUCCESS);
+      // ::SetLastError(ERROR_SUCCESS);
       message = "insufficient memory for error message";
     } else
       message = "Error code unrecognized";

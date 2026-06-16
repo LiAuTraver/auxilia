@@ -122,7 +122,6 @@ inline constexpr auto as = [](auto &&from) static constexpr noexcept -> To {
   return static_cast<To>(from);
 };
 
-// from MSVC STL:
 // converts from a fancy pointer to a plain pointer
 template <class FancyPtrTy>
 AC_NODISCARD constexpr auto unfancy(FancyPtrTy ptr) noexcept {
@@ -145,11 +144,10 @@ AC_NODISCARD constexpr PtrTy *unfancy_maybe_null(PtrTy *ptr) noexcept {
   return ptr;
 }
 template <class PtrTy> AC_NODISCARD void *voidify_unfancy(PtrTy Ptr) noexcept {
-  if constexpr (std::is_pointer_v<PtrTy>) {
+  if constexpr (std::is_pointer_v<PtrTy>)
     return Ptr;
-  } else {
+  else
     return std::addressof(*Ptr);
-  }
 }
 
 struct voidify {

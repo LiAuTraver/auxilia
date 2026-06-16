@@ -98,7 +98,7 @@ AC_FORCEINLINE inline auto send(const raw_socket_t s,
       s, &wsabuf, 1, &bytes_sent, flags, to, tolen, nullptr, nullptr);
   if (result == SOCKET_ERROR)
     return ::WSAGetLastError() == WSAEWOULDBLOCK
-               ? (::WSASetLastError(ERROR_SUCCESS), 0)
+               ? (/*::WSASetLastError(ERROR_SUCCESS),*/ 0)
                : SOCKET_ERROR;
   else
     return static_cast<int>(bytes_sent);

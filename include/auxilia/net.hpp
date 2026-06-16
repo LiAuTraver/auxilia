@@ -34,4 +34,5 @@
 #include "networking/protocol.hpp"   // IWYU pragma: export
 #include "networking/endpoint.hpp"   // IWYU pragma: export
 #include "networking/io_context.hpp" // IWYU pragma: export
+#include "networking/awaitable.hpp"  // IWYU pragma: export
 #include "networking/socket.hpp"     // IWYU pragma: export

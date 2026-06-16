@@ -1,11 +1,7 @@
 #pragma once
 
-#include <algorithm>
-#include <atomic>
-#include <cerrno>
 #include <cstddef>
-#include <cstring>
-#include <deque>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -14,11 +10,10 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include <cstring>
 #include <functional>
 
-#include "auxilia/base/config.hpp"
 #include "auxilia/base/macros.hpp"
+#include "auxilia/base/config.hpp"
 #include "auxilia/base/format.hpp"
 #include "auxilia/status/Status.hpp"
 #include "auxilia/status/StatusOr.hpp"
@@ -30,6 +25,7 @@
 #include "protocol.hpp"
 #include "io_context.hpp"
 #include "endpoint.hpp"
+#include "awaitable.hpp"
 
 namespace auxilia::net::details {
 
@@ -140,7 +136,8 @@ protected:
     static_assert(
         is_specialization_v<Handler, std::move_only_function>,
         "only support move only function right now, "
-        "since I really dont know how to handle function ref or copyable function.");
+        "since I really dont know how to handle function ref or copyable function "
+        "due to it's ownership and lifetime problem.");
     using handler_type = Handler;
     using buffer_type = ::WSABUF;
 
@@ -189,18 +186,22 @@ protected:
     DWORD flags;
   };
 
-  template <auto DefaultErrorFn,
-            typename Op,
-            typename StartFn,
-            typename ErrorFn>
+  template <typename Op, typename StartFn, typename ErrorFn>
   static Status
   start_overlapped(Op *op, StartFn &&start_fn, ErrorFn &&error_fn) {
-    static_assert(std::is_void_v<std::invoke_result_t<ErrorFn, Op *>>);
     if (start_fn() == details::socket_error &&
         ::WSAGetLastError() != WSA_IO_PENDING) {
       AC_DEFER { delete op; };
-      error_fn(op);
-      return DefaultErrorFn();
+      if constexpr (std::invocable<ErrorFn>)
+        return error_fn();
+      else if constexpr (std::invocable<ErrorFn, Op *>)
+        if constexpr (std::is_same_v<std::invoke_result_t<ErrorFn, Op *>,
+                                     Status>)
+          return error_fn(op);
+        else
+          static_assert(false, "invalid error function");
+      else
+        static_assert(false, "invalid error function");
     }
     return {};
   }
@@ -211,7 +212,7 @@ protected:
     AC_DEFER { delete op; };
 
     if (error != ERROR_SUCCESS) {
-      ::WSASetLastError(static_cast<int>(error));
+      // ::WSASetLastError(static_cast<int>(error));
       (*op)(details::make_send_error());
     } else {
       (*op)(static_cast<size_t>(bytes));
@@ -383,7 +384,7 @@ protected:
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op.cancel(OkStatus("socket closed"));
+          op.cancel(Cancelled("socket closed"));
           return;
         }
         read_ops.emplace_back(std::move(op));
@@ -397,7 +398,7 @@ protected:
       {
         std::scoped_lock lock(mutex);
         if (closing) {
-          op.cancel(OkStatus("socket closed"));
+          op.cancel(Cancelled("socket closed"));
           return;
         }
         write_ops.emplace_back(std::move(op));
@@ -559,7 +560,7 @@ inline Status socket_base<Protocol>::close() const {
   if (is_valid()) [[likely]] {
 #ifdef __linux__
     if (epoll_state_)
-      epoll_state_->cancel_all(OkStatus("socket closed"));
+      epoll_state_->cancel_all(Cancelled("socket closed"));
     if (context_ && context_->native_handle() != details::epoll::invalid)
       details::epoll::del(context_->native_handle(), handle_).log_err();
 #endif
@@ -612,7 +613,7 @@ public:
 protected:
   StatusOr<bytes_type> do_recv(const size_t max_size) {
     if (!remote_endpoint_)
-      return UnavailableError(
+      return FailedPreconditionError(
           "Remote endpoint is not set. make sure you called accept() and it succeeded.");
 
     bytes_type buffer;
@@ -660,78 +661,10 @@ public:
 public:
   using recv_handler = std::move_only_function<void(StatusOr<bytes_type>)>;
   using send_handler = std::move_only_function<void(StatusOr<size_t>)>;
-  template <typename ErrorFn = voidify>
-  Status async_recv(const size_t max_size,
-                    recv_handler handler,
-                    ErrorFn &&error_fn = {}) {
-#ifdef _WIN32
-    // lifetime of `op` outlives this function, ends in `handle_recv`
-    auto *op = new (std::nothrow)
-        recv_operation(this, socket::handle_recv, std::move(handler), max_size);
-    if (!op)
-      return ResourceExhaustedError(
-          "Insufficient memory to construct iocp recv operation");
-    DWORD bytes = 0;
-    return base_type::start_overlapped<details::make_recv_error>(
-        op,
-        [&] {
-          return ::WSARecv(handle_,
-                           &op->wsa_buf,
-                           1,
-                           &bytes,
-                           &op->flags,
-                           &op->overlapped,
-                           nullptr);
-        },
-        std::forward<ErrorFn>(error_fn));
-#elif defined(__linux__)
-    if (!context_ || !epoll_state_ || !is_valid())
-      return UnavailableError("io_context is not available.");
-    if (auto status = epoll_state_->ensure_nonblocking(); !status)
-      return status;
-    epoll_state_->template enqueue_read<recv_operation>(
-        this, std::move(handler), max_size);
-    return {};
-#else
-#  error unsupported
-#endif
-  }
-  template <typename ErrorFn = voidify>
-  Status
-  async_send(bytes_type bytes, send_handler handler, ErrorFn &&error_fn = {}) {
-#ifdef _WIN32
-    auto *op = new (std::nothrow) send_operation(
-        this, socket::handle_send, std::move(handler), std::move(bytes));
-    if (!op)
-      return ResourceExhaustedError(
-          "Insufficient memory to construct iocp send operation");
-    DWORD bytes_sent = 0;
-    return base_type::start_overlapped<details::make_send_error>(
-        op,
-        [&] {
-          return ::WSASend(handle_,
-                           &op->wsa_buf,
-                           1,
-                           &bytes_sent,
-                           0,
-                           &op->overlapped,
-                           nullptr);
-        },
-        std::forward<ErrorFn>(error_fn));
-#elif defined(__linux__)
-    if (!context_ || !epoll_state_ || !is_valid())
-      return UnavailableError("io_context is not available.");
-    if (auto status = epoll_state_->ensure_nonblocking(); !status)
-      return status;
+  using recv_awaitable = net::awaitable<bytes_type>;
+  using send_awaitable = net::awaitable<size_t>;
 
-    epoll_state_->template enqueue_write<send_operation>(
-        this, std::move(handler), std::move(bytes));
-    return {};
-#else
-#  error unsupported
-#endif
-  }
-
+private:
 private:
 #ifdef _WIN32
   struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
@@ -749,23 +682,21 @@ private:
     auto *op = static_cast<recv_operation *>(base);
     AC_DEFER { delete op; };
     if (error != ERROR_SUCCESS) {
-      ::WSASetLastError(static_cast<int>(error));
+      // ::WSASetLastError(static_cast<int>(error));
       (*op)(details::make_recv_error());
-
-      return;
+    } else {
+      op->buffer.resize(bytes);
+      (*op)(std::move(op->buffer));
     }
-    op->buffer.resize(bytes);
-    (*op)(std::move(op->buffer));
   }
 
   static void handle_send(details::iocp::operation *base,
                           const DWORD bytes,
                           const DWORD error) noexcept {
-    auto *op = static_cast<send_operation *>(base);
-    base_type::finish_send(op, bytes, error);
+    base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
 #elif defined(__linux__)
-  struct recv_operation : base_type::epoll_recv_base<recv_handler> {
+  struct recv_operation : base_type::template epoll_recv_base<recv_handler> {
     using epoll_recv_base::epoll_recv_base;
 
     bool on_read(const details::raw_socket_t fd,
@@ -783,7 +714,7 @@ private:
     }
     void cancel(const Status &error) noexcept { (*this)(error); }
   };
-  struct send_operation : base_type::epoll_send_base<send_handler> {
+  struct send_operation : base_type::template epoll_send_base<send_handler> {
     using epoll_send_base::epoll_send_base;
 
     bool on_write(const details::raw_socket_t fd,
@@ -811,6 +742,113 @@ private:
 #else
 #  error unsupported
 #endif
+public:
+  using recv_error_handler = std::move_only_function<Status(recv_operation *)>;
+  using send_error_handler = std::move_only_function<Status(send_operation *)>;
+
+public:
+  recv_awaitable async_recv(const size_t max_size,
+                            recv_error_handler &&error_fn) {
+    return recv_awaitable([this, max_size, error_fn = std::move(error_fn)](
+                              recv_handler handler) mutable -> Status {
+      return async_recv(max_size, std::move(handler), std::move(error_fn));
+    });
+  }
+  recv_awaitable async_recv(const size_t max_size) {
+    return recv_awaitable([this,
+                           max_size](recv_handler handler) mutable -> Status {
+      return async_recv(max_size, std::move(handler), details::make_recv_error);
+    });
+  }
+
+  send_awaitable async_send(bytes_type bytes, send_error_handler &&error_fn) {
+    return send_awaitable(
+        [this, bytes = std::move(bytes), error_fn = std::move(error_fn)](
+            send_handler handler) mutable -> Status {
+          return async_send(
+              std::move(bytes), std::move(handler), std::move(error_fn));
+        });
+  }
+  send_awaitable async_send(bytes_type bytes) {
+    return send_awaitable([this, bytes = std::move(bytes)](
+                              send_handler handler) mutable -> Status {
+      return async_send(
+          std::move(bytes), std::move(handler), details::make_send_error);
+    });
+  }
+
+  template <typename ErrorFn = decltype(details::make_recv_error)>
+  Status async_recv(const size_t max_size,
+                    recv_handler handler,
+                    ErrorFn &&error_fn = details::make_recv_error) {
+#ifdef _WIN32
+    // lifetime of `op` outlives this function, ends in `handle_recv`
+    auto *op = new (std::nothrow)
+        recv_operation(this, socket::handle_recv, std::move(handler), max_size);
+    if (!op)
+      return ResourceExhaustedError(
+          "Insufficient memory to construct iocp recv operation");
+    DWORD bytes = 0;
+    return base_type::start_overlapped(
+        op,
+        [&] {
+          return ::WSARecv(handle_,
+                           &op->wsa_buf,
+                           1,
+                           &bytes,
+                           &op->flags,
+                           &op->overlapped,
+                           nullptr);
+        },
+        std::forward<ErrorFn>(error_fn));
+#elif defined(__linux__)
+    if (!context_ || !epoll_state_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
+      return status;
+    epoll_state_->template enqueue_read<recv_operation>(
+        this, std::move(handler), max_size);
+    return {};
+#else
+#  error unsupported
+#endif
+  }
+  template <typename ErrorFn = decltype(details::make_send_error)>
+  Status async_send(bytes_type bytes,
+                    send_handler handler,
+                    ErrorFn &&error_fn = details::make_send_error) {
+#ifdef _WIN32
+    auto *op = new (std::nothrow) send_operation(
+        this, socket::handle_send, std::move(handler), std::move(bytes));
+    if (!op)
+      return ResourceExhaustedError(
+          "Insufficient memory to construct iocp send operation");
+    DWORD bytes_sent = 0;
+    return base_type::start_overlapped(
+        op,
+        [&] {
+          return ::WSASend(handle_,
+                           &op->wsa_buf,
+                           1,
+                           &bytes_sent,
+                           0,
+                           &op->overlapped,
+                           nullptr);
+        },
+        std::forward<ErrorFn>(error_fn));
+#elif defined(__linux__)
+    if (!context_ || !epoll_state_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
+      return status;
+
+    epoll_state_->template enqueue_write<send_operation>(
+        this, std::move(handler), std::move(bytes));
+    return {};
+#else
+#  error unsupported
+#endif
+  }
 };
 template <> class socket<udp> : public details::socket_base<udp> {
 
@@ -829,7 +867,7 @@ public:
 public:
   Status send_bytes(bytes_type &&bytes) {
     if (!remote_endpoint_)
-      return UnavailableError("Remote endpoint cache not available.");
+      return FailedPreconditionError("Remote endpoint cache not available.");
 
     if (details::send(handle_,
                       std::move(bytes),
@@ -854,105 +892,14 @@ public:
   using recv_handler =
       std::move_only_function<void(StatusOr<bytes_type>, endpoint_type)>;
   using send_handler = std::move_only_function<void(StatusOr<size_t>)>;
-  static constexpr inline auto default_recv_handler = [](StatusOr<bytes_type>,
-                                                         endpoint_type) {};
-  static constexpr inline auto default_send_handler = [](StatusOr<size_t>) {};
+  struct recv_from_result {
+    bytes_type bytes;
+    endpoint_type sender;
+  };
+  using recv_from_awaitable = net::awaitable<recv_from_result>;
+  using send_awaitable = net::awaitable<size_t>;
 
-  template <typename ErrorFn = voidify>
-  Status async_recv_from(const size_t max_size,
-                         recv_handler handler,
-                         ErrorFn &&error_fn = {}) {
-#ifdef _WIN32
-    auto *op = new (std::nothrow)
-        recv_operation(this, socket::handle_recv, std::move(handler), max_size);
-    if (!op)
-      return ResourceExhaustedError(
-          "Insufficient memory to construct iocp recv operation");
-
-    DWORD bytes = 0;
-    return base_type::start_overlapped<details::make_recv_error>(
-        op,
-        [&] {
-          return ::WSARecvFrom(
-              handle_,
-              &op->wsa_buf,
-              1,
-              &bytes,
-              &op->flags,
-              // this is de jure UB but de facto fine in C++,
-              // network code has been doing this for decades
-              reinterpret_cast<details::sockaddr_t *>(&op->storage),
-              &op->storage_len,
-              &op->overlapped,
-              nullptr);
-        },
-        std::forward<ErrorFn>(error_fn));
-#elif defined(__linux__)
-    if (!context_ || !epoll_state_ || !is_valid())
-      return UnavailableError("io_context is not available.");
-    if (auto status = epoll_state_->ensure_nonblocking(); !status)
-      return status;
-    epoll_state_->template enqueue_read<recv_operation>(
-        this, std::move(handler), max_size);
-    return {};
-#else
-#  error unsupported
-#endif
-  }
-  template <typename ErrorFn = voidify>
-  Status async_send_to(bytes_type bytes,
-                       const endpoint_type &endpoint,
-                       send_handler handler,
-                       ErrorFn &&error_fn = {}) {
-#ifdef _WIN32
-
-    auto *op = new (std::nothrow) send_operation(this,
-                                                 socket::handle_send,
-                                                 std::move(handler),
-                                                 std::move(bytes),
-                                                 endpoint);
-    if (!op)
-      return ResourceExhaustedError(
-          "Insufficient memory to construct iocp send operation");
-
-    // race condition maybe vvv
-    // remote_endpoint_.emplace(endpoint);
-    DWORD bytes_sent = 0;
-    return base_type::start_overlapped<details::make_send_error>(
-        op,
-        [&] {
-          return ::WSASendTo(handle_,
-                             &op->wsa_buf,
-                             1,
-                             &bytes_sent,
-                             0,
-                             op->endpoint.data(),
-                             op->endpoint.size(),
-                             &op->overlapped,
-                             nullptr);
-        },
-        std::forward<ErrorFn>(error_fn));
-#elif defined(__linux__)
-    if (!context_ || !epoll_state_ || !is_valid())
-      return UnavailableError("io_context is not available.");
-    if (auto status = epoll_state_->ensure_nonblocking(); !status)
-      return status;
-
-    epoll_state_->template enqueue_write<send_operation>(
-        this, std::move(handler), std::move(bytes), endpoint);
-    return {};
-#else
-#  error unsupported
-#endif
-  }
-
-  Status async_send(bytes_type bytes, send_handler handler) {
-    if (!remote_endpoint_)
-      return UnavailableError("Remote endpoint cache not available.");
-    return async_send_to(
-        std::move(bytes), *remote_endpoint_, std::move(handler));
-  }
-
+private:
 private:
 #ifdef _WIN32
   struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
@@ -985,21 +932,22 @@ private:
     auto *op = static_cast<recv_operation *>(base);
     AC_DEFER { delete op; };
     if (error != ERROR_SUCCESS) {
-      ::WSASetLastError(static_cast<int>(error));
+      // ::WSASetLastError(static_cast<int>(error));
       (*op)(details::make_recv_error(), endpoint_type::unspecified());
-      return;
-    }
-    if (op->storage_len != sizeof(details::sockaddr_in4_t) &&
-        op->storage_len != sizeof(details::sockaddr_in6_t)) {
+
+    } else if (op->storage_len != sizeof(details::sockaddr_in4_t) &&
+               op->storage_len != sizeof(details::sockaddr_in6_t))
+        [[unlikely]] {
       (*op)(UnavailableError("Unknown address family of the accepted socket."),
             endpoint_type::unspecified());
-      return;
+
+    } else {
+      op->buffer.resize(bytes);
+      endpoint_type sender(std::move(op->storage), op->storage_len);
+      AC_RUNTIME_ASSERT(op->self);
+      op->self->remote_endpoint_.emplace(sender);
+      (*op)(std::move(op->buffer), std::move(sender));
     }
-    op->buffer.resize(bytes);
-    endpoint_type sender(std::move(op->storage), op->storage_len);
-    AC_RUNTIME_ASSERT(op->self);
-    op->self->remote_endpoint_.emplace(sender);
-    (*op)(std::move(op->buffer), std::move(sender));
   }
 
   static void handle_send(details::iocp::operation *base,
@@ -1008,7 +956,7 @@ private:
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
 #elif defined(__linux__)
-  struct recv_operation : base_type::epoll_recv_base<recv_handler> {
+  struct recv_operation : base_type::template epoll_recv_base<recv_handler> {
     using epoll_recv_base::epoll_recv_base;
     inline recv_operation(socket_type *const self,
                           base_type::handler_type &&handler,
@@ -1053,7 +1001,7 @@ private:
       (*this)(error, endpoint_type::unspecified());
     }
   };
-  struct send_operation : base_type::epoll_send_base<send_handler> {
+  struct send_operation : base_type::template epoll_send_base<send_handler> {
     endpoint_type endpoint;
 
     inline send_operation(socket_type *const self,
@@ -1090,6 +1038,184 @@ private:
     void cancel(const Status &error) noexcept { (*this)(error); }
   };
 #endif
+public:
+  using recv_error_handler = std::move_only_function<Status(recv_operation *)>;
+  using send_error_handler = std::move_only_function<Status(send_operation *)>;
+
+public:
+  recv_from_awaitable async_recv_from(const size_t max_size,
+                                      recv_error_handler &&error_fn) {
+    return recv_from_awaitable([this, max_size, error_fn = std::move(error_fn)](
+                                   typename recv_from_awaitable::handler_type
+                                       handler) mutable -> Status {
+      return async_recv_from(
+          max_size,
+          [handler = std::move(handler)](StatusOr<bytes_type> result,
+                                         endpoint_type sender) mutable {
+            if (!result)
+              handler(std::move(result).as_status());
+            else
+              handler(recv_from_result{*std::move(result), std::move(sender)});
+          },
+          std::move(error_fn));
+    });
+  }
+
+  recv_from_awaitable async_recv_from(const size_t max_size) {
+    return recv_from_awaitable([this, max_size](
+                                   typename recv_from_awaitable::handler_type
+                                       handler) mutable -> Status {
+      return async_recv_from(
+          max_size,
+          [handler = std::move(handler)](StatusOr<bytes_type> result,
+                                         endpoint_type sender) mutable {
+            if (!result)
+              handler(std::move(result).as_status());
+            else
+              handler(recv_from_result{*std::move(result), std::move(sender)});
+          },
+          details::make_recv_error);
+    });
+  }
+
+  send_awaitable async_send_to(bytes_type bytes,
+                               const endpoint_type &endpoint,
+                               send_error_handler &&error_fn) {
+    return send_awaitable([this,
+                           bytes = std::move(bytes),
+                           endpoint,
+                           error_fn = std::move(error_fn)](
+                              send_handler handler) mutable -> Status {
+      return async_send_to(
+          std::move(bytes), endpoint, std::move(handler), std::move(error_fn));
+    });
+  }
+  send_awaitable async_send_to(bytes_type bytes,
+                               const endpoint_type &endpoint) {
+    return send_awaitable([this, bytes = std::move(bytes), endpoint](
+                              send_handler handler) mutable -> Status {
+      return async_send_to(std::move(bytes),
+                           endpoint,
+                           std::move(handler),
+                           details::make_send_error);
+    });
+  }
+
+  send_awaitable async_send(bytes_type bytes, send_error_handler &&error_fn) {
+    return send_awaitable(
+        [this, bytes = std::move(bytes), error_fn = std::move(error_fn)](
+            send_handler handler) mutable -> Status {
+          return async_send(
+              std::move(bytes), std::move(handler), std::move(error_fn));
+        });
+  }
+
+  send_awaitable async_send(bytes_type bytes) {
+    return send_awaitable([this, bytes = std::move(bytes)](
+                              send_handler handler) mutable -> Status {
+      return async_send(
+          std::move(bytes), std::move(handler), details::make_send_error);
+    });
+  }
+
+  template <typename ErrorFn = decltype(details::make_recv_error)>
+  Status async_recv_from(const size_t max_size,
+                         recv_handler handler,
+                         ErrorFn &&error_fn = details::make_recv_error) {
+#ifdef _WIN32
+    auto *op = new (std::nothrow)
+        recv_operation(this, socket::handle_recv, std::move(handler), max_size);
+    if (!op)
+      return ResourceExhaustedError(
+          "Insufficient memory to construct iocp recv operation");
+
+    DWORD bytes = 0;
+    return base_type::start_overlapped(
+        op,
+        [&] {
+          return ::WSARecvFrom(
+              handle_,
+              &op->wsa_buf,
+              1,
+              &bytes,
+              &op->flags,
+              // this is de jure UB but de facto fine in C++,
+              // network code has been doing this for decades
+              reinterpret_cast<details::sockaddr_t *>(&op->storage),
+              &op->storage_len,
+              &op->overlapped,
+              nullptr);
+        },
+        std::forward<ErrorFn>(error_fn));
+#elif defined(__linux__)
+    if (!context_ || !epoll_state_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
+      return status;
+    epoll_state_->template enqueue_read<recv_operation>(
+        this, std::move(handler), max_size);
+    return {};
+#else
+#  error unsupported
+#endif
+  }
+  template <typename ErrorFn = decltype(details::make_send_error)>
+  Status async_send_to(bytes_type bytes,
+                       const endpoint_type &endpoint,
+                       send_handler handler,
+                       ErrorFn &&error_fn = details::make_send_error) {
+#ifdef _WIN32
+
+    auto *op = new (std::nothrow) send_operation(this,
+                                                 socket::handle_send,
+                                                 std::move(handler),
+                                                 std::move(bytes),
+                                                 endpoint);
+    if (!op)
+      return ResourceExhaustedError(
+          "Insufficient memory to construct iocp send operation");
+
+    // race condition maybe vvv
+    // remote_endpoint_.emplace(endpoint);
+    DWORD bytes_sent = 0;
+    return base_type::start_overlapped(
+        op,
+        [&] {
+          return ::WSASendTo(handle_,
+                             &op->wsa_buf,
+                             1,
+                             &bytes_sent,
+                             0,
+                             op->endpoint.data(),
+                             op->endpoint.size(),
+                             &op->overlapped,
+                             nullptr);
+        },
+        std::forward<ErrorFn>(error_fn));
+#elif defined(__linux__)
+    if (!context_ || !epoll_state_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
+      return status;
+
+    epoll_state_->template enqueue_write<send_operation>(
+        this, std::move(handler), std::move(bytes), endpoint);
+    return {};
+#else
+#  error unsupported
+#endif
+  }
+  template <typename ErrorFn = decltype(details::make_send_error)>
+  Status async_send(bytes_type bytes,
+                    send_handler handler,
+                    ErrorFn &&error_fn = details::make_send_error) {
+    if (!remote_endpoint_)
+      return FailedPreconditionError("Remote endpoint cache not available.");
+    return async_send_to(std::move(bytes),
+                         *remote_endpoint_,
+                         std::move(handler),
+                         std::forward<ErrorFn>(error_fn));
+  }
 
 protected:
   StatusOr<bytes_type> do_recv(const size_t max_size) {
@@ -1097,7 +1223,7 @@ protected:
     details::socket_storage_type storage;
 
     bytes_type buffer;
-    bool success = true;
+    auto success = true;
     buffer.resize_and_overwrite(
         max_size,
         [&, this](char *buf, const size_t buf_size) noexcept -> size_t {
@@ -1108,11 +1234,8 @@ protected:
                             0,
                             reinterpret_cast<details::sockaddr_t *>(&storage),
                             &len);
-          if (res < 0) {
-            success = false;
-            return 0;
-          } else if (len != sizeof(details::sockaddr_in4_t) &&
-                     len != sizeof(details::sockaddr_in6_t)) {
+          if ((res < 0) || (len != sizeof(details::sockaddr_in4_t) &&
+                            len != sizeof(details::sockaddr_in6_t))) {
             success = false;
             return 0;
           }

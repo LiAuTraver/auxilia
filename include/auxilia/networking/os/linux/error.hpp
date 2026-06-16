@@ -12,7 +12,7 @@ namespace auxilia::net::details {
 /// `man socket`
 [[gnu::cold]] static inline Status make_ctor_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EACCES:
     return PermissionDeniedError(
@@ -46,7 +46,7 @@ namespace auxilia::net::details {
 /// `man bind`
 [[gnu::cold]] static inline Status make_bind_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EACCES:
     return PermissionDeniedError(
@@ -79,7 +79,7 @@ namespace auxilia::net::details {
 /// `man listen`
 [[gnu::cold]] static inline Status make_listen_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EADDRINUSE:
     return AlreadyExistsError(
@@ -105,7 +105,7 @@ namespace auxilia::net::details {
 /// `man connect`
 [[gnu::cold]] static inline Status make_connect_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EPERM:
     [[fallthrough]];
@@ -180,7 +180,7 @@ namespace auxilia::net::details {
 }
 [[gnu::cold]] static inline Status make_send_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EACCES:
     return PermissionDeniedError(
@@ -251,7 +251,7 @@ namespace auxilia::net::details {
 }
 [[gnu::cold]] static inline Status make_close_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EBADF:
     return InvalidArgumentError("sockfd is not a valid file descriptor.");
@@ -274,7 +274,7 @@ namespace auxilia::net::details {
 
 [[gnu::cold]] static inline Status make_accept_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EAGAIN:
 #  if EAGAIN != EWOULDBLOCK
@@ -325,7 +325,7 @@ namespace auxilia::net::details {
 }
 [[gnu::cold]] static inline Status make_recv_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EAGAIN:
 #  if EAGAIN != EWOULDBLOCK
@@ -365,7 +365,7 @@ namespace epoll {
 
 [[gnu::cold]] static inline Status make_create_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EINVAL:
     // i only used epoll_create1. epoll_create is 'size is not positive'.
@@ -386,7 +386,7 @@ namespace epoll {
 }
 [[gnu::cold]] static inline Status make_eventfd_create_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EINVAL:
     return InvalidArgumentError("An unsupported value was specified in flags.");
@@ -409,7 +409,7 @@ namespace epoll {
 }
 [[gnu::cold]] static inline Status make_ctl_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EBADF:
     return InvalidArgumentError("epfd or fd is not a valid file descriptor.");
@@ -445,7 +445,7 @@ namespace epoll {
 }
 [[gnu::cold]] static inline Status make_wait_error() {
   AC_PRECONDITION(errno != 0)
-  AC_DEFER { errno = 0; };
+  // AC_DEFER { errno = 0; };
   switch (errno) {
   case EBADF:
     return InvalidArgumentError("epfd is not a valid file descriptor.");

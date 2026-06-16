@@ -93,14 +93,12 @@ public:
   }
   constexpr auto to_bytes() const noexcept { return addr_; }
   auto to_string(const FormatPolicy policy) const -> string_type {
+    constexpr auto I = std::to_integer<uint8_t>;
     if (policy == FormatPolicy::kBrief)
       return Format(to_uint());
     else if (policy == FormatPolicy::kDefault) {
-      return Format("{}.{}.{}.{}",
-                    std::to_integer<uint8_t>(addr_[0]),
-                    std::to_integer<uint8_t>(addr_[1]),
-                    std::to_integer<uint8_t>(addr_[2]),
-                    std::to_integer<uint8_t>(addr_[3]));
+      return Format(
+          "{}.{}.{}.{}", I(addr_[0]), I(addr_[1]), I(addr_[2]), I(addr_[3]));
     } else {
       return Format(std::bit_cast<underlying_bytes_type>(addr_));
     }
@@ -169,28 +167,21 @@ public:
   static consteval auto family() noexcept { return family::v6; }
   constexpr auto scope_id() const noexcept { return scope_id_; }
   auto to_string(const FormatPolicy policy) const -> string_type {
+    constexpr auto I = std::to_integer<uint16_t>;
     if (policy == FormatPolicy::kBrief)
       return Format("{}, {}",
                     std::bit_cast<std::array<uint64_t, 2ULL>>(addr_),
                     scope_id_);
     else if (policy == FormatPolicy::kDefault)
       return Format("{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}%{}",
-                    (std::to_integer<uint16_t>(addr_[0]) << 8) |
-                        std::to_integer<uint16_t>(addr_[1]),
-                    (std::to_integer<uint16_t>(addr_[2]) << 8) |
-                        std::to_integer<uint16_t>(addr_[3]),
-                    (std::to_integer<uint16_t>(addr_[4]) << 8) |
-                        std::to_integer<uint16_t>(addr_[5]),
-                    (std::to_integer<uint16_t>(addr_[6]) << 8) |
-                        std::to_integer<uint16_t>(addr_[7]),
-                    (std::to_integer<uint16_t>(addr_[8]) << 8) |
-                        std::to_integer<uint16_t>(addr_[9]),
-                    (std::to_integer<uint16_t>(addr_[10]) << 8) |
-                        std::to_integer<uint16_t>(addr_[11]),
-                    (std::to_integer<uint16_t>(addr_[12]) << 8) |
-                        std::to_integer<uint16_t>(addr_[13]),
-                    (std::to_integer<uint16_t>(addr_[14]) << 8) |
-                        std::to_integer<uint16_t>(addr_[15]),
+                    (I(addr_[0]) << 8) | I(addr_[1]),
+                    (I(addr_[2]) << 8) | I(addr_[3]),
+                    (I(addr_[4]) << 8) | I(addr_[5]),
+                    (I(addr_[6]) << 8) | I(addr_[7]),
+                    (I(addr_[8]) << 8) | I(addr_[9]),
+                    (I(addr_[10]) << 8) | I(addr_[11]),
+                    (I(addr_[12]) << 8) | I(addr_[13]),
+                    (I(addr_[14]) << 8) | I(addr_[15]),
                     scope_id_);
     else
       return Format(

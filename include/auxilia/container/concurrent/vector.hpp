@@ -9,6 +9,9 @@
 #include "auxilia/base/config.hpp"
 #include "auxilia/base/format.hpp"
 
+#include "./patterns/proxy.hpp"
+#include "./patterns/functional.hpp"
+
 namespace auxilia::concurrency {
 /// A thin wrapper around `std::vector` with `std::shared_mutex`. the
 /// performance is not good of course, but may use when `tbb`/`ppl` library is
@@ -16,13 +19,16 @@ namespace auxilia::concurrency {
 ///
 /// WIP.
 template <typename Ty, typename AllocTy = std::allocator<Ty>>
-class vector : public Printable {
+class vector : public Printable,
+               public ProxyMixin<std::vector<Ty, AllocTy>>,
+               public FunctionalMixin<std::vector<Ty, AllocTy>> {
   std::vector<Ty, AllocTy> myVec;
   mutable std::shared_mutex myMutex;
 
 public:
   using container_type = std::vector<Ty, AllocTy>;
   using mutex_type = std::shared_mutex;
+  using base_type = ProxyMixin<std::vector<Ty, AllocTy>>;
 
 public:
   using value_type = typename container_type::value_type;
@@ -48,55 +54,6 @@ public:
   AC_CONSTEXPR20 ~vector() noexcept = default;
 
 public:
-  /// User should:
-  /// 1. avoid returning reference/pointer from the lambda. (dangling reference)
-  /// 2. use non-blocking operation inside the lambda.
-  /// 3. don't call `read`/`write`/`for_each' recursively inside. (deadlock)
-  template <typename Func> inline decltype(auto) read(Func &&func) const {
-    std::shared_lock lock(myMutex);
-    return std::invoke(std::forward<Func>(func), myVec);
-  }
-  /// @copydoc read
-  template <typename Func> inline decltype(auto) write(Func &&func) {
-    std::unique_lock lock(myMutex);
-    return std::invoke(std::forward<Func>(func), myVec);
-  }
-  /// @copydoc read
-  template <typename Func> inline decltype(auto) for_each(Func &&f) const {
-    static_assert(
-        std::invocable<Func, typename container_type::const_reference>);
-    std::shared_lock lock(myMutex);
-    return std::ranges::for_each(myVec, std::forward<Func>(f));
-  }
-  /// @copydoc read
-  inline decltype(auto) remove(const Ty &value) {
-    std::unique_lock lock(myMutex);
-    return std::erase(myVec, value);
-  }
-  /// @copydoc read
-  template <typename Func> inline decltype(auto) remove_if(Func &&f) {
-    std::unique_lock lock(myMutex);
-    return std::erase_if(myVec, std::forward<Func>(f));
-  }
-
-  /// @copydoc read
-  inline decltype(auto) push_back(const Ty &value) {
-    std::unique_lock lock(myMutex);
-    return myVec.push_back(value);
-  }
-  /// @copydoc read
-  inline decltype(auto) push_back(Ty &&value) {
-    std::unique_lock lock(myMutex);
-    return myVec.push_back(std::move(value));
-  }
-  /// @copydoc read
-  template <typename... Args>
-  inline decltype(auto) emplace_back(Args &&...args) {
-    std::unique_lock lock(myMutex);
-    return myVec.emplace_back(std::forward<Args>(args)...);
-  }
-
-public:
   auto to_string(const FormatPolicy) const {
     std::shared_lock lock(myMutex);
     return Format(myVec);
@@ -104,5 +61,6 @@ public:
 
 public:
   auto &&get_raw(this auto &&self) noexcept { return self.myVec; }
+  auto &&get_mutex(this auto &&self) { return self.myMutex; }
 };
 } // namespace auxilia::concurrency
