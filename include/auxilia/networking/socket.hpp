@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
+#include <cstring>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -21,7 +23,6 @@
 
 #include "os.hpp"
 #include "ip.hpp"
-#include "os/windows/error.hpp"
 #include "protocol.hpp"
 #include "io_context.hpp"
 #include "endpoint.hpp"
@@ -44,10 +45,9 @@ public:
   static_assert(container_traits<bytes_type>::is_contiguous);
 
 public:
-  inline explicit(false) socket_base(
-      io_context *context = nullptr,
-      native_handle_type handle = invalid_socket,
-      std::optional<endpoint_type> remote_endpoint = std::nullopt) noexcept;
+  inline explicit(false)
+      socket_base(io_context *context = nullptr,
+                  native_handle_type handle = invalid_socket) noexcept;
   inline explicit(false)
       socket_base(io_context &context,
                   const native_handle_type handle = invalid_socket) noexcept
@@ -88,9 +88,6 @@ public:
   }
   AC_NODISCARD Status bind(const endpoint_type &endpoint) {
     return details::bind(handle_, endpoint.data(), endpoint.size());
-  }
-  AC_NODISCARD inline auto remote_endpoint() const noexcept {
-    return remote_endpoint_;
   }
   AC_NODISCARD auto to_string(const FormatPolicy) const {
     return Format(handle_);
@@ -481,19 +478,16 @@ protected:
 protected:
   io_context *context_;
   native_handle_type handle_;
-  /// FIXME: race condition in async operations
-  std::optional<endpoint_type> remote_endpoint_;
+
 #ifdef __linux__
+  /// FIXME: not good obviously.
   mutable std::unique_ptr<epoll_socket_state> epoll_state_;
 #endif
 };
 template <typename Protocol>
 inline socket_base<Protocol>::socket_base(
-    io_context *context,
-    const native_handle_type handle,
-    std::optional<endpoint_type> remote_endpoint) noexcept
-    : context_(context), handle_(handle),
-      remote_endpoint_(std::move(remote_endpoint)) {
+    io_context *context, const native_handle_type handle) noexcept
+    : context_(context), handle_(handle) {
   if (handle_ == invalid_socket)
     return;
   AC_RUNTIME_ASSERT(context_, "no context while handle is valid")
@@ -515,8 +509,7 @@ inline socket_base<Protocol>::socket_base(
 template <typename Protocol>
 inline socket_base<Protocol>::socket_base(socket_base &&that) noexcept
     : context_(std::exchange(that.context_, nullptr)),
-      handle_(std::exchange(that.handle_, invalid_socket)),
-      remote_endpoint_(std::move(that.remote_endpoint_))
+      handle_(std::exchange(that.handle_, invalid_socket))
 #ifdef __linux__
       ,
       epoll_state_(std::exchange(that.epoll_state_, nullptr))
@@ -530,7 +523,6 @@ socket_base<Protocol>::operator=(socket_base &&that) noexcept {
     close().log_err();
     context_ = std::exchange(that.context_, nullptr);
     handle_ = std::exchange(that.handle_, invalid_socket);
-    remote_endpoint_ = std::move(that.remote_endpoint_);
 #ifdef __linux__
     epoll_state_ = std::exchange(that.epoll_state_, nullptr);
 #endif
@@ -571,10 +563,9 @@ inline Status socket_base<Protocol>::close() const {
 template <typename Protocol>
 inline Status socket_base<Protocol>::connect(const endpoint_type &endpoint) {
   if (details::connect(handle_, endpoint.data(), endpoint.size()) != -1)
-      [[likely]] {
-    remote_endpoint_.emplace(endpoint);
+      [[likely]]
     return {};
-  } else [[unlikely]]
+  else [[unlikely]]
     return details::make_connect_error();
 }
 } // namespace auxilia::net::details
@@ -583,15 +574,23 @@ template <typename FakeT> class socket {
   consteval socket() noexcept { always_false<socket<FakeT>>("not supported"); }
 };
 template <> class socket<tcp> : public details::socket_base<tcp> {
+  /// FIXME: race condition in async operations
+  std::optional<endpoint_type> remote_endpoint_;
 
 public:
   using base_type = socket_base<tcp>;
   using base_type::socket_base;
   friend base_type;
-  socket(socket &&socket) noexcept
-      : base_type::socket_base(std::move(socket)) {}
+  inline explicit(false) socket(io_context *context,
+                                native_handle_type handle,
+                                endpoint_type endpoint) noexcept
+      : base_type::socket_base(context, handle), remote_endpoint_(endpoint) {}
+  socket(socket &&socket) noexcept : base_type::socket_base(std::move(socket)) {
+    remote_endpoint_ = std::move(socket.remote_endpoint_);
+  }
   socket &operator=(socket &&socket) noexcept {
     base_type::operator=(std::move(socket));
+    remote_endpoint_ = std::move(socket.remote_endpoint_);
     return *this;
   }
   ~socket() = default;
@@ -643,13 +642,14 @@ public:
             handle_, reinterpret_cast<details::sockaddr_t *>(&storage), &len);
         acc == details::invalid_socket)
       return details::make_accept_error();
-    else if (len == sizeof(details::sockaddr_in4_t) ||
-             len == sizeof(details::sockaddr_in6_t))
-      return {{context_, acc, reinterpret_cast<endpoint_type &&>(storage)}};
     else
-      return UnavailableError(
-          "Unknown or unsupported address family of the accepted socket.");
+      return make_accepted_socket(context_, acc, std::move(storage), len);
   }
+
+  struct {
+    static decltype(auto) operator()(auto &&self) { return self.accept(); }
+  } static constexpr inline accept_;
+
   Status send_bytes(bytes_type &&bytes) {
     if (details::send(handle_, std::move(bytes), 0, nullptr, 0) != -1)
         [[likely]]
@@ -659,14 +659,55 @@ public:
   }
 
 public:
+  using accept_handler = std::move_only_function<void(StatusOr<socket>)>;
   using recv_handler = std::move_only_function<void(StatusOr<bytes_type>)>;
   using send_handler = std::move_only_function<void(StatusOr<size_t>)>;
+  using accept_awaitable = net::awaitable<socket>;
   using recv_awaitable = net::awaitable<bytes_type>;
   using send_awaitable = net::awaitable<size_t>;
 
 private:
-private:
+  static StatusOr<socket>
+  make_accepted_socket(io_context *const context,
+                       const native_handle_type handle,
+                       details::socket_storage_type &&storage,
+                       const details::socket_len_type len) {
+    if (auto endpoint = endpoint_type::from_native(std::move(storage), len))
+        [[likely]]
+      return socket(context, handle, *std::move(endpoint));
+
+    details::closesocket(handle).log_err();
+    return UnavailableError(
+        "Unknown or unsupported address family of the accepted socket.");
+  }
+
 #ifdef _WIN32
+  struct AC_EMPTY_BASES AC_NOVTABLE accept_operation
+      : base_type::template iocp_base<accept_handler> {
+    using iocp_base::iocp_base;
+    static constexpr DWORD address_bytes =
+        sizeof(details::socket_storage_type) + 16;
+    native_handle_type accepted = details::invalid_socket;
+    std::array<char, address_bytes * 2> address_buffer{};
+    LPFN_GETACCEPTEXSOCKADDRS get_sockaddrs = nullptr;
+
+    inline accept_operation(
+        socket_type *const self,
+        const complete_fn complete_fn,
+        accept_handler &&handler,
+        const native_handle_type accepted,
+        const LPFN_GETACCEPTEXSOCKADDRS get_sockaddrs) noexcept
+        : iocp_base(complete_fn), accepted(accepted),
+          get_sockaddrs(get_sockaddrs) {
+      this->handler = std::move(handler);
+      this->self = self;
+    }
+    inline ~accept_operation() noexcept {
+      if (accepted != details::invalid_socket)
+        details::closesocket(accepted).log_err();
+    }
+  };
+
   struct AC_EMPTY_BASES AC_NOVTABLE recv_operation
       : base_type::template iocp_recv_base<recv_handler> {
     using iocp_recv_base::iocp_recv_base;
@@ -695,7 +736,86 @@ private:
                           const DWORD error) noexcept {
     base_type::finish_send(static_cast<send_operation *>(base), bytes, error);
   }
+
+  static void handle_accept(details::iocp::operation *base,
+                            [[maybe_unused]] const DWORD bytes,
+                            const DWORD error) noexcept {
+    auto *op = static_cast<accept_operation *>(base);
+    AC_DEFER { delete op; };
+    if (error != ERROR_SUCCESS) {
+      (*op)(details::make_accept_error());
+      return;
+    }
+
+    auto accepted = std::exchange(op->accepted, details::invalid_socket);
+    if (::setsockopt(accepted,
+                     SOL_SOCKET,
+                     SO_UPDATE_ACCEPT_CONTEXT,
+                     reinterpret_cast<const char *>(&op->self->handle_),
+                     sizeof(op->self->handle_)) == details::socket_error) {
+      details::closesocket(accepted).log_err();
+      (*op)(details::make_accept_error());
+      return;
+    }
+
+    details::sockaddr_t *local = nullptr;
+    details::sockaddr_t *remote = nullptr;
+    int local_len = 0;
+    int remote_len = 0;
+    op->get_sockaddrs(op->address_buffer.data(),
+                      0,
+                      accept_operation::address_bytes,
+                      accept_operation::address_bytes,
+                      &local,
+                      &local_len,
+                      &remote,
+                      &remote_len);
+
+    if (!remote || (remote_len != sizeof(details::sockaddr_in4_t) &&
+                    remote_len != sizeof(details::sockaddr_in6_t)))
+        [[unlikely]] {
+      details::closesocket(accepted).log_err();
+      (*op)(UnavailableError(
+          "Unknown or unsupported address family of the accepted socket."));
+      return;
+    }
+
+    details::socket_storage_type storage{};
+    std::memcpy(&storage, remote, static_cast<size_t>(remote_len));
+    (*op)(make_accepted_socket(
+        op->self->context_,
+        accepted,
+        std::move(storage),
+        static_cast<details::socket_len_type>(remote_len)));
+  }
 #elif defined(__linux__)
+  struct accept_operation : base_type::template epoll_base<accept_handler> {
+    inline accept_operation(socket_type *const self,
+                            accept_handler &&handler) noexcept {
+      this->self = self;
+      this->handler = std::move(handler);
+    }
+
+    bool on_read(const details::raw_socket_t fd,
+                 [[maybe_unused]] const uint32_t events) noexcept {
+      details::socket_len_type len = sizeof(details::socket_storage_type);
+      details::socket_storage_type storage{};
+      auto accepted = details::accept(
+          fd, reinterpret_cast<details::sockaddr_t *>(&storage), &len);
+      if (accepted < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+          return false;
+        (*this)(details::make_accept_error());
+        return true;
+      }
+
+      (*this)(make_accepted_socket(
+          this->self->context_, accepted, std::move(storage), len));
+      return true;
+    }
+    void cancel(const Status &error) noexcept { (*this)(error); }
+  };
+
   struct recv_operation : base_type::template epoll_recv_base<recv_handler> {
     using epoll_recv_base::epoll_recv_base;
 
@@ -743,10 +863,24 @@ private:
 #  error unsupported
 #endif
 public:
+  using accept_error_handler =
+      std::move_only_function<Status(accept_operation *)>;
   using recv_error_handler = std::move_only_function<Status(recv_operation *)>;
   using send_error_handler = std::move_only_function<Status(send_operation *)>;
 
 public:
+  accept_awaitable async_accept(accept_error_handler &&error_fn) {
+    return accept_awaitable([this, error_fn = std::move(error_fn)](
+                                accept_handler handler) mutable -> Status {
+      return async_accept(std::move(handler), std::move(error_fn));
+    });
+  }
+  accept_awaitable async_accept() {
+    return accept_awaitable([this](accept_handler handler) mutable -> Status {
+      return async_accept(std::move(handler), details::make_accept_error);
+    });
+  }
+
   recv_awaitable async_recv(const size_t max_size,
                             recv_error_handler &&error_fn) {
     return recv_awaitable([this, max_size, error_fn = std::move(error_fn)](
@@ -775,6 +909,94 @@ public:
       return async_send(
           std::move(bytes), std::move(handler), details::make_send_error);
     });
+  }
+
+  template <typename ErrorFn = decltype(details::make_accept_error)>
+  Status async_accept(accept_handler handler,
+                      ErrorFn &&error_fn = details::make_accept_error) {
+#ifdef _WIN32
+    if (!context_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+
+    details::socket_storage_type local{};
+    details::socket_len_type local_len = sizeof(local);
+    if (::getsockname(handle_,
+                      reinterpret_cast<details::sockaddr_t *>(&local),
+                      &local_len) == details::socket_error)
+      return details::make_accept_error();
+
+    const auto family = static_cast<ip::family>(local.ss_family);
+    if (family != ip::family::v4 && family != ip::family::v6)
+      return UnavailableError(
+          "Unknown or unsupported address family of the listening socket.");
+
+    GUID accept_guid = WSAID_ACCEPTEX;
+    GUID sockaddrs_guid = WSAID_GETACCEPTEXSOCKADDRS;
+    LPFN_ACCEPTEX accept_ex = nullptr;
+    LPFN_GETACCEPTEXSOCKADDRS get_sockaddrs = nullptr;
+    DWORD ioctl_bytes = 0;
+    if (::WSAIoctl(handle_,
+                   SIO_GET_EXTENSION_FUNCTION_POINTER,
+                   &accept_guid,
+                   sizeof(accept_guid),
+                   &accept_ex,
+                   sizeof(accept_ex),
+                   &ioctl_bytes,
+                   nullptr,
+                   nullptr) == details::socket_error ||
+        ::WSAIoctl(handle_,
+                   SIO_GET_EXTENSION_FUNCTION_POINTER,
+                   &sockaddrs_guid,
+                   sizeof(sockaddrs_guid),
+                   &get_sockaddrs,
+                   sizeof(get_sockaddrs),
+                   &ioctl_bytes,
+                   nullptr,
+                   nullptr) == details::socket_error)
+      return details::make_accept_error();
+
+    auto accepted = details::socket(family, tcp::socket_kind());
+    if (accepted == details::invalid_socket)
+      return details::make_ctor_error();
+
+    auto *op = new (std::nothrow) accept_operation(this,
+                                                   socket::handle_accept,
+                                                   std::move(handler),
+                                                   accepted,
+                                                   get_sockaddrs);
+    if (!op) {
+      details::closesocket(accepted).log_err();
+      return ResourceExhaustedError(
+          "Insufficient memory to construct iocp accept operation");
+    }
+
+    DWORD bytes = 0;
+    return base_type::start_overlapped(
+        op,
+        [&] {
+          return accept_ex(handle_,
+                           op->accepted,
+                           op->address_buffer.data(),
+                           0,
+                           accept_operation::address_bytes,
+                           accept_operation::address_bytes,
+                           &bytes,
+                           &op->overlapped)
+                     ? 0
+                     : details::socket_error;
+        },
+        std::forward<ErrorFn>(error_fn));
+#elif defined(__linux__)
+    if (!context_ || !epoll_state_ || !is_valid())
+      return FailedPreconditionError("io_context is not available.");
+    if (auto status = epoll_state_->ensure_nonblocking(); !status)
+      return status;
+    epoll_state_->template enqueue_read<accept_operation>(this,
+                                                          std::move(handler));
+    return {};
+#else
+#  error unsupported
+#endif
   }
 
   template <typename ErrorFn = decltype(details::make_recv_error)>
@@ -849,6 +1071,62 @@ public:
 #  error unsupported
 #endif
   }
+
+public:
+  AC_NODISCARD inline auto remote_endpoint() const noexcept {
+    return remote_endpoint_;
+  }
+};
+template <typename FakeT> class acceptor {
+  consteval acceptor() noexcept {
+    always_false<acceptor<FakeT>>("not supported");
+  }
+};
+template <> class acceptor<tcp> : private socket<tcp> {
+public:
+  using socket_type = socket<tcp>;
+  using native_handle_type = socket_type::native_handle_type;
+  using endpoint_type = socket_type::endpoint_type;
+  using accept_handler = socket_type::accept_handler;
+  using accept_error_handler = socket_type::accept_error_handler;
+  using accept_awaitable = socket_type::accept_awaitable;
+
+public:
+  using socket_type::socket_type;
+  inline explicit(false) acceptor(socket_type &&socket) noexcept
+      : socket_type(std::move(socket)) {}
+  acceptor(acceptor &&) noexcept = default;
+  acceptor &operator=(acceptor &&) noexcept = default;
+  ~acceptor() = default;
+
+public:
+  AC_NODISCARD inline static StatusOr<acceptor>
+  v4(io_context *context = nullptr) {
+    acceptor self(context, ip::family::v4);
+    if (self.is_valid()) [[likely]]
+      return {std::move(self)};
+    else [[unlikely]]
+      return {details::make_ctor_error()};
+  }
+  AC_NODISCARD inline static StatusOr<acceptor>
+  v6(io_context *context = nullptr) {
+    acceptor self(context, ip::family::v6);
+    if (self.is_valid()) [[likely]]
+      return {std::move(self)};
+    else [[unlikely]]
+      return {details::make_ctor_error()};
+  }
+
+  using socket_type::accept;
+  using socket_type::accept_;
+  using socket_type::async_accept;
+  using socket_type::bind;
+  using socket_type::close;
+  using socket_type::context;
+  using socket_type::is_valid;
+  using socket_type::listen;
+  using socket_type::listen_;
+  using socket_type::native_handle;
 };
 template <> class socket<udp> : public details::socket_base<udp> {
 
@@ -865,26 +1143,12 @@ public:
   ~socket() = default;
 
 public:
-  Status send_bytes(bytes_type &&bytes) {
-    if (!remote_endpoint_)
-      return FailedPreconditionError("Remote endpoint cache not available.");
-
-    if (details::send(handle_,
-                      std::move(bytes),
-                      0,
-                      remote_endpoint_->data(),
-                      remote_endpoint_->size()) != -1) [[likely]]
-      return {};
-    else [[unlikely]]
-      return details::make_send_error();
-  }
   Status send_bytes(bytes_type &&bytes, const endpoint_type &endpoint) {
     if (details::send(
             handle_, std::move(bytes), 0, endpoint.data(), endpoint.size()) !=
-        -1) [[likely]] {
-      remote_endpoint_.emplace(endpoint);
+        -1) [[likely]]
       return {};
-    } else [[unlikely]]
+    else [[unlikely]]
       return details::make_send_error();
   }
 
@@ -945,7 +1209,6 @@ private:
       op->buffer.resize(bytes);
       endpoint_type sender(std::move(op->storage), op->storage_len);
       AC_RUNTIME_ASSERT(op->self);
-      op->self->remote_endpoint_.emplace(sender);
       (*op)(std::move(op->buffer), std::move(sender));
     }
   }
@@ -993,7 +1256,6 @@ private:
       buffer.resize(static_cast<size_t>(res));
       endpoint_type sender(std::move(storage), storage_len);
       AC_RUNTIME_ASSERT(self)
-      self->remote_endpoint_.emplace(sender);
       (*this)(std::move(buffer), std::move(sender));
       return true;
     }
@@ -1101,23 +1363,6 @@ public:
     });
   }
 
-  send_awaitable async_send(bytes_type bytes, send_error_handler &&error_fn) {
-    return send_awaitable(
-        [this, bytes = std::move(bytes), error_fn = std::move(error_fn)](
-            send_handler handler) mutable -> Status {
-          return async_send(
-              std::move(bytes), std::move(handler), std::move(error_fn));
-        });
-  }
-
-  send_awaitable async_send(bytes_type bytes) {
-    return send_awaitable([this, bytes = std::move(bytes)](
-                              send_handler handler) mutable -> Status {
-      return async_send(
-          std::move(bytes), std::move(handler), details::make_send_error);
-    });
-  }
-
   template <typename ErrorFn = decltype(details::make_recv_error)>
   Status async_recv_from(const size_t max_size,
                          recv_handler handler,
@@ -1175,8 +1420,6 @@ public:
       return ResourceExhaustedError(
           "Insufficient memory to construct iocp send operation");
 
-    // race condition maybe vvv
-    // remote_endpoint_.emplace(endpoint);
     DWORD bytes_sent = 0;
     return base_type::start_overlapped(
         op,
@@ -1205,17 +1448,6 @@ public:
 #  error unsupported
 #endif
   }
-  template <typename ErrorFn = decltype(details::make_send_error)>
-  Status async_send(bytes_type bytes,
-                    send_handler handler,
-                    ErrorFn &&error_fn = details::make_send_error) {
-    if (!remote_endpoint_)
-      return FailedPreconditionError("Remote endpoint cache not available.");
-    return async_send_to(std::move(bytes),
-                         *remote_endpoint_,
-                         std::move(handler),
-                         std::forward<ErrorFn>(error_fn));
-  }
 
 protected:
   StatusOr<bytes_type> do_recv(const size_t max_size) {
@@ -1239,8 +1471,6 @@ protected:
             success = false;
             return 0;
           }
-
-          remote_endpoint_.emplace(reinterpret_cast<endpoint_type &&>(storage));
           return res;
         });
     if (success)

@@ -60,7 +60,7 @@ void udp_client() {
   logger->info("sent!");
   std::this_thread::sleep_for(1s);
 
-  s.send_bytes("another msg").log_err(logger);
+  s.send_bytes("another msg", udp_ep).log_err(logger);
   logger->info("sent another one!");
 }
 void udp_server() {

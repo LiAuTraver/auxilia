@@ -128,6 +128,11 @@ AC_FORCEINLINE inline Status bind(const raw_socket_t s,
   else
     return details::make_bind_error();
 }
+
+AC_FORCEINLINE inline auto
+getpeername(const raw_socket_t s, sockaddr_t *addr, socket_len_type *addrlen) {
+  return ::getpeername(s, addr, addrlen);
+}
 } // namespace auxilia::net::details::inline win
 
 #  include "error.hpp"      // IWYU pragma: export

@@ -6,6 +6,7 @@
 namespace auxilia::net {
 template <typename> class endpoint;
 template <typename> class socket;
+template <typename> class acceptor;
 enum class protocol : std::underlying_type_t<socket_kind> {
   tcp = std::to_underlying(socket_kind::stream),
   udp = std::to_underlying(socket_kind::datagram)
@@ -47,6 +48,7 @@ struct tcp {
 
   using endpoint = endpoint<tcp>;
   using socket = socket<tcp>;
+  using acceptor = ::auxilia::net::acceptor<tcp>;
 
 private:
   consteval tcp(const ip::family family) : family_(family) {}

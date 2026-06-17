@@ -27,12 +27,12 @@
 using namespace auxilia;
 
 struct options {
-  bool server = true;
-  net::protocol protocol = net::protocol::udp;
-  net::ip::address_v4 host = net::ip::address_v4::loopback();
-  uint16_t port = 6543;
-  size_t workers = 2;
-  std::string name = "";
+  bool server;
+  net::protocol protocol;
+  net::ip::address_v4 host;
+  uint16_t port;
+  size_t workers;
+  std::string name;
 };
 static std::vector<std::jthread> start_workers(net::io_context &ctx,
                                                const size_t count) {
@@ -209,13 +209,13 @@ start_tcp_receive(tcp_server_state &state,
                   std::shared_ptr<tcp_session> session) {
   for (;;) {
     auto result = co_await session->socket.async_recv(0x800);
-    if (!result || result->empty()) {
-      if (result && result->empty())
-        state.logger->info("tcp client disconnected");
+    if (!result) {
+      if (result.code() == Status::Code::kUnavailable)
+        state.logger->info("tcp client {} disconnected.",
+                           *session->socket.remote_endpoint());
       else
         result.log_err(state.logger);
 
-      session->socket.close().log_err(state.logger);
       state.sessions.remove(session);
       co_return;
     }
@@ -233,9 +233,9 @@ start_tcp_receive(tcp_server_state &state,
 static net::detached_task start_tcp_client_receive(tcp_client_state &state) {
   for (;;) {
     auto result = co_await state.socket.async_recv(0x800);
-    if (!result || result->empty()) {
-      if (result && result->empty())
-        state.logger->info("server closed the connection");
+    if (!result) {
+      if (result.code() == Status::Code::kUnavailable)
+        state.logger->info("server closed the connection.");
       else
         result.log_err(state.logger);
       co_return;
@@ -292,6 +292,15 @@ static int run_tcp_server(net::io_context &ctx, const options &opts) {
   while (std::getline(std::cin, line)) {
     if (line == "/quit")
       break;
+  }
+
+  for (const auto &session : state.sessions.lock_shared()) {
+    session->socket
+        .async_send("Server is shutting down.",
+                    [logger = state.logger](StatusOr<size_t> send_res) {
+                      send_res.log_err(logger);
+                    })
+        .log_err(state.logger);
   }
 
   state.listener.close().log_err(state.logger);
@@ -412,6 +421,7 @@ static std::optional<options> parse_args(const int argc, const char **argv) {
     opts.server = true;
   } else
     opts.server = is_server.ok();
+  opts.workers = opts.server ? opts.workers : 1;
   return opts;
 }
 int main(int argc, const char **argv) {
@@ -424,10 +434,8 @@ int main(int argc, const char **argv) {
 
   net::io_context ctx;
 
-  auto base_logger = spdlog::stdout_color_mt("chat");
-
   if (auto status = ctx.initialize(); !status) {
-    status.log_err(base_logger);
+    status.log_err();
     return 1;
   }
 

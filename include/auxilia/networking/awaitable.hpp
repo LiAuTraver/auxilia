@@ -14,6 +14,8 @@
 
 namespace auxilia::net {
 
+/// @note This task is **VERY** dangerous. it's just for my primitive
+/// use/workaround; it may cause lifetime and use-after-free issues.
 class detached_task {
 public:
   struct promise_type {

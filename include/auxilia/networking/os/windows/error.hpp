@@ -39,33 +39,40 @@ namespace auxilia::net::details {
   return UnknownError(std::move(message));
 }
 [[gnu::cold]] static inline Status wsa_error() {
-  AC_DEFER { ::WSASetLastError(ERROR_SUCCESS); };
+  // AC_DEFER { ::WSASetLastError(ERROR_SUCCESS); };
 
+  const auto error_code = ::WSAGetLastError();
   std::string message;
 
   constexpr auto max_size = 0x0200ULL;
 
   message.resize_and_overwrite(
-      max_size, [](char *buf, const size_t size) -> size_t {
+      max_size, [error_code](char *buf, const size_t size) -> size_t {
         return ::FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM |
                                    FORMAT_MESSAGE_IGNORE_INSERTS,
                                nullptr,
-                               ::WSAGetLastError(),
+                               error_code,
                                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                                buf,
                                static_cast<DWORD>(size),
                                nullptr);
       });
 
+  auto code = Status::Code::kUnknown;
   if (message.empty()) {
-    if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+    if (error_code == ERROR_INSUFFICIENT_BUFFER) {
       // ::SetLastError(ERROR_SUCCESS);
       message = "insufficient memory for error message";
+      code = Status::Code::kResourceExhausted;
     } else
       message = "Error code unrecognized";
   }
+  if (error_code == WSAECONNRESET || error_code == WSAENETRESET ||
+      error_code == ERROR_NETNAME_DELETED) {
+    code = Status::Code::kUnavailable; // gRPC code for closed
+  }
 
-  return UnknownError(std::move(message));
+  return {code, std::move(message)};
 }
 [[gnu::cold]] AC_FORCEINLINE static inline Status make_ctor_error() {
   return wsa_error();
