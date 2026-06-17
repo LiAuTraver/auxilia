@@ -95,7 +95,9 @@ private:
           *static_cast<Derived *>(this))};
     }
 
-    static constexpr std::suspend_always initial_suspend() noexcept { return {}; }
+    static constexpr std::suspend_always initial_suspend() noexcept {
+      return {};
+    }
     static constexpr std::suspend_always final_suspend() noexcept { return {}; }
 
     std::suspend_always yield_value(const YieldType &value) noexcept {
@@ -135,8 +137,7 @@ private:
 
 private:
   template <typename R>
-  struct AC_EMPTY_BASES
-      promise_type_impl<R, false> : promise_type_base<promise_type> {
+  struct promise_type_impl<R, false> : promise_type_base<promise_type> {
     static_assert(std::is_nothrow_move_constructible_v<R>,
                   "ReturnType must be nothrow move constructible");
     friend struct iterator;

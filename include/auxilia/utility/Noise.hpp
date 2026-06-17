@@ -6,6 +6,9 @@
 
 namespace auxilia {
 /// @brief A utility class for debugging object lifecycle events.
+///
+/// @note only for testing; don't use it in production code since it bloats the
+/// binary size.
 template <
     const basic_chars_storage Constructor = "Noise instance created  ",
     const basic_chars_storage Destructor = "Noise instance destroyed",
@@ -13,7 +16,7 @@ template <
     const basic_chars_storage CopyAssignment = "Noise copy assigned     ",
     const basic_chars_storage MoveConstructor = "Noise move constructed  ",
     const basic_chars_storage MoveAssignment = "Noise move assigned     ">
-struct AC_EMPTY_BASES AC_NOVTABLE Noise : Printable {
+struct AC_EMPTY_BASES Noise : Printable, Viewable {
   inline Noise() noexcept { _do_log<Constructor>(); }
   inline Noise(const Noise &) noexcept { _do_log<CopyConstructor>(); }
   inline Noise(Noise &&) noexcept { _do_log<MoveConstructor>(); }
@@ -27,6 +30,9 @@ struct AC_EMPTY_BASES AC_NOVTABLE Noise : Printable {
     return *this;
   }
   constexpr auto to_string(auto) const noexcept { return typeid(*this).name(); }
+  constexpr auto to_string_view(auto) const noexcept {
+    return typeid(*this).name();
+  }
 
 private:
   template <const basic_chars_storage Message>

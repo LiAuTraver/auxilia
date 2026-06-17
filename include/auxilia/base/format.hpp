@@ -216,7 +216,7 @@ enum class FormatPolicy : unsigned char {
 /// @brief A class that represents a printable object; can be directly
 /// printed via `std::cout` or `fmt::print`.
 /// @note use public inheritance to make fmt::print work.
-struct AC_NOVTABLE AC_EMPTY_BASES Printable {
+struct Printable {
 
 private:
   template <typename Ty> struct please_define_to_string_method_for;
@@ -262,7 +262,7 @@ public:
 };
 
 /// @interface Viewable
-struct AC_NOVTABLE AC_EMPTY_BASES Viewable {
+struct Viewable {
 private:
   template <typename Ty> struct please_define_to_string_view_method_for;
 

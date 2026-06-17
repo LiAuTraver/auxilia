@@ -16,7 +16,7 @@ namespace auxilia {
 /// my @link Variant @endlink class;
 /// dont't use consteval because the class is not final
 EXPORT_AUXILIA
-struct AC_EMPTY_BASES AC_NOVTABLE Monostate : Printable, Viewable {
+struct AC_EMPTY_BASES Monostate : Printable, Viewable {
 public:
   inline constexpr Monostate() = default;
   /* not virtual */ inline AC_CONSTEXPR20 ~Monostate() noexcept = default;

@@ -48,7 +48,7 @@ struct tcp {
 
   using endpoint = endpoint<tcp>;
   using socket = socket<tcp>;
-  using acceptor = ::auxilia::net::acceptor<tcp>;
+  using acceptor = acceptor<tcp>;
 
 private:
   consteval tcp(const ip::family family) : family_(family) {}

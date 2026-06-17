@@ -47,6 +47,8 @@ name a few. All utilities are in the `auxilia` namespace.
 
 - `StatusOr`: A class that represents a value or an error status, similar to `absl::StatusOr`. Requirement: concept `Storable<Ty>`, resembles `_STD __SMF_control<...>` in Microsoft's STL.
 
+> Yes I know there's `Option<T>`. However, by the time I finished the `StatusOr`, I hadn't been taking up the _Rust_ programming languages, not to mention `Result<T, E>`.
+
 ```cpp
 if (auto maybeResult = func()) {
     // do something with the result
@@ -211,6 +213,20 @@ dbg_block {
 ```
 
 - `AC_BITMASK_OPS(_bitmask_)`: from Microsoft's STL implementation, bring some bit operations for scoped enums.
+
+### Networking
+
+in `auxilia/net.hpp`. I aimed to mimic _Boost.Asio_, yet I failed a bit; no sender/receiever, executor or high-performat `asio::strand` but mutex and lifetime traps... :(
+
+it contains very basic socket operations, see [chatroom](./projects/np/chatroom.cpp) demo for exmaples.
+
+**NOTE**: the TCP socket has deadlock bugs and performance panelty on Linux, since I mainly developed it on Windows.
+
+**TODO**: replace `epoll` with `io_uring` API.
+
+> The network part is not included in `auxilia/auxilia.hpp` due to the inclusion of system headers like the infamous `Windows.h`.
+> _deducing this_ is used extensively here, hence the mininum required version is C++23.
+> `fmt` and `spdlog` is required to build this demo.
 
 ## Projects
 

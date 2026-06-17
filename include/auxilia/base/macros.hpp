@@ -128,6 +128,12 @@
 #  define AC_NODISCARD
 #endif
 
+#if __has_cpp_attribute(indeterminate)
+#define AC_INDETERMINMATE [[indeterminate]]
+#else
+#define AC_INDETERMINATE
+#endif
+
 #if __cpp_deleted_function >= 202403L
 #  define AC_DELETE_WITH_MESSAGE(msg) delete (msg)
 #else

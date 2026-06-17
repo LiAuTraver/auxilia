@@ -27,12 +27,12 @@ using namespace auxilia;
 namespace net = auxilia::net;
 
 struct options {
-  net::ip::address_v4 host = net::ip::address_v4::loopback();
-  uint16_t port = 8080;
-  size_t workers = 4;
-  size_t max_header_bytes = 8192;
-  size_t max_body_bytes = 1024 * 1024;
-  size_t read_chunk_bytes = 4096;
+  net::ip::address_v4 host;
+  uint16_t port;
+  size_t workers;
+  size_t max_header_bytes;
+  size_t max_body_bytes;
+  size_t read_chunk_bytes;
 };
 
 static std::optional<options> parse_args(const int argc, char **argv) {
@@ -226,6 +226,19 @@ struct http_response {
       out.append(body);
     return out;
   }
+};
+enum class http_error : unsigned short {
+  kOk = 200,
+  kBadRequest = 400,
+  kNotFound = 404,
+  kMethodNotAllowed = 405,
+  kLengthRequired = 411,
+  kPayloadTooLarge = 413,
+  kRequestHeaderFieldsTooLarge = 431,
+  kInternalServerError = 500,
+  kNotImplemented = 501,
+  kHTTPVersionNotSupported = 505,
+  kUnknownError = 520,
 };
 
 static std::string reason_phrase(const int status) {
@@ -520,10 +533,11 @@ private:
   void do_read() {
     if (closing_.load() || read_in_flight_.exchange(true))
       return;
-    auto self = shared_from_this();
+
     auto status = socket_.async_recv(
         config_.read_chunk_bytes,
-        [self](StatusOr<net::socket<net::tcp>::bytes_type> result) {
+        [self = shared_from_this()](
+            StatusOr<net::socket<net::tcp>::bytes_type> result) {
           self->read_in_flight_.store(false);
           self->on_read(std::move(result));
         });
@@ -657,7 +671,7 @@ private:
 static int run_http_server(net::io_context &ctx, const options &opts) {
   auto logger = spdlog::stdout_color_mt("http_server");
 
-  auto listener = net::socket<net::tcp>(ctx, net::ip::family::v4);
+  auto listener = net::tcp::acceptor(ctx, net::ip::family::v4);
   if (auto status =
           listener.bind(net::endpoint<net::tcp>(opts.host, opts.port));
       !status) {

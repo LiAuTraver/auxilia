@@ -288,7 +288,7 @@ static constexpr const char *to_string(const Code code) AC_NOEXCEPT {
     AC_UNREACHABLE("unknown status code");
   }
 }
-template <typename Derived> struct AC_EMPTY_BASES AC_NOVTABLE StatusBase {
+template <typename Derived> struct StatusBase {
 private:
   using Code = Code;
   using enum Code;
@@ -340,7 +340,7 @@ protected:
 #  endif
   }
 
-  struct AC_EMPTY_BASES AC_NOVTABLE {
+  struct {
     AC_STATIC_CALL_OPERATOR inline auto operator()(auto &&self)
         AC_CONST_CALL_OPERATOR {
       return self.log_err();

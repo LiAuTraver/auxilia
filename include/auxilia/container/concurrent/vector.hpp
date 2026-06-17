@@ -18,10 +18,12 @@ namespace auxilia::concurrency {
 /// not available; it's just an wrapper essentially.
 ///
 /// WIP.
+///
+/// @note this is BAD for most cases...
 template <typename Ty, typename AllocTy = std::allocator<Ty>>
-class vector : public Printable,
-               public ProxyMixin<std::vector<Ty, AllocTy>>,
-               public FunctionalMixin<std::vector<Ty, AllocTy>> {
+class AC_EMPTY_BASES vector : public Printable,
+                              public ProxyMixin<std::vector<Ty, AllocTy>>,
+                              public FunctionalMixin<std::vector<Ty, AllocTy>> {
   std::vector<Ty, AllocTy> myVec;
   mutable std::shared_mutex myMutex;
 
