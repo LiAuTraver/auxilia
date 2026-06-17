@@ -92,4 +92,7 @@ using ::getsockopt;
 using ::setsockopt;
 
 } // namespace auxilia::net::details::inline linus
+
+#  include "io_context.hpp" // IWYU pragma: export
+
 #endif

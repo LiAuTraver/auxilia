@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
+#include <deque>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -313,13 +315,13 @@ protected:
     template <typename Op, typename... Args>
     inline read_operation(std::in_place_type_t<Op>, Args &&...args) noexcept {
       this->self = new (std::nothrow) Op(std::forward<Args>(args)...);
-      this->on_op = [](auto self, auto fd, auto events) noexcept {
+      this->on_op = [](auto &&self, auto &&fd, auto &&events) noexcept {
         return static_cast<Op *>(self)->on_read(fd, events);
       };
-      this->on_cancel = [](auto self, auto error) noexcept {
+      this->on_cancel = [](auto &&self, auto &&error) noexcept {
         static_cast<Op *>(self)->cancel(error);
       };
-      this->on_destroy = [](auto self) noexcept {
+      this->on_destroy = [](auto &&self) noexcept {
         delete static_cast<Op *>(self);
       };
     }
@@ -334,13 +336,13 @@ protected:
     template <typename Op, typename... Args>
     inline write_operation(std::in_place_type_t<Op>, Args &&...args) noexcept {
       this->self = new (std::nothrow) Op(std::forward<Args>(args)...);
-      this->on_op = [](auto self, auto fd, auto events) noexcept {
+      this->on_op = [](auto &&self, auto &&fd, auto &&events) noexcept {
         return static_cast<Op *>(self)->on_write(fd, events);
       };
-      this->on_cancel = [](auto self, auto error) noexcept {
+      this->on_cancel = [](auto &&self, auto &&error) noexcept {
         static_cast<Op *>(self)->cancel(error);
       };
-      this->on_destroy = [](auto self) noexcept {
+      this->on_destroy = [](auto &&self) noexcept {
         delete static_cast<Op *>(self);
       };
     }
@@ -356,7 +358,7 @@ protected:
     std::deque<read_operation> read_ops;
     std::deque<write_operation> write_ops;
     std::atomic_flag busy = ATOMIC_FLAG_INIT;
-    std::atomic<bool> non_blocking{false};
+    std::atomic_bool non_blocking{false};
     bool closing = false;
     details::epoll::dispatcher dispatcher{};
 
@@ -367,8 +369,8 @@ protected:
     }
 
     Status ensure_nonblocking() noexcept {
-      bool expected = false;
-      if (!non_blocking.compare_exchange_strong(
+
+      if (auto expected = false; !non_blocking.compare_exchange_strong(
               expected, true, std::memory_order::acq_rel))
         return {};
       if (details::epoll::set_nonblocking(fd, true) != 0) {

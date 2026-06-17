@@ -83,9 +83,6 @@ public:
     initialized_ = false;
     return {};
   }
-  [[deprecated(
-      "NOTE: the linux part of I/O Epoll-related async is assisted by AI and I'm still learning and trying to grasp."
-      "And it has seems deadlock bug!")]]
   Status associate(const raw_socket_t socket, const size_t key = 0) noexcept {
     if (!initialized_ || epoll_ == epoll::invalid)
       return UnavailableError(

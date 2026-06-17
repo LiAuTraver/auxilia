@@ -61,7 +61,11 @@ static net::detached_task start_server_receive(udp_server_state &state) {
       /// IMPORTANT: this is a windows-specific feature:
       /// when UDP socket closes, it sends an ICMP "port unreachable" message to
       /// the peer, which will trigger a callback with `WSAECONNRESET` error
-      /// code. so it may not work on linux.
+      /// code.
+      ///
+      /// it did not work on linux and the operation would return a
+      /// `Cancelled("socket closed")` error and this lambda would never be
+      /// invoked.
       if (auto endpoint = net::udp::endpoint::from_native(
               std::move(op->storage), op->storage_len)) {
         [[maybe_unused]] auto _cnt = state.clients.remove(*endpoint);
@@ -74,6 +78,10 @@ static net::detached_task start_server_receive(udp_server_state &state) {
     });
     if (!result) {
       result.log_err(state.logger);
+      if (result.code() == Status::kCancelled) {
+        // linux
+        co_return;
+      }
       continue;
     }
 
