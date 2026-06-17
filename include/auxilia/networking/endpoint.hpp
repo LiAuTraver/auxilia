@@ -141,8 +141,10 @@ public:
                     sizeof(v6_.sin6_addr.s6_addr)) == 0;
   }
 };
-static_assert(std::is_trivially_destructible_v<endpoint<tcp>>);
 consteval auto check_offset() noexcept {
+  static_assert(std::is_trivially_destructible_v<endpoint<tcp>>);
   static_assert(offsetof(endpoint<tcp>, base_) == 0);
+  static_assert(std::is_trivially_destructible_v<endpoint<udp>>);
+  static_assert(offsetof(endpoint<udp>, base_) == 0);
 }
 } // namespace auxilia::net
