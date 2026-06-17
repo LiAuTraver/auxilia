@@ -64,7 +64,7 @@ private:
   ///       suspended   |                     |
   ///          \        /                     |
   ///          completed  <--------------------
-  /// @endcode 
+  /// @endcode
   enum state : uint8_t {
     /// Awaiter has not started yet.
     idle = 0,
